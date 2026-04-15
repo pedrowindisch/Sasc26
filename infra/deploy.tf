@@ -7,7 +7,7 @@ terraform {
   }
 }
 
-# 1. Configure the AWS Provider (São Paulo region for lowest latency to the campus)
+# 1. Configure the AWS Provider (São Paulo region for lowest latency)
 provider "aws" {
   region = "sa-east-1" 
 }
@@ -72,26 +72,83 @@ data "aws_ami" "ubuntu" {
   }
 }
 
-# 5. Provision the EC2 Instance (Free Tier)
+# 5. Provision the EC2 Instance
 resource "aws_instance" "app_server" {
   ami           = data.aws_ami.ubuntu.id
-  instance_type = "t2.micro" # Free tier eligible
+  instance_type = "t3.micro" 
   
-  # IMPORTANT: Add your AWS Key Pair name here so you can SSH into the server later!
+  # IMPORTANT: Uncomment and add your AWS Key Pair name here to enable SSH access
   # key_name      = "your-aws-key-pair-name" 
 
   vpc_security_group_ids = [aws_security_group.web_sg.id]
 
-  # User Data script: Automatically runs on first boot to install .NET 8 and Nginx
+  # User Data: The ultimate automation script runs once on server boot
   user_data = <<-EOF
               #!/bin/bash
+              
+              # A. Update and install core dependencies
               apt-get update -y
-              apt-get install -y wget apt-transport-https software-properties-common
+              apt-get install -y wget git apt-transport-https software-properties-common nginx certbot python3-certbot-nginx
               wget -q https://packages.microsoft.com/config/ubuntu/24.04/packages-microsoft-prod.deb -O packages-microsoft-prod.deb
               dpkg -i packages-microsoft-prod.deb
               rm packages-microsoft-prod.deb
               apt-get update -y
-              apt-get install -y dotnet-sdk-8.0 aspnetcore-runtime-8.0 nginx
+              apt-get install -y dotnet-sdk-8.0 aspnetcore-runtime-8.0
+
+              # B. Clone your project from GitHub
+              git clone https://github.com/pedrowindisch/Sasc26.git /var/www/sasc-app
+              
+              # C. Publish the app
+              cd /var/www/sasc-app
+              dotnet publish -c Release -o /var/www/sasc-published
+
+              # D. Create the systemd service for the C# app
+              cat << 'SERVICE' > /etc/systemd/system/sasc.service
+              [Unit]
+              Description=SASC 26 Check-In App
+
+              [Service]
+              WorkingDirectory=/var/www/sasc-published
+              ExecStart=/usr/bin/dotnet /var/www/sasc-published/Sasc26.dll
+              Restart=always
+              RestartSec=10
+              KillSignal=SIGINT
+              SyslogIdentifier=sasc-app
+              User=www-data
+              Environment=ASPNETCORE_ENVIRONMENT=Production
+              Environment=ASPNETCORE_URLS=http://localhost:5000
+
+              [Install]
+              WantedBy=multi-user.target
+              SERVICE
+
+              # E. Create the Nginx Reverse Proxy Configuration
+              cat << 'NGINX_CONF' > /etc/nginx/sites-available/sasc26
+              server {
+                  listen 80;
+                  server_name sasc26.windisch.com.br;
+
+                  location / {
+                      proxy_pass         http://localhost:5000;
+                      proxy_http_version 1.1;
+                      proxy_set_header   Upgrade \$http_upgrade;
+                      proxy_set_header   Connection keep-alive;
+                      proxy_set_header   Host \$host;
+                      proxy_cache_bypass \$http_upgrade;
+                      proxy_set_header   X-Forwarded-For \$proxy_add_x_forwarded_for;
+                      proxy_set_header   X-Forwarded-Proto \$scheme;
+                  }
+              }
+              NGINX_CONF
+
+              # F. Enable Nginx site and remove default
+              ln -s /etc/nginx/sites-available/sasc26 /etc/nginx/sites-enabled/
+              rm -f /etc/nginx/sites-enabled/default
+              
+              # G. Start all services
+              systemctl restart nginx
+              systemctl enable sasc.service
+              systemctl start sasc.service
               EOF
 
   tags = {
@@ -99,27 +156,24 @@ resource "aws_instance" "app_server" {
   }
 }
 
-# 6. Attach an Elastic IP (Static IP) to your EC2 instance
+# 6. Attach an Elastic IP (Static IP)
 resource "aws_eip" "app_ip" {
   instance = aws_instance.app_server.id
   domain   = "vpc"
-
-  tags = {
-    Name = "SASC-Static-IP"
-  }
+  tags = { Name = "SASC-Static-IP" }
 }
 
-# 7. Configure SES for the entire Subdomain
+# 7. Configure SES for the Domain
 resource "aws_ses_domain_identity" "sasc_domain" {
   domain = var.app_domain
 }
 
-# 8. Generate DKIM tokens for email deliverability (Anti-Spam)
+# 8. Generate DKIM tokens for Email Deliverability
 resource "aws_ses_domain_dkim" "sasc_dkim" {
   domain = aws_ses_domain_identity.sasc_domain.domain
 }
 
-# 9. Outputs: The exact DNS records you need to copy-paste to your Domain Registrar
+# 9. Outputs for DNS Configuration
 output "step_1_a_record" {
   description = "Point your subdomain to this IP address"
   value       = "Type: A | Name: sasc26 | Content: ${aws_eip.app_ip.public_ip}"
