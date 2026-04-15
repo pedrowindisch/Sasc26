@@ -49,6 +49,7 @@
         .lecture-option .l-speaker { font-size: 0.8rem; color: #888; margin-top: 2px; }
         .kw-input { text-align: center; font-weight: 500; }
         .empty-state { text-align: center; padding: 24px 0; color: #bbb; font-size: 0.9rem; }
+        .words { display: flex !important; flex-direction: row; gap: 0.5rem !important; }
     </style>
 }
 
@@ -110,7 +111,7 @@
                 <div id="lectureList"></div>
                 <hr class="section-divider">
                 <p class="section-label">Palavras-chave do palestrante</p>
-                <div class="columns is-mobile is-gapless" style="margin:0;">
+                <div class="columns is-mobile is-gapless words" style="margin:0;">
                     <div class="column" style="padding-right:4px;"><div class="field"><div class="control"><input class="input kw-input" type="text" id="kw1" placeholder="Palavra 1" maxlength="30"></div></div></div>
                     <div class="column" style="padding:0 2px;"><div class="field"><div class="control"><input class="input kw-input" type="text" id="kw2" placeholder="Palavra 2" maxlength="30"></div></div></div>
                     <div class="column" style="padding-left:4px;"><div class="field"><div class="control"><input class="input kw-input" type="text" id="kw3" placeholder="Palavra 3" maxlength="30"></div></div></div>
