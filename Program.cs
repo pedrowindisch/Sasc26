@@ -45,6 +45,14 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
                        Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto
 });
 
+var options = new ForwardedHeadersOptions
+{
+    ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor | Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto
+};
+options.KnownNetworks.Clear();
+options.KnownProxies.Clear();
+app.UseForwardedHeaders(options);
+
 // app.UseHttpsRedirection();
 app.UseRouting();
 app.UseAuthorization();
