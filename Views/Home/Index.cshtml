@@ -212,45 +212,43 @@
                 </div>
 
                 <div class="field">
-                    <div class="columns is-mobile is-gapless" style="margin:0;">
-                        <div class="column is-6" style="padding-right:6px;">
-                            <label class="label is-small has-text-grey">Curso</label>
-                            <div class="control">
-                                <div class="select is-fullwidth">
-                                    <select id="courseSelect">
-                                        <option value="">Selecione</option>
-                                        <option value="Ciência da Computação">Ciência da Computação</option>
-                                        <option value="Ciência de Dados">Ciência de Dados</option>
-                                        <option value="Sistemas de Informação">Sistemas de Informação</option>
-                                    </select>
-                                </div>
-                            </div>
+                    <label class="label is-small has-text-grey">Curso</label>
+                    <div class="control">
+                        <div class="select is-fullwidth">
+                            <select id="courseSelect">
+                                <option value="">Selecione</option>
+                                <option value="Ciência da Computação">Ciência da Computação</option>
+                                <option value="Ciência de Dados">Ciência de Dados</option>
+                                <option value="Sistemas de Informação">Sistemas de Informação</option>
+                            </select>
                         </div>
-                        <div class="column is-3" style="padding:0 3px;">
-                            <label class="label is-small has-text-grey">Turno</label>
-                            <div class="control">
-                                <div class="select is-fullwidth">
-                                    <select id="shiftSelect">
-                                        <option value="">Selecione</option>
-                                        <option value="Matutino">Matutino</option>
-                                        <option value="Noturno">Noturno</option>
-                                    </select>
-                                </div>
-                            </div>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label class="label is-small has-text-grey">Turno</label>
+                    <div class="control">
+                        <div class="select is-fullwidth">
+                            <select id="shiftSelect">
+                                <option value="">Selecione</option>
+                                <option value="Matutino">Matutino</option>
+                                <option value="Noturno">Noturno</option>
+                            </select>
                         </div>
-                        <div class="column is-3" style="padding-left:6px;">
-                            <label class="label is-small has-text-grey">Fase</label>
-                            <div class="control">
-                                <div class="select is-fullwidth">
-                                    <select id="phaseSelect">
-                                        <option value="">-</option>
-                                        @for (var i = 1; i <= 9; i++)
-                                        {
-                                            <option value="@i">@i</option>
-                                        }
-                                    </select>
-                                </div>
-                            </div>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label class="label is-small has-text-grey">Fase</label>
+                    <div class="control">
+                        <div class="select is-fullwidth">
+                            <select id="phaseSelect">
+                                <option value="">-</option>
+                                @for (var i = 1; i <= 9; i++)
+                                {
+                                    <option value="@i">@i</option>
+                                }
+                            </select>
                         </div>
                     </div>
                 </div>
