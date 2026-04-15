@@ -7,6 +7,9 @@ public class EventSettings
     public string AllowedEmailDomain { get; set; } = "furb.br";
     public int OtpExpirationMinutes { get; set; } = 15;
     public int MaxOtpAttemptsPerSession { get; set; } = 3;
+    public string InstagramUrl { get; set; } = string.Empty;
+    public string TshirtPresaleUrl { get; set; } = string.Empty;
+    public List<string> AdminEmails { get; set; } = [];
     public List<SessionConfig> Sessions { get; set; } = [];
 }
 

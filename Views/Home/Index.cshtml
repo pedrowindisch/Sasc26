@@ -2,6 +2,8 @@
     ViewData["Title"] = "Registrar Presença";
     var activeSession = ViewBag.ActiveSession as string;
     var hasActiveSession = (bool)ViewBag.HasActiveSession;
+    var instagramUrl = ViewBag.InstagramUrl as string ?? "https://instagram.com/dascfurb";
+    var tshirtPresaleUrl = ViewBag.TshirtPresaleUrl as string ?? "";
 }
 
 @section Styles {
@@ -100,6 +102,16 @@
             margin-bottom: 16px;
         }
 
+        .msg-warning {
+            background: #fffbeb;
+            color: #92400e;
+            padding: 12px 14px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            margin-bottom: 16px;
+            line-height: 1.5;
+        }
+
         .back-link {
             display: inline-block;
             margin-top: 12px;
@@ -143,10 +155,24 @@
             color: #113D76;
         }
 
+        .button.is-outlined-brand {
+            background-color: transparent;
+            color: #113D76;
+            border: 1px solid #113D76;
+        }
+
+        .button.is-outlined-brand:hover {
+            background-color: #113D76;
+            color: #fff;
+        }
+
         .input:focus, .select select:focus {
             border-color: #2EBDEF;
             box-shadow: 0 0 0 3px rgba(46,189,239,0.15);
         }
+
+        .success-actions { margin-top: 16px; }
+        .success-actions .button { margin-bottom: 8px; }
     </style>
     <link rel="stylesheet" href="~/css/bulmaswatch.min.css">
 }
@@ -186,17 +212,29 @@
                         </button>
                     </div>
                 </div>
+                <div class="has-text-centered" style="margin-top:12px;">
+                    <a href="/Admin" class="back-link">Área de administração</a>
+                </div>
             </div>
 
             <div class="step-section" id="stepOtp">
                 <p class="email-hint" id="emailDisplay"></p>
 
-                <div class="field">
-                    <label class="label is-small has-text-grey">Código de verificação</label>
-                    <div class="control">
-                        <input class="input otp-input" type="text" id="otpInput"
-                               maxlength="6" inputmode="numeric" pattern="[0-9]*"
-                               placeholder="000000" autocomplete="one-time-code">
+                <div id="sesFallbackWarning" style="display:none;">
+                    <div class="msg-warning">
+                        Tivemos um problema para enviar o código. Desculpas!<br>
+                        Mas pode marcar a presença mesmo assim. Salvamos sua tentativa.
+                    </div>
+                </div>
+
+                <div id="otpFieldGroup">
+                    <div class="field">
+                        <label class="label is-small has-text-grey">Código de verificação</label>
+                        <div class="control">
+                            <input class="input otp-input" type="text" id="otpInput"
+                                   maxlength="6" inputmode="numeric" pattern="[0-9]*"
+                                   placeholder="000000" autocomplete="one-time-code">
+                        </div>
                     </div>
                 </div>
 
@@ -265,6 +303,26 @@
 
             <div class="step-section" id="stepSuccess">
                 <div class="msg-success has-text-centered" id="successMessage" style="padding:16px;"></div>
+                <div class="success-actions has-text-centered">
+                    <a href="@instagramUrl" target="_blank" rel="noopener"
+                       class="button is-outlined-brand is-fullwidth">
+                        @@dascfurb no Instagram
+                    </a>
+                    @if (!string.IsNullOrWhiteSpace(tshirtPresaleUrl))
+                    {
+                        <a href="@tshirtPresaleUrl" target="_blank" rel="noopener"
+                           class="button is-brand is-fullwidth">
+                            Confira nossa pré-venda de camisetas
+                        </a>
+                    }
+                    else
+                    {
+                        <button class="button is-brand is-fullwidth" disabled
+                                title="Em breve">
+                            Confira nossa pré-venda de camisetas
+                        </button>
+                    }
+                </div>
                 <div class="has-text-centered">
                     <a class="back-link" onclick="resetForm()">&#8592; Voltar ao início</a>
                 </div>
@@ -276,6 +334,7 @@
 @section Scripts {
 <script>
     let currentEmail = '';
+    let sesFallback = false;
 
     function showMessage(text, type) {
         document.getElementById('messageArea').innerHTML = `<div class="msg-${type}">${text}</div>`;
@@ -323,7 +382,18 @@
                 currentEmail = email;
                 document.getElementById('emailDisplay').textContent = email;
                 showStep('Otp');
-                document.getElementById('otpInput').focus();
+
+                if (data.sesFallback) {
+                    sesFallback = true;
+                    document.getElementById('otpFieldGroup').style.display = 'none';
+                    document.getElementById('sesFallbackWarning').style.display = 'block';
+                } else {
+                    sesFallback = false;
+                    document.getElementById('otpFieldGroup').style.display = 'block';
+                    document.getElementById('sesFallbackWarning').style.display = 'none';
+                    document.getElementById('otpInput').focus();
+                }
+
                 loadProfile(email);
             } else {
                 showMessage(data.message, 'error');
@@ -338,7 +408,10 @@
 
     async function verifyOtp() {
         const code = document.getElementById('otpInput').value.trim();
-        if (!code || code.length !== 6) { showMessage('Digite o código de 6 dígitos.', 'error'); return; }
+
+        if (!sesFallback && (!code || code.length !== 6)) {
+            showMessage('Digite o código de 6 dígitos.', 'error'); return;
+        }
 
         const fullName = document.getElementById('fullNameInput').value.trim();
         const course = document.getElementById('courseSelect').value;
@@ -361,7 +434,7 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     email: currentEmail, code,
-                    fullName, course, shift, phase
+                    sesFallback, fullName, course, shift, phase
                 })
             });
             const data = await res.json();
@@ -382,18 +455,24 @@
 
     function goBack() {
         clearMessage();
+        sesFallback = false;
         showStep('Email');
         document.getElementById('otpInput').value = '';
+        document.getElementById('otpFieldGroup').style.display = 'block';
+        document.getElementById('sesFallbackWarning').style.display = 'none';
     }
 
     function resetForm() {
         clearMessage();
+        sesFallback = false;
         document.getElementById('emailInput').value = '';
         document.getElementById('otpInput').value = '';
         document.getElementById('fullNameInput').value = '';
         document.getElementById('courseSelect').value = '';
         document.getElementById('shiftSelect').value = '';
         document.getElementById('phaseSelect').value = '';
+        document.getElementById('otpFieldGroup').style.display = 'block';
+        document.getElementById('sesFallbackWarning').style.display = 'none';
         currentEmail = '';
         showStep('Email');
     }

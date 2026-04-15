@@ -11,6 +11,14 @@ builder.Services.AddControllersWithViews();
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+builder.Services.AddDistributedMemoryCache();
+builder.Services.AddSession(options =>
+{
+    options.IdleTimeout = TimeSpan.FromHours(4);
+    options.Cookie.HttpOnly = true;
+    options.Cookie.Name = "Sasc26.Admin";
+});
+
 builder.Services.Configure<EventSettings>(builder.Configuration.GetSection("EventSettings"));
 builder.Services.Configure<AwsSettings>(builder.Configuration.GetSection("AwsSettings"));
 
@@ -28,6 +36,7 @@ builder.Services.AddSingleton<IEmailService>(sp =>
 });
 
 builder.Services.AddScoped<IAttendanceService, AttendanceService>();
+builder.Services.AddScoped<IAdminService, AdminService>();
 
 var app = builder.Build();
 
@@ -39,22 +48,9 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-app.UseForwardedHeaders(new ForwardedHeadersOptions
-{
-    ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor | 
-                       Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto
-});
-
-var options = new ForwardedHeadersOptions
-{
-    ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor | Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto
-};
-options.KnownNetworks.Clear();
-options.KnownProxies.Clear();
-app.UseForwardedHeaders(options);
-
 // app.UseHttpsRedirection();
 app.UseRouting();
+app.UseSession();
 app.UseAuthorization();
 app.MapStaticAssets();
 app.MapControllerRoute("default", "{controller=Home}/{action=Index}/{id?}").WithStaticAssets();

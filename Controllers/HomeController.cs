@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using Sasc26.Models;
 using Sasc26.Services;
 
@@ -9,11 +10,13 @@ public class HomeController : Controller
 {
     private readonly ILogger<HomeController> _logger;
     private readonly IAttendanceService _attendanceService;
+    private readonly EventSettings _eventSettings;
 
-    public HomeController(ILogger<HomeController> logger, IAttendanceService attendanceService)
+    public HomeController(ILogger<HomeController> logger, IAttendanceService attendanceService, IOptions<EventSettings> eventSettings)
     {
         _logger = logger;
         _attendanceService = attendanceService;
+        _eventSettings = eventSettings.Value;
     }
 
     public async Task<IActionResult> Index()
@@ -21,6 +24,8 @@ public class HomeController : Controller
         var session = await _attendanceService.GetActiveSessionAsync();
         ViewBag.ActiveSession = session?.Name;
         ViewBag.HasActiveSession = session is not null;
+        ViewBag.InstagramUrl = _eventSettings.InstagramUrl;
+        ViewBag.TshirtPresaleUrl = _eventSettings.TshirtPresaleUrl;
         return View();
     }
 
@@ -51,13 +56,16 @@ public class HomeController : Controller
             return Json(new { success = false, message = "Informe seu e-mail." });
 
         var result = await _attendanceService.RequestOtpAsync(dto.Email);
-        return Json(new { result.Success, result.Message });
+        return Json(new { result.Success, result.Message, result.SesFallback });
     }
 
     [HttpPost]
     public async Task<IActionResult> VerifyOtp([FromBody] VerifyOtpDto dto)
     {
-        if (string.IsNullOrWhiteSpace(dto.Email) || string.IsNullOrWhiteSpace(dto.Code))
+        if (string.IsNullOrWhiteSpace(dto.Email))
+            return Json(new { success = false, message = "Informe o código recebido." });
+
+        if (!dto.SesFallback && string.IsNullOrWhiteSpace(dto.Code))
             return Json(new { success = false, message = "Informe o código recebido." });
 
         if (string.IsNullOrWhiteSpace(dto.FullName))

@@ -1,0 +1,142 @@
+@{
+    ViewData["Title"] = "Administrador";
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - SASC 26</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@1.0.4/css/bulma.min.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .card-wrapper { width: 100%; max-width: 400px; padding: 0 16px; }
+        .login-card {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            overflow: hidden;
+        }
+        .login-header {
+            background: #113D76;
+            padding: 24px;
+            text-align: center;
+        }
+        .login-header img { width: 44px; height: 44px; margin-bottom: 8px; }
+        .login-header h1 { font-size: 1rem; font-weight: 700; color: #fff; margin: 0; }
+        .login-header p { font-size: 0.7rem; color: rgba(255,255,255,0.5); margin: 4px 0 0; text-transform: uppercase; letter-spacing: 0.05em; }
+        .login-body { padding: 24px; }
+        .step-section { display: none; }
+        .step-section.active { display: block; }
+        .otp-input { letter-spacing: 6px; font-size: 1.25rem; font-weight: 600; text-align: center; }
+        .msg-error { background: #fef2f2; color: #b91c1c; padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; margin-bottom: 16px; }
+        .msg-success { background: #ecfdf5; color: #047857; padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; margin-bottom: 16px; }
+        .button.is-brand { background-color: #113D76; color: #fff; }
+        .button.is-brand:hover { background-color: #0d2d5a; color: #fff; }
+        .input:focus, .select select:focus { border-color: #2EBDEF; box-shadow: 0 0 0 3px rgba(46,189,239,0.15); }
+        .back-link { display: inline-block; margin-top: 12px; font-size: 0.8rem; color: #aaa; cursor: pointer; }
+        .back-link:hover { color: #555; }
+    </style>
+</head>
+<body>
+    <div class="card-wrapper">
+        <div class="login-card">
+            <div class="login-header">
+                <img src="~/dasc.svg" alt="DASC">
+                <h1>Área de Administração</h1>
+                <p>SASC 26</p>
+            </div>
+            <div class="login-body">
+                <div id="messageArea"></div>
+
+                <div class="step-section active" id="stepEmail">
+                    <div class="field">
+                        <label class="label is-small has-text-grey">E-mail do administrador</label>
+                        <div class="control">
+                            <input class="input" type="email" id="emailInput"
+                                   placeholder="admin@furb.br" autofocus>
+                        </div>
+                    </div>
+                    <div class="field" style="margin-top:12px;">
+                        <div class="control">
+                            <button class="button is-brand is-fullwidth" id="btnSendOtp" onclick="sendOtp()">Enviar código</button>
+                        </div>
+                    </div>
+                    <div class="has-text-centered" style="margin-top:12px;">
+                        <a href="/" class="back-link">&#8592; Voltar ao site</a>
+                    </div>
+                </div>
+
+                <div class="step-section" id="stepOtp">
+                    <div class="field">
+                        <label class="label is-small has-text-grey">Código de verificação</label>
+                        <div class="control">
+                            <input class="input otp-input" type="text" id="otpInput"
+                                   maxlength="6" inputmode="numeric" pattern="[0-9]*"
+                                   placeholder="000000">
+                        </div>
+                    </div>
+                    <div class="field" style="margin-top:12px;">
+                        <div class="control">
+                            <button class="button is-brand is-fullwidth" id="btnVerify" onclick="verifyOtp()">Entrar</button>
+                        </div>
+                    </div>
+                    <a class="back-link" onclick="goBack()">&#8592; Voltar</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        let adminEmail = '';
+        function showMessage(t, type) { document.getElementById('messageArea').innerHTML = `<div class="msg-${type}">${t}</div>`; }
+        function clearMessage() { document.getElementById('messageArea').innerHTML = ''; }
+        function showStep(s) { document.querySelectorAll('.step-section').forEach(el => el.classList.remove('active')); document.getElementById('step' + s).classList.add('active'); }
+
+        async function sendOtp() {
+            const email = document.getElementById('emailInput').value.trim();
+            if (!email) { showMessage('Informe o e-mail.', 'error'); return; }
+            clearMessage();
+            const btn = document.getElementById('btnSendOtp');
+            btn.classList.add('is-loading'); btn.disabled = true;
+            try {
+                const res = await fetch('/Admin/SendLoginOtp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
+                const data = await res.json();
+                if (data.success) { adminEmail = email; showStep('Otp'); document.getElementById('otpInput').focus(); }
+                else showMessage(data.message, 'error');
+            } catch { showMessage('Erro de conexão.', 'error'); }
+            finally { btn.classList.remove('is-loading'); btn.disabled = false; }
+        }
+
+        async function verifyOtp() {
+            const code = document.getElementById('otpInput').value.trim();
+            if (!code || code.length !== 6) { showMessage('Digite o código de 6 dígitos.', 'error'); return; }
+            clearMessage();
+            const btn = document.getElementById('btnVerify');
+            btn.classList.add('is-loading'); btn.disabled = true;
+            try {
+                const res = await fetch('/Admin/VerifyLoginOtp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: adminEmail, code }) });
+                const data = await res.json();
+                if (data.success) window.location.href = '/Admin/Dashboard';
+                else showMessage(data.message, 'error');
+            } catch { showMessage('Erro de conexão.', 'error'); }
+            finally { btn.classList.remove('is-loading'); btn.disabled = false; }
+        }
+
+        function goBack() { clearMessage(); showStep('Email'); document.getElementById('otpInput').value = ''; }
+        document.getElementById('emailInput').addEventListener('keydown', e => { if (e.key === 'Enter') sendOtp(); });
+        document.getElementById('otpInput').addEventListener('keydown', e => { if (e.key === 'Enter') verifyOtp(); });
+        document.getElementById('otpInput').addEventListener('input', e => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6); });
+    </script>
+</body>
+</html>

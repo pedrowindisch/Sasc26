@@ -9,6 +9,7 @@ public class CheckIn
     public Session Session { get; set; } = null!;
     public string OtpCode { get; set; } = string.Empty;
     public CheckInStatus Status { get; set; } = CheckInStatus.Pending;
+    public bool SesFallback { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime ExpiresAt { get; set; }
     public DateTime? VerifiedAt { get; set; }

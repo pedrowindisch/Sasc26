@@ -134,8 +134,9 @@ public class AttendanceService : IAttendanceService
             _logger.LogError(ex, "Failed to send OTP email to {Email}", email);
             return new RequestOtpResult
             {
-                Success = false,
-                Message = "Erro ao enviar o e-mail. Tente novamente em instantes."
+                Success = true,
+                SesFallback = true,
+                Message = $"Não foi possível enviar o código para {email}."
             };
         }
 
@@ -149,7 +150,6 @@ public class AttendanceService : IAttendanceService
     public async Task<VerifyOtpResult> VerifyOtpAsync(VerifyOtpDto dto)
     {
         var email = dto.Email.Trim().ToLowerInvariant();
-        var code = dto.Code.Trim();
 
         var session = await GetActiveSessionAsync();
         if (session is null)
@@ -163,28 +163,51 @@ public class AttendanceService : IAttendanceService
 
         var now = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, BrasiliaTz);
 
-        var checkIn = await _db.CheckIns
-            .FirstOrDefaultAsync(c =>
-                c.AttendeeEmail == email &&
-                c.SessionId == session.Id &&
-                c.OtpCode == code &&
-                c.Status == CheckInStatus.Pending);
+        CheckIn? checkIn;
+
+        if (dto.SesFallback)
+        {
+            checkIn = await _db.CheckIns
+                .FirstOrDefaultAsync(c =>
+                    c.AttendeeEmail == email &&
+                    c.SessionId == session.Id &&
+                    c.Status == CheckInStatus.Pending);
+        }
+        else
+        {
+            var code = dto.Code.Trim();
+            checkIn = await _db.CheckIns
+                .FirstOrDefaultAsync(c =>
+                    c.AttendeeEmail == email &&
+                    c.SessionId == session.Id &&
+                    c.OtpCode == code &&
+                    c.Status == CheckInStatus.Pending);
+
+            if (checkIn is null)
+            {
+                return new VerifyOtpResult
+                {
+                    Success = false,
+                    Message = "Código inválido. Verifique e tente novamente."
+                };
+            }
+
+            if (now > checkIn.ExpiresAt)
+            {
+                return new VerifyOtpResult
+                {
+                    Success = false,
+                    Message = "O código expirou. Solicite um novo código."
+                };
+            }
+        }
 
         if (checkIn is null)
         {
             return new VerifyOtpResult
             {
                 Success = false,
-                Message = "Código inválido. Verifique e tente novamente."
-            };
-        }
-
-        if (now > checkIn.ExpiresAt)
-        {
-            return new VerifyOtpResult
-            {
-                Success = false,
-                Message = "O código expirou. Solicite um novo código."
+                Message = "Nenhuma solicitação pendente encontrada. Tente novamente."
             };
         }
 
@@ -209,6 +232,7 @@ public class AttendanceService : IAttendanceService
         }
 
         checkIn.Status = CheckInStatus.Verified;
+        checkIn.SesFallback = dto.SesFallback;
         checkIn.VerifiedAt = now;
         await _db.SaveChangesAsync();
 
