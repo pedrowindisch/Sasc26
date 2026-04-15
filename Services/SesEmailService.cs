@@ -75,7 +75,7 @@ public class ConsoleEmailService : IEmailService
     public Task SendOtpEmailAsync(string email, string otpCode, string sessionName)
     {
         // random 20% chance of failure to simulate SES issues in development
-        if (Random.Shared.NextDouble() < 1) {
+        if (Random.Shared.NextDouble() < 0.2) {
             _logger.LogWarning("Simulated email failure for {Email}", email);
             throw new Exception("Simulated email sending failure");
         }

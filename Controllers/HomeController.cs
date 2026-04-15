@@ -21,9 +21,9 @@ public class HomeController : Controller
 
     public async Task<IActionResult> Index()
     {
-        var session = await _attendanceService.GetActiveSessionAsync();
-        ViewBag.ActiveSession = session?.Name;
-        ViewBag.HasActiveSession = session is not null;
+        var timeSlot = await _attendanceService.GetActiveTimeSlotAsync();
+        ViewBag.ActiveTimeSlot = timeSlot;
+        ViewBag.HasActiveTimeSlot = timeSlot is not null;
         ViewBag.InstagramUrl = _eventSettings.InstagramUrl;
         ViewBag.TshirtPresaleUrl = _eventSettings.TshirtPresaleUrl;
         return View();
@@ -39,14 +39,14 @@ public class HomeController : Controller
         if (profile is null)
             return Json(new { found = false });
 
-        return Json(new
-        {
-            found = true,
-            fullName = profile.FullName,
-            course = profile.Course,
-            shift = profile.Shift,
-            phase = profile.Phase
-        });
+        return Json(new { found = true, fullName = profile.FullName, course = profile.Course, shift = profile.Shift, phase = profile.Phase });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetActiveLectures()
+    {
+        var lectures = await _attendanceService.GetActiveLecturesAsync();
+        return Json(new { success = true, lectures });
     }
 
     [HttpPost]
@@ -75,6 +75,22 @@ public class HomeController : Controller
             return Json(new { success = false, message = "Preencha todos os campos do cadastro." });
 
         var result = await _attendanceService.VerifyOtpAsync(dto);
+        return Json(new { result.Success, result.Message });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> SubmitCheckIn([FromBody] SubmitCheckInDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.Email))
+            return Json(new { success = false, message = "E-mail não informado." });
+
+        if (dto.LectureId <= 0)
+            return Json(new { success = false, message = "Selecione uma palestra." });
+
+        if (string.IsNullOrWhiteSpace(dto.Keyword1) || string.IsNullOrWhiteSpace(dto.Keyword2) || string.IsNullOrWhiteSpace(dto.Keyword3))
+            return Json(new { success = false, message = "Preencha as 3 palavras-chave." });
+
+        var result = await _attendanceService.SubmitCheckInAsync(dto);
         return Json(new { result.Success, result.Message });
     }
 

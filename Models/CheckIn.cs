@@ -5,8 +5,8 @@ public class CheckIn
     public Guid Id { get; set; }
     public string AttendeeEmail { get; set; } = string.Empty;
     public Attendee Attendee { get; set; } = null!;
-    public int SessionId { get; set; }
-    public Session Session { get; set; } = null!;
+    public int? LectureId { get; set; }
+    public Lecture? Lecture { get; set; }
     public string OtpCode { get; set; } = string.Empty;
     public CheckInStatus Status { get; set; } = CheckInStatus.Pending;
     public bool SesFallback { get; set; }

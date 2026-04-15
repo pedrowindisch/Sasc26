@@ -10,28 +10,19 @@ public interface IAdminService
     bool IsAdminEmail(string email);
     Task<AdminOtpResult> SendAdminOtpAsync(string email);
     Task<AdminLoginResult> VerifyAdminOtpAsync(string email, string code);
-    Task<ManualCheckInResult> ManualCheckInAsync(string email, string fullName, string course, string shift, int phase, int sessionId);
-    Task<List<CheckInEntryDto>> GetAllCheckInsAsync(int? sessionId);
-    Task<List<Session>> GetAllSessionsAsync();
+    Task<ManualCheckInResult> ManualCheckInAsync(string email, string fullName, string course, string shift, int phase, int lectureId);
+    Task<List<CheckInEntryDto>> GetAllCheckInsAsync(int? lectureId);
+    Task<List<TimeSlot>> GetAllTimeSlotsAsync();
+    Task<List<Lecture>> GetAllLecturesAsync();
+    Task<Lecture> CreateLectureAsync(string title, string speaker, int timeSlotId);
+    Task<bool> DeleteLectureAsync(int lectureId);
+    Task<TimeSlot> CreateTimeSlotAsync(DateTime startTime, DateTime endTime);
+    Task<bool> DeleteTimeSlotAsync(int timeSlotId);
 }
 
-public class AdminOtpResult
-{
-    public bool Success { get; set; }
-    public string Message { get; set; } = string.Empty;
-}
-
-public class AdminLoginResult
-{
-    public bool Success { get; set; }
-    public string Message { get; set; } = string.Empty;
-}
-
-public class ManualCheckInResult
-{
-    public bool Success { get; set; }
-    public string Message { get; set; } = string.Empty;
-}
+public class AdminOtpResult { public bool Success { get; set; } public string Message { get; set; } = string.Empty; }
+public class AdminLoginResult { public bool Success { get; set; } public string Message { get; set; } = string.Empty; }
+public class ManualCheckInResult { public bool Success { get; set; } public string Message { get; set; } = string.Empty; }
 
 public class CheckInEntryDto
 {
@@ -40,7 +31,8 @@ public class CheckInEntryDto
     public string Course { get; set; } = string.Empty;
     public string Shift { get; set; } = string.Empty;
     public int Phase { get; set; }
-    public string SessionName { get; set; } = string.Empty;
+    public string LectureTitle { get; set; } = string.Empty;
+    public string Speaker { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
     public bool SesFallback { get; set; }
     public DateTime CreatedAt { get; set; }
@@ -51,12 +43,27 @@ public class AdminService : IAdminService
 {
     private static readonly TimeZoneInfo BrasiliaTz = GetBrasiliaTimeZone();
 
+    private static readonly string[] WordBank =
+    [
+        "codigo", "nuvem", "teclado", "janela", "tela", "mouse", "dados",
+        "sistema", "rede", "senha", "arquivo", "busca", "link", "site",
+        "pixel", "byte", "cache", "debug", "fonte", "icone", "loop",
+        "menu", "porta", "root", "servidor", "web", "algoritmo", "banco",
+        "classe", "docker", "email", "git", "html", "java", "kernel",
+        "linux", "navegador", "objeto", "programa", "query", "rust",
+        "script", "token", "url", "virtual", "wifi", "xml", "yaml",
+        "compilador", "frontend", "gateway", "hardware", "json",
+        "backend", "login", "middleware", "pacote", "rota", "servico",
+        "tabela", "versao", "bloco", "celula", "dado", "fila", "grafo",
+        "indice", "lista", "mapa", "nodo", "pilha", "registro", "tupla"
+    ];
+
     private readonly AppDbContext _db;
     private readonly IEmailService _emailService;
     private readonly EventSettings _settings;
     private readonly ILogger<AdminService> _logger;
 
-    private static Dictionary<string, (string Code, DateTime Expires)> _adminOtps = new();
+    private static readonly Dictionary<string, (string Code, DateTime Expires)> _adminOtps = new();
 
     public AdminService(AppDbContext db, IEmailService emailService, IOptions<EventSettings> settings, ILogger<AdminService> logger)
     {
@@ -67,29 +74,21 @@ public class AdminService : IAdminService
     }
 
     public bool IsAdminEmail(string email)
-    {
-        return _settings.AdminEmails.Contains(email.Trim().ToLowerInvariant(), StringComparer.OrdinalIgnoreCase);
-    }
+        => _settings.AdminEmails.Contains(email.Trim().ToLowerInvariant(), StringComparer.OrdinalIgnoreCase);
 
     public async Task<AdminOtpResult> SendAdminOtpAsync(string email)
     {
         email = email.Trim().ToLowerInvariant();
-
         if (!IsAdminEmail(email))
-            return new AdminOtpResult { Success = false, Message = "E-mail não autorizado como administrador." };
+            return new AdminOtpResult { Success = false, Message = "E-mail não autorizado." };
 
         var otpCode = Random.Shared.Next(100000, 999999).ToString("D6");
-        var expires = DateTime.UtcNow.AddMinutes(10);
+        _adminOtps[email] = (otpCode, DateTime.UtcNow.AddMinutes(10));
 
-        _adminOtps[email] = (otpCode, expires);
-
-        try
-        {
-            await _emailService.SendOtpEmailAsync(email, otpCode, "Admin SASC 26");
-        }
+        try { await _emailService.SendOtpEmailAsync(email, otpCode, "Admin SASC 26"); }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to send admin OTP to {Email}", email);
+            _logger.LogError(ex, "Failed to send admin OTP");
             _logger.LogWarning("===== ADMIN OTP FALLBACK ===== {Email} | Code: {Code}", email, otpCode);
         }
 
@@ -99,7 +98,6 @@ public class AdminService : IAdminService
     public Task<AdminLoginResult> VerifyAdminOtpAsync(string email, string code)
     {
         email = email.Trim().ToLowerInvariant();
-
         if (!_adminOtps.TryGetValue(email, out var otp))
             return Task.FromResult(new AdminLoginResult { Success = false, Message = "Código inválido." });
 
@@ -113,40 +111,34 @@ public class AdminService : IAdminService
             return Task.FromResult(new AdminLoginResult { Success = false, Message = "Código inválido." });
 
         _adminOtps.Remove(email);
-        return Task.FromResult(new AdminLoginResult { Success = true, Message = "Autenticado com sucesso." });
+        return Task.FromResult(new AdminLoginResult { Success = true });
     }
 
-    public async Task<ManualCheckInResult> ManualCheckInAsync(string email, string fullName, string course, string shift, int phase, int sessionId)
+    public async Task<ManualCheckInResult> ManualCheckInAsync(string email, string fullName, string course, string shift, int phase, int lectureId)
     {
         email = email.Trim().ToLowerInvariant();
+        var lecture = await _db.Lectures.Include(l => l.TimeSlot).FirstOrDefaultAsync(l => l.Id == lectureId);
+        if (lecture is null)
+            return new ManualCheckInResult { Success = false, Message = "Palestra não encontrada." };
 
-        var session = await _db.Sessions.FindAsync(sessionId);
-        if (session is null)
-            return new ManualCheckInResult { Success = false, Message = "Sessão não encontrada." };
+        var already = await _db.CheckIns.AnyAsync(c =>
+            c.AttendeeEmail == email &&
+            c.Lecture != null && c.Lecture.TimeSlotId == lecture.TimeSlotId &&
+            c.Status == CheckInStatus.Verified);
+        if (already)
+            return new ManualCheckInResult { Success = false, Message = "Check-in já existe para este horário." };
 
-        var alreadyVerified = await _db.CheckIns
-            .AnyAsync(c => c.AttendeeEmail == email && c.SessionId == sessionId && c.Status == CheckInStatus.Verified);
-        if (alreadyVerified)
-            return new ManualCheckInResult { Success = false, Message = "Este e-mail já possui check-in verificado nesta sessão." };
-
-        var existingAttendee = await _db.Attendees.FindAsync(email);
-        if (existingAttendee is not null)
+        var existing = await _db.Attendees.FindAsync(email);
+        if (existing is not null)
         {
-            existingAttendee.FullName = fullName.Trim();
-            existingAttendee.Course = course;
-            existingAttendee.Shift = shift;
-            existingAttendee.Phase = phase;
+            existing.FullName = fullName.Trim();
+            existing.Course = course;
+            existing.Shift = shift;
+            existing.Phase = phase;
         }
         else
         {
-            _db.Attendees.Add(new Attendee
-            {
-                Email = email,
-                FullName = fullName.Trim(),
-                Course = course,
-                Shift = shift,
-                Phase = phase
-            });
+            _db.Attendees.Add(new Attendee { Email = email, FullName = fullName.Trim(), Course = course, Shift = shift, Phase = phase });
         }
 
         var now = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, BrasiliaTz);
@@ -154,34 +146,30 @@ public class AdminService : IAdminService
         {
             Id = Guid.NewGuid(),
             AttendeeEmail = email,
-            SessionId = sessionId,
+            LectureId = lectureId,
             OtpCode = "MANUAL",
             Status = CheckInStatus.Verified,
-            SesFallback = false,
             CreatedAt = now,
             ExpiresAt = now,
             VerifiedAt = now
         });
 
         await _db.SaveChangesAsync();
-        return new ManualCheckInResult { Success = true, Message = $"Check-in manual registrado para {email} em \"{session.Name}\"." };
+        return new ManualCheckInResult { Success = true, Message = $"Check-in manual para {email} em \"{lecture.Title}\"." };
     }
 
-    public async Task<List<CheckInEntryDto>> GetAllCheckInsAsync(int? sessionId)
+    public async Task<List<CheckInEntryDto>> GetAllCheckInsAsync(int? lectureId)
     {
         var query = _db.CheckIns
             .Include(c => c.Attendee)
-            .Include(c => c.Session)
+            .Include(c => c.Lecture)
             .Where(c => c.Status == CheckInStatus.Verified)
             .AsQueryable();
 
-        if (sessionId.HasValue)
-            query = query.Where(c => c.SessionId == sessionId.Value);
+        if (lectureId.HasValue)
+            query = query.Where(c => c.LectureId == lectureId.Value);
 
-        var brasiliaTz = BrasiliaTz;
-
-        return await query
-            .OrderByDescending(c => c.VerifiedAt)
+        return await query.OrderByDescending(c => c.VerifiedAt)
             .Select(c => new CheckInEntryDto
             {
                 Email = c.AttendeeEmail,
@@ -189,18 +177,68 @@ public class AdminService : IAdminService
                 Course = c.Attendee.Course,
                 Shift = c.Attendee.Shift,
                 Phase = c.Attendee.Phase,
-                SessionName = c.Session.Name,
-                Status = c.SesFallback ? "SES Fallback" : "Verificado",
+                LectureTitle = c.Lecture != null ? c.Lecture.Title : "N/A",
+                Speaker = c.Lecture != null ? c.Lecture.Speaker : "",
+                Status = c.OtpCode == "MANUAL" ? "Manual" : (c.SesFallback ? "Fallback" : "Verificado"),
                 SesFallback = c.SesFallback,
                 CreatedAt = c.CreatedAt,
                 VerifiedAt = c.VerifiedAt
-            })
-            .ToListAsync();
+            }).ToListAsync();
     }
 
-    public async Task<List<Session>> GetAllSessionsAsync()
+    public async Task<List<TimeSlot>> GetAllTimeSlotsAsync()
+        => await _db.TimeSlots.OrderBy(t => t.StartTime).ToListAsync();
+
+    public async Task<List<Lecture>> GetAllLecturesAsync()
+        => await _db.Lectures.Include(l => l.TimeSlot).OrderBy(l => l.TimeSlot.StartTime).ThenBy(l => l.Title).ToListAsync();
+
+    public async Task<Lecture> CreateLectureAsync(string title, string speaker, int timeSlotId)
     {
-        return await _db.Sessions.OrderBy(s => s.StartTime).ToListAsync();
+        var words = GenerateKeywords();
+        var lecture = new Lecture
+        {
+            Title = title.Trim(),
+            Speaker = speaker.Trim(),
+            TimeSlotId = timeSlotId,
+            Keyword1 = words[0],
+            Keyword2 = words[1],
+            Keyword3 = words[2]
+        };
+        _db.Lectures.Add(lecture);
+        await _db.SaveChangesAsync();
+        return lecture;
+    }
+
+    public async Task<bool> DeleteLectureAsync(int lectureId)
+    {
+        var lecture = await _db.Lectures.FindAsync(lectureId);
+        if (lecture is null) return false;
+        _db.Lectures.Remove(lecture);
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<TimeSlot> CreateTimeSlotAsync(DateTime startTime, DateTime endTime)
+    {
+        var ts = new TimeSlot { StartTime = startTime, EndTime = endTime };
+        _db.TimeSlots.Add(ts);
+        await _db.SaveChangesAsync();
+        return ts;
+    }
+
+    public async Task<bool> DeleteTimeSlotAsync(int timeSlotId)
+    {
+        var ts = await _db.TimeSlots.FindAsync(timeSlotId);
+        if (ts is null) return false;
+        _db.TimeSlots.Remove(ts);
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    private static string[] GenerateKeywords()
+    {
+        var shuffled = WordBank.OrderBy(_ => Random.Shared.Next()).ToArray();
+        return [shuffled[0], shuffled[1], shuffled[2]];
     }
 
     private static TimeZoneInfo GetBrasiliaTimeZone()

@@ -1,7 +1,8 @@
 @{
     ViewData["Title"] = "Painel do Administrador";
     Layout = null;
-    var sessions = ViewBag.Sessions as List<Sasc26.Models.Session> ?? new();
+    var timeSlots = ViewBag.TimeSlots as List<Sasc26.Models.TimeSlot> ?? new();
+    var lectures = ViewBag.Lectures as List<Sasc26.Models.Lecture> ?? new();
 }
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -20,7 +21,7 @@
         .nav-bar h1 { font-size: 0.95rem; font-weight: 700; color: #fff; margin: 0; }
         .nav-bar a { font-size: 0.8rem; color: rgba(255,255,255,0.6); }
         .nav-bar a:hover { color: #fff; }
-        .container-area { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
+        .container-area { max-width: 1200px; margin: 0 auto; padding: 24px 16px; }
         .panel-card { background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); padding: 24px; margin-bottom: 20px; }
         .panel-card h2 { font-size: 0.95rem; font-weight: 700; color: #1a1a1a; margin: 0 0 16px; }
         .input:focus, .select select:focus { border-color: #2EBDEF; box-shadow: 0 0 0 3px rgba(46,189,239,0.15); }
@@ -28,10 +29,13 @@
         .button.is-brand:hover { background-color: #0d2d5a; color: #fff; }
         .button.is-brand.is-light { background-color: #fff; color: #113D76; border: 1px solid #113D76; }
         .button.is-brand.is-light:hover { background-color: #113D76; color: #fff; }
+        .button.is-danger-light { background: #fff; color: #dc2626; border: 1px solid #dc2626; }
+        .button.is-danger-light:hover { background: #dc2626; color: #fff; }
         .msg-error { background: #fef2f2; color: #b91c1c; padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; margin-bottom: 12px; }
         .msg-success { background: #ecfdf5; color: #047857; padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; margin-bottom: 12px; }
         .table { font-size: 0.82rem; }
         .table th { font-weight: 600; color: #555; }
+        .kw-badge { display: inline-block; background: #113D76; color: #fff; padding: 3px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; margin: 1px 2px; font-family: monospace; }
         .badge { display: inline-block; padding: 2px 10px; border-radius: 100px; font-size: 0.7rem; font-weight: 600; }
         .badge-ok { background: #ecfdf5; color: #059669; }
         .badge-fallback { background: #fffbeb; color: #92400e; }
@@ -40,7 +44,7 @@
         .stat-box { background: #fff; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); padding: 16px 20px; flex: 1; min-width: 140px; text-align: center; }
         .stat-box .num { font-size: 1.5rem; font-weight: 700; color: #113D76; }
         .stat-box .lbl { font-size: 0.7rem; color: #999; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 4px; }
-        .empty-state { text-align: center; padding: 32px; color: #bbb; font-size: 0.85rem; }
+        .empty-state { text-align: center; padding: 24px; color: #bbb; font-size: 0.85rem; }
     </style>
 </head>
 <body>
@@ -50,117 +54,130 @@
     </div>
 
     <div class="container-area">
-        <div class="stats-row" id="statsRow">
+        <div class="stats-row">
             <div class="stat-box"><div class="num" id="statTotal">-</div><div class="lbl">Check-ins</div></div>
             <div class="stat-box"><div class="num" id="statToday">-</div><div class="lbl">Hoje</div></div>
             <div class="stat-box"><div class="num" id="statFallback">-</div><div class="lbl">Fallback</div></div>
         </div>
 
+        <!-- TIME SLOTS -->
+        <div class="panel-card">
+            <h2>Horários (Time Slots)</h2>
+            <div id="tsMsg"></div>
+            <table class="table is-fullwidth is-hoverable is-striped">
+                <thead><tr><th>ID</th><th>Início</th><th>Fim</th><th>Palestras</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var ts in timeSlots)
+                    {
+                        var lecCount = lectures.Count(l => l.TimeSlotId == ts.Id);
+                        <tr>
+                            <td>@ts.Id</td>
+                            <td>@ts.StartTime.ToString("dd/MM HH:mm")</td>
+                            <td>@ts.EndTime.ToString("dd/MM HH:mm")</td>
+                            <td>@lecCount palestra(s)</td>
+                            <td><button class="button is-danger-light is-small" onclick="deleteTimeSlot(@ts.Id)">Remover</button></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            <div class="columns" style="margin-top:12px;">
+                <div class="column is-5"><div class="field"><div class="control"><input class="input" type="datetime-local" id="tsStart"></div></div></div>
+                <div class="column is-5"><div class="field"><div class="control"><input class="input" type="datetime-local" id="tsEnd"></div></div></div>
+                <div class="column is-2" style="display:flex;align-items:flex-end;"><button class="button is-brand is-fullwidth" onclick="createTimeSlot()">Criar</button></div>
+            </div>
+        </div>
+
+        <!-- LECTURES -->
+        <div class="panel-card">
+            <h2>Palestras</h2>
+            <div id="lecMsg"></div>
+            <table class="table is-fullwidth is-hoverable is-striped">
+                <thead><tr><th>Título</th><th>Palestrante</th><th>Horário</th><th>Palavras-chave</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var l in lectures)
+                    {
+                        <tr>
+                            <td><strong>@l.Title</strong></td>
+                            <td>@l.Speaker</td>
+                            <td>@l.TimeSlot.StartTime.ToString("dd/MM HH:mm") - @l.TimeSlot.EndTime.ToString("HH:mm")</td>
+                            <td>
+                                <span class="kw-badge">@l.Keyword1</span>
+                                <span class="kw-badge">@l.Keyword2</span>
+                                <span class="kw-badge">@l.Keyword3</span>
+                            </td>
+                            <td><button class="button is-danger-light is-small" onclick="deleteLecture(@l.Id)">Remover</button></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            <hr>
+            <p class="has-text-weight-semibold is-size-7 has-text-grey" style="margin-bottom:8px;">Nova palestra</p>
+            <div class="columns">
+                <div class="column is-3"><div class="field"><div class="control"><input class="input" type="text" id="lecTitle" placeholder="Título"></div></div></div>
+                <div class="column is-3"><div class="field"><div class="control"><input class="input" type="text" id="lecSpeaker" placeholder="Palestrante"></div></div></div>
+                <div class="column is-4">
+                    <div class="field"><div class="control"><div class="select is-fullwidth">
+                        <select id="lecTimeSlot">
+                            @foreach (var ts in timeSlots)
+                            {
+                                <option value="@ts.Id">@ts.StartTime.ToString("dd/MM HH:mm") - @ts.EndTime.ToString("dd/MM HH:mm")</option>
+                            }
+                        </select>
+                    </div></div></div>
+                </div>
+                <div class="column is-2" style="display:flex;align-items:flex-end;"><button class="button is-brand is-fullwidth" onclick="createLecture()">Criar</button></div>
+            </div>
+        </div>
+
+        <!-- MANUAL CHECK-IN -->
         <div class="panel-card">
             <h2>Check-in Manual</h2>
             <div id="manualMsg"></div>
             <div class="columns">
-                <div class="column is-4">
-                    <div class="field">
-                        <label class="label is-small">E-mail</label>
-                        <div class="control">
-                            <input class="input" type="email" id="mEmail" placeholder="aluno@furb.br">
-                        </div>
-                    </div>
-                </div>
-                <div class="column is-3">
-                    <div class="field">
-                        <label class="label is-small">Nome completo</label>
-                        <div class="control">
-                            <input class="input" type="text" id="mName" placeholder="João da Silva">
-                        </div>
-                    </div>
-                </div>
-                <div class="column is-2">
-                    <div class="field">
-                        <label class="label is-small">Curso</label>
-                        <div class="control">
-                            <div class="select is-fullwidth">
-                                <select id="mCourse">
-                                    <option value="">-</option>
-                                    <option>Ciência da Computação</option>
-                                    <option>Ciência de Dados</option>
-                                    <option>Sistemas de Informação</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="column is-1">
-                    <div class="field">
-                        <label class="label is-small">Turno</label>
-                        <div class="control">
-                            <div class="select is-fullwidth">
-                                <select id="mShift">
-                                    <option value="">-</option>
-                                    <option>Matutino</option>
-                                    <option>Noturno</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="column is-1">
-                    <div class="field">
-                        <label class="label is-small">Fase</label>
-                        <div class="control">
-                            <input class="input" type="number" id="mPhase" min="1" max="9" placeholder="1">
-                        </div>
-                    </div>
-                </div>
-                <div class="column is-1" style="display:flex;align-items:flex-end;">
-                    <div class="field">
-                        <div class="control">
-                            <button class="button is-brand is-fullwidth" onclick="manualCheckIn()">Add</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="field">
-                <div class="control">
-                    <div class="select">
-                        <select id="mSession">
-                            @foreach (var s in sessions)
+                <div class="column is-3"><div class="field"><label class="label is-small">E-mail</label><div class="control"><input class="input" type="email" id="mEmail" placeholder="aluno@furb.br"></div></div></div>
+                <div class="column is-3"><div class="field"><label class="label is-small">Nome completo</label><div class="control"><input class="input" type="text" id="mName" placeholder="João da Silva"></div></div></div>
+                <div class="column is-2"><div class="field"><label class="label is-small">Curso</label><div class="control"><div class="select is-fullwidth"><select id="mCourse"><option value="">-</option><option>Ciência da Computação</option><option>Ciência de Dados</option><option>Sistemas de Informação</option></select></div></div></div></div>
+                <div class="column is-1"><div class="field"><label class="label is-small">Turno</label><div class="control"><div class="select is-fullwidth"><select id="mShift"><option value="">-</option><option>Matutino</option><option>Noturno</option></select></div></div></div></div>
+                <div class="column is-1"><div class="field"><label class="label is-small">Fase</label><div class="control"><input class="input" type="number" id="mPhase" min="1" max="9" placeholder="1"></div></div></div>
+                <div class="column is-2" style="display:flex;align-items:flex-end;">
+                    <div class="field" style="width:100%;">
+                        <label class="label is-small">Palestra</label>
+                        <div class="control"><div class="select is-fullwidth"><select id="mLecture">
+                            @foreach (var l in lectures)
                             {
-                                <option value="@s.Id">@s.Name</option>
+                                <option value="@l.Id">@l.Title</option>
                             }
-                        </select>
+                        </select></div></div>
                     </div>
                 </div>
             </div>
+            <button class="button is-brand" onclick="manualCheckIn()">Registrar check-in manual</button>
         </div>
 
+        <!-- CHECK-IN RECORDS -->
         <div class="panel-card">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
                 <h2 style="margin:0;">Registros</h2>
                 <div style="display:flex;gap:8px;align-items:center;">
                     <div class="select is-small">
-                        <select id="filterSession" onchange="loadCheckIns()">
-                            <option value="">Todas as sessões</option>
-                            @foreach (var s in sessions)
+                        <select id="filterLecture" onchange="loadCheckIns()">
+                            <option value="">Todas as palestras</option>
+                            @foreach (var l in lectures)
                             {
-                                <option value="@s.Id">@s.Name</option>
+                                <option value="@l.Id">@l.Title</option>
                             }
                         </select>
                     </div>
                     <button class="button is-brand is-light is-small" onclick="loadCheckIns()">Atualizar</button>
                 </div>
             </div>
-            <div id="checkinsTable">
-                <div class="empty-state">Carregando...</div>
-            </div>
+            <div id="checkinsTable"><div class="empty-state">Carregando...</div></div>
         </div>
 
+        <!-- CERTIFICATES -->
         <div class="panel-card">
             <h2>Certificados</h2>
-            <button class="button is-brand" disabled title="Em breve">
-                Emitir certificado
-            </button>
+            <button class="button is-brand" disabled title="Em breve">Emitir certificado</button>
         </div>
 
         <div style="text-align:center;margin-top:16px;">
@@ -169,7 +186,41 @@
     </div>
 
     <script>
-        function showManualMsg(t, type) { document.getElementById('manualMsg').innerHTML = `<div class="msg-${type}">${t}</div>`; }
+        function showMsg(id, t, type) { document.getElementById(id).innerHTML = `<div class="msg-${type}">${t}</div>`; }
+        function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+
+        async function createTimeSlot() {
+            const start = document.getElementById('tsStart').value;
+            const end = document.getElementById('tsEnd').value;
+            if (!start || !end) { showMsg('tsMsg', 'Preencha início e fim.', 'error'); return; }
+            const res = await fetch('/Admin/CreateTimeSlot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ startTime: start, endTime: end }) });
+            const data = await res.json();
+            if (data.success) location.reload();
+            else showMsg('tsMsg', data.message || 'Erro.', 'error');
+        }
+
+        async function deleteTimeSlot(id) {
+            if (!confirm('Remover este horário e todas as palestras vinculadas?')) return;
+            await fetch('/Admin/DeleteTimeSlot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ timeSlotId: id }) });
+            location.reload();
+        }
+
+        async function createLecture() {
+            const title = document.getElementById('lecTitle').value.trim();
+            const speaker = document.getElementById('lecSpeaker').value.trim();
+            const tsId = parseInt(document.getElementById('lecTimeSlot').value);
+            if (!title || !speaker) { showMsg('lecMsg', 'Preencha título e palestrante.', 'error'); return; }
+            const res = await fetch('/Admin/CreateLecture', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, speaker, timeSlotId: tsId }) });
+            const data = await res.json();
+            if (data.success) location.reload();
+            else showMsg('lecMsg', data.message || 'Erro.', 'error');
+        }
+
+        async function deleteLecture(id) {
+            if (!confirm('Remover esta palestra?')) return;
+            await fetch('/Admin/DeleteLecture', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lectureId: id }) });
+            location.reload();
+        }
 
         async function manualCheckIn() {
             const email = document.getElementById('mEmail').value.trim();
@@ -177,32 +228,19 @@
             const course = document.getElementById('mCourse').value;
             const shift = document.getElementById('mShift').value;
             const phase = parseInt(document.getElementById('mPhase').value) || 0;
-            const sessionId = parseInt(document.getElementById('mSession').value);
-
-            if (!email || !fullName) { showManualMsg('Preencha e-mail e nome.', 'error'); return; }
-
-            const res = await fetch('/Admin/ManualCheckIn', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, fullName, course, shift, phase, sessionId })
-            });
+            const lectureId = parseInt(document.getElementById('mLecture').value);
+            if (!email || !fullName) { showMsg('manualMsg', 'Preencha e-mail e nome.', 'error'); return; }
+            const res = await fetch('/Admin/ManualCheckIn', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, fullName, course, shift, phase, lectureId }) });
             const data = await res.json();
-            if (data.success) {
-                showManualMsg(data.message, 'success');
-                document.getElementById('mEmail').value = '';
-                document.getElementById('mName').value = '';
-                loadCheckIns();
-            } else {
-                showManualMsg(data.message, 'error');
-            }
+            if (data.success) { showMsg('manualMsg', data.message, 'success'); document.getElementById('mEmail').value = ''; document.getElementById('mName').value = ''; loadCheckIns(); }
+            else showMsg('manualMsg', data.message, 'error');
         }
 
         async function loadCheckIns() {
-            const sessionId = document.getElementById('filterSession').value;
-            const url = '/Admin/GetCheckIns' + (sessionId ? `?sessionId=${sessionId}` : '');
+            const lectureId = document.getElementById('filterLecture').value;
+            const url = '/Admin/GetCheckIns' + (lectureId ? `?lectureId=${lectureId}` : '');
             const res = await fetch(url);
             const data = await res.json();
-
             if (!data.success || !data.entries || data.entries.length === 0) {
                 document.getElementById('checkinsTable').innerHTML = '<div class="empty-state">Nenhum registro encontrado.</div>';
                 document.getElementById('statTotal').textContent = '0';
@@ -210,46 +248,28 @@
                 document.getElementById('statFallback').textContent = '0';
                 return;
             }
-
             const entries = data.entries;
             document.getElementById('statTotal').textContent = entries.length;
-
             const today = new Date().toISOString().slice(0, 10);
-            const todayCount = entries.filter(e => e.verifiedAt && e.verifiedAt.startsWith(today)).length;
-            document.getElementById('statToday').textContent = todayCount;
+            document.getElementById('statToday').textContent = entries.filter(e => e.verifiedAt && e.verifiedAt.startsWith(today)).length;
+            document.getElementById('statFallback').textContent = entries.filter(e => e.sesFallback).length;
 
-            const fallbackCount = entries.filter(e => e.sesFallback).length;
-            document.getElementById('statFallback').textContent = fallbackCount;
-
-            let html = `<table class="table is-fullwidth is-hoverable is-striped">
-                <thead><tr>
-                    <th>Nome</th><th>E-mail</th><th>Curso</th><th>Turno</th><th>Fase</th><th>Sessão</th><th>Status</th><th>Verificado em</th>
-                </tr></thead><tbody>`;
+            let html = `<table class="table is-fullwidth is-hoverable is-striped"><thead><tr>
+                <th>Nome</th><th>E-mail</th><th>Curso</th><th>Turno</th><th>Fase</th><th>Palestra</th><th>Palestrante</th><th>Status</th><th>Verificado em</th>
+            </tr></thead><tbody>`;
 
             for (const e of entries) {
-                const badge = e.verifiedAt
-                    ? (e.sesFallback ? '<span class="badge badge-fallback">Fallback</span>'
-                       : (e.status === 'Manual' ? '<span class="badge badge-manual">Manual</span>'
-                       : '<span class="badge badge-ok">Verificado</span>'))
-                    : '<span class="badge">Pendente</span>';
+                const badge = e.status === 'Manual' ? '<span class="badge badge-manual">Manual</span>'
+                    : (e.sesFallback ? '<span class="badge badge-fallback">Fallback</span>' : '<span class="badge badge-ok">Verificado</span>');
                 const dt = e.verifiedAt ? new Date(e.verifiedAt).toLocaleString('pt-BR') : '-';
                 html += `<tr>
-                    <td><strong>${esc(e.fullName)}</strong></td>
-                    <td>${esc(e.email)}</td>
-                    <td>${esc(e.course)}</td>
-                    <td>${esc(e.shift)}</td>
-                    <td>${e.phase || '-'}</td>
-                    <td>${esc(e.sessionName)}</td>
-                    <td>${badge}</td>
-                    <td>${dt}</td>
+                    <td><strong>${esc(e.fullName)}</strong></td><td>${esc(e.email)}</td><td>${esc(e.course)}</td><td>${esc(e.shift)}</td><td>${e.phase || '-'}</td>
+                    <td>${esc(e.lectureTitle)}</td><td>${esc(e.speaker)}</td><td>${badge}</td><td>${dt}</td>
                 </tr>`;
             }
-
             html += '</tbody></table>';
             document.getElementById('checkinsTable').innerHTML = html;
         }
-
-        function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
 
         loadCheckIns();
     </script>

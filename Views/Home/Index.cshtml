@@ -1,7 +1,6 @@
 @{
     ViewData["Title"] = "Registrar Presença";
-    var activeSession = ViewBag.ActiveSession as string;
-    var hasActiveSession = (bool)ViewBag.HasActiveSession;
+    var hasActiveTimeSlot = (bool)ViewBag.HasActiveTimeSlot;
     var instagramUrl = ViewBag.InstagramUrl as string ?? "https://instagram.com/dascfurb";
     var tshirtPresaleUrl = ViewBag.TshirtPresaleUrl as string ?? "";
 }
@@ -10,169 +9,46 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="~/css/bulmaswatch.min.css">
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background: #f5f5f5;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .card-wrapper {
-            width: 100%;
-            max-width: 440px;
-            padding: 0 16px;
-        }
-
-        .event-card {
-            background: #fff;
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-            overflow: hidden;
-        }
-
-        .event-header {
-            background: #113D76;
-            padding: 28px 24px 20px;
-            text-align: center;
-        }
-
-        .event-header img.logo {
-            width: 56px;
-            height: 56px;
-            margin-bottom: 12px;
-        }
-
-        .event-header h1 {
-            font-size: 1.25rem;
-            font-weight: 700;
-            color: #fff;
-            margin: 0;
-        }
-
-        .event-header p {
-            font-size: 0.75rem;
-            color: rgba(255,255,255,0.6);
-            margin: 4px 0 0;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-
-        .session-tag {
-            display: inline-block;
-            margin-top: 12px;
-            padding: 4px 14px;
-            border-radius: 100px;
-            font-size: 0.75rem;
-            font-weight: 600;
-        }
-
+        body { font-family: 'Inter', sans-serif; background: #f5f5f5; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+        .card-wrapper { width: 100%; max-width: 440px; padding: 0 16px; }
+        .event-card { background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); overflow: hidden; }
+        .event-header { background: #113D76; padding: 28px 24px 20px; text-align: center; }
+        .event-header img.logo { width: 56px; height: 56px; margin-bottom: 12px; }
+        .event-header h1 { font-size: 1.25rem; font-weight: 700; color: #fff; margin: 0; }
+        .event-header p { font-size: 0.75rem; color: rgba(255,255,255,0.6); margin: 4px 0 0; text-transform: uppercase; letter-spacing: 0.05em; }
+        .session-tag { display: inline-block; margin-top: 12px; padding: 4px 14px; border-radius: 100px; font-size: 0.75rem; font-weight: 600; }
         .session-tag.active { background: rgba(46,189,239,0.2); color: #2EBDEF; }
         .session-tag.inactive { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.5); }
-
         .event-body { padding: 8px 24px 28px; }
-
-        .otp-input {
-            letter-spacing: 6px;
-            font-size: 1.25rem;
-            font-weight: 600;
-            text-align: center;
-        }
-
+        .otp-input { letter-spacing: 6px; font-size: 1.25rem; font-weight: 600; text-align: center; }
         .step-section { display: none; padding-top: 16px; }
         .step-section.active { display: block; }
-
-        .msg-error {
-            background: #fef2f2;
-            color: #b91c1c;
-            padding: 10px 14px;
-            border-radius: 8px;
-            font-size: 0.85rem;
-            margin-bottom: 16px;
-        }
-
-        .msg-success {
-            background: #ecfdf5;
-            color: #047857;
-            padding: 10px 14px;
-            border-radius: 8px;
-            font-size: 0.85rem;
-            margin-bottom: 16px;
-        }
-
-        .msg-warning {
-            background: #fffbeb;
-            color: #92400e;
-            padding: 12px 14px;
-            border-radius: 8px;
-            font-size: 0.85rem;
-            margin-bottom: 16px;
-            line-height: 1.5;
-        }
-
-        .back-link {
-            display: inline-block;
-            margin-top: 12px;
-            font-size: 0.8rem;
-            color: #aaa;
-            cursor: pointer;
-        }
-
+        .msg-error { background: #fef2f2; color: #b91c1c; padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; margin-bottom: 16px; }
+        .msg-success { background: #ecfdf5; color: #047857; padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; margin-bottom: 16px; }
+        .msg-warning { background: #fffbeb; color: #92400e; padding: 12px 14px; border-radius: 8px; font-size: 0.85rem; margin-bottom: 16px; line-height: 1.5; }
+        .back-link { display: inline-block; margin-top: 12px; font-size: 0.8rem; color: #aaa; cursor: pointer; }
         .back-link:hover { color: #555; }
-
-        .email-hint {
-            font-size: 0.8rem;
-            color: #999;
-            margin-bottom: 16px;
-        }
-
+        .email-hint { font-size: 0.8rem; color: #999; margin-bottom: 16px; }
         .field + .field { margin-top: 12px; }
-
-        .section-divider {
-            border: none;
-            border-top: 1px solid #eee;
-            margin: 20px 0;
-        }
-
-        .section-label {
-            font-size: 0.7rem;
-            font-weight: 600;
-            color: #bbb;
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-            margin-bottom: 12px;
-        }
-
-        .button.is-brand {
-            background-color: #fff;
-            color: #113D76;
-        }
-
-        .button.is-brand:hover {
-            background-color: #f0f0f0;
-            color: #113D76;
-        }
-
-        .button.is-outlined-brand {
-            background-color: transparent;
-            color: #113D76;
-            border: 1px solid #113D76;
-        }
-
-        .button.is-outlined-brand:hover {
-            background-color: #113D76;
-            color: #fff;
-        }
-
-        .input:focus, .select select:focus {
-            border-color: #2EBDEF;
-            box-shadow: 0 0 0 3px rgba(46,189,239,0.15);
-        }
-
+        .section-divider { border: none; border-top: 1px solid #eee; margin: 20px 0; }
+        .section-label { font-size: 0.7rem; font-weight: 600; color: #bbb; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 12px; }
+        .button.is-brand { background-color: #fff; color: #113D76; }
+        .button.is-brand:hover { background-color: #f0f0f0; color: #113D76; }
+        .button.is-outlined-brand { background-color: transparent; color: #113D76; border: 1px solid #113D76; }
+        .button.is-outlined-brand:hover { background-color: #113D76; color: #fff; }
+        .input:focus, .select select:focus { border-color: #2EBDEF; box-shadow: 0 0 0 3px rgba(46,189,239,0.15); }
         .success-actions { margin-top: 16px; }
         .success-actions .button { margin-bottom: 8px; }
+        .lecture-option { border: 2px solid #e0e0e0; border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; cursor: pointer; transition: border-color 0.2s; display: block; }
+        .lecture-option:hover { border-color: #2EBDEF; }
+        .lecture-option.selected { border-color: #113D76; background: #f8faff; }
+        .lecture-option input[type="radio"] { display: none; }
+        .lecture-option .l-title { font-weight: 600; font-size: 0.9rem; color: #1a1a1a; }
+        .lecture-option .l-speaker { font-size: 0.8rem; color: #888; margin-top: 2px; }
+        .kw-input { text-align: center; font-weight: 500; }
+        .empty-state { text-align: center; padding: 24px 0; color: #bbb; font-size: 0.9rem; }
     </style>
 }
 
@@ -182,13 +58,13 @@
             <img class="logo" src="~/dasc.svg" alt="DASC">
             <h1>SASC 26</h1>
             <p>Semana Acadêmica de Sistemas e Computação</p>
-            @if (hasActiveSession)
+            @if (hasActiveTimeSlot)
             {
-                <span class="session-tag active">@activeSession</span>
+                <span class="session-tag active">Palestras abertas</span>
             }
             else
             {
-                <span class="session-tag inactive">Nenhuma sessão ativa</span>
+                <span class="session-tag inactive">Nenhuma palestra ativa</span>
             }
         </div>
 
@@ -198,18 +74,10 @@
             <div class="step-section active" id="stepEmail">
                 <div class="field">
                     <label class="label is-small has-text-grey">E-mail institucional</label>
-                    <div class="control">
-                        <input class="input" type="email" id="emailInput"
-                               placeholder="seu.nome@furb.br"
-                               autocomplete="email" autofocus>
-                    </div>
+                    <div class="control"><input class="input" type="email" id="emailInput" placeholder="seu.nome@furb.br" autocomplete="email" autofocus></div>
                 </div>
                 <div class="field" style="margin-top:16px;">
-                    <div class="control">
-                        <button class="button is-brand is-fullwidth" id="btnSendOtp" onclick="requestOtp()">
-                            Enviar código
-                        </button>
-                    </div>
+                    <div class="control"><button class="button is-brand is-fullwidth" id="btnSendOtp" onclick="requestOtp()">Enviar código</button></div>
                 </div>
                 <div class="has-text-centered" style="margin-top:12px;">
                     <a href="/Admin" class="back-link">Área de administração</a>
@@ -218,113 +86,53 @@
 
             <div class="step-section" id="stepOtp">
                 <p class="email-hint" id="emailDisplay"></p>
-
                 <div id="sesFallbackWarning" style="display:none;">
-                    <div class="msg-warning">
-                        Tivemos um problema para enviar o código. Desculpas!<br>
-                        Mas pode marcar a presença mesmo assim. Salvamos sua tentativa.
-                    </div>
+                    <div class="msg-warning">Tivemos um problema para enviar o código. Desculpas!<br>Mas pode marcar a presença mesmo assim.</div>
                 </div>
-
                 <div id="otpFieldGroup">
                     <div class="field">
                         <label class="label is-small has-text-grey">Código de verificação</label>
-                        <div class="control">
-                            <input class="input otp-input" type="text" id="otpInput"
-                                   maxlength="6" inputmode="numeric" pattern="[0-9]*"
-                                   placeholder="000000" autocomplete="one-time-code">
-                        </div>
+                        <div class="control"><input class="input otp-input" type="text" id="otpInput" maxlength="6" inputmode="numeric" pattern="[0-9]*" placeholder="000000" autocomplete="one-time-code"></div>
                     </div>
                 </div>
-
                 <hr class="section-divider">
                 <p class="section-label">Dados cadastrais</p>
-
-                <div class="field">
-                    <label class="label is-small has-text-grey">Nome completo</label>
-                    <div class="control">
-                        <input class="input" type="text" id="fullNameInput"
-                               placeholder="João da Silva" autocomplete="name">
-                    </div>
-                </div>
-
-                <div class="field">
-                    <label class="label is-small has-text-grey">Curso</label>
-                    <div class="control">
-                        <div class="select is-fullwidth">
-                            <select id="courseSelect">
-                                <option value="">Selecione</option>
-                                <option value="Ciência da Computação">Ciência da Computação</option>
-                                <option value="Ciência de Dados">Ciência de Dados</option>
-                                <option value="Sistemas de Informação">Sistemas de Informação</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="field">
-                    <label class="label is-small has-text-grey">Turno</label>
-                    <div class="control">
-                        <div class="select is-fullwidth">
-                            <select id="shiftSelect">
-                                <option value="">Selecione</option>
-                                <option value="Matutino">Matutino</option>
-                                <option value="Noturno">Noturno</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="field">
-                    <label class="label is-small has-text-grey">Fase</label>
-                    <div class="control">
-                        <div class="select is-fullwidth">
-                            <select id="phaseSelect">
-                                <option value="">-</option>
-                                @for (var i = 1; i <= 9; i++)
-                                {
-                                    <option value="@i">@i</option>
-                                }
-                            </select>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="field" style="margin-top:16px;">
-                    <div class="control">
-                        <button class="button is-brand is-fullwidth" id="btnVerify" onclick="verifyOtp()">
-                            Confirmar presença
-                        </button>
-                    </div>
-                </div>
+                <div class="field"><label class="label is-small has-text-grey">Nome completo</label><div class="control"><input class="input" type="text" id="fullNameInput" placeholder="João da Silva" autocomplete="name"></div></div>
+                <div class="field"><label class="label is-small has-text-grey">Curso</label><div class="control"><div class="select is-fullwidth"><select id="courseSelect"><option value="">Selecione</option><option value="Ciência da Computação">Ciência da Computação</option><option value="Ciência de Dados">Ciência de Dados</option><option value="Sistemas de Informação">Sistemas de Informação</option></select></div></div></div>
+                <div class="field"><label class="label is-small has-text-grey">Turno</label><div class="control"><div class="select is-fullwidth"><select id="shiftSelect"><option value="">Selecione</option><option value="Matutino">Matutino</option><option value="Noturno">Noturno</option></select></div></div></div>
+                <div class="field"><label class="label is-small has-text-grey">Fase</label><div class="control"><div class="select is-fullwidth"><select id="phaseSelect"><option value="">-</option>@for (var i = 1; i <= 9; i++) {<option value="@i">@i</option>}</select></div></div></div>
+                <div class="field" style="margin-top:16px;"><div class="control"><button class="button is-brand is-fullwidth" id="btnVerify" onclick="verifyOtp()">Continuar</button></div></div>
                 <a class="back-link" onclick="goBack()">&#8592; Voltar</a>
+            </div>
+
+            <div class="step-section" id="stepLecture">
+                <p class="section-label">Selecione a palestra</p>
+                <div id="lectureList"></div>
+                <hr class="section-divider">
+                <p class="section-label">Palavras-chave do palestrante</p>
+                <div class="columns is-mobile is-gapless" style="margin:0;">
+                    <div class="column" style="padding-right:4px;"><div class="field"><div class="control"><input class="input kw-input" type="text" id="kw1" placeholder="Palavra 1" maxlength="30"></div></div></div>
+                    <div class="column" style="padding:0 2px;"><div class="field"><div class="control"><input class="input kw-input" type="text" id="kw2" placeholder="Palavra 2" maxlength="30"></div></div></div>
+                    <div class="column" style="padding-left:4px;"><div class="field"><div class="control"><input class="input kw-input" type="text" id="kw3" placeholder="Palavra 3" maxlength="30"></div></div></div>
+                </div>
+                <div class="field" style="margin-top:16px;"><div class="control"><button class="button is-brand is-fullwidth" id="btnSubmit" onclick="submitCheckIn()">Confirmar Presença</button></div></div>
+                <a class="back-link" onclick="goBackToOtp()">&#8592; Voltar</a>
             </div>
 
             <div class="step-section" id="stepSuccess">
                 <div class="msg-success has-text-centered" id="successMessage" style="padding:16px;"></div>
                 <div class="success-actions has-text-centered">
-                    <a href="@instagramUrl" target="_blank" rel="noopener"
-                       class="button is-outlined-brand is-fullwidth">
-                        @@dascfurb no Instagram
-                    </a>
+                    <a href="@instagramUrl" target="_blank" rel="noopener" class="button is-outlined-brand is-fullwidth">@@dascfurb no Instagram</a>
                     @if (!string.IsNullOrWhiteSpace(tshirtPresaleUrl))
                     {
-                        <a href="@tshirtPresaleUrl" target="_blank" rel="noopener"
-                           class="button is-brand is-fullwidth">
-                            Confira nossa pré-venda de camisetas
-                        </a>
+                        <a href="@tshirtPresaleUrl" target="_blank" rel="noopener" class="button is-brand is-fullwidth">Confira nossa pré-venda de camisetas</a>
                     }
                     else
                     {
-                        <button class="button is-brand is-fullwidth" disabled
-                                title="Em breve">
-                            Confira nossa pré-venda de camisetas
-                        </button>
+                        <button class="button is-brand is-fullwidth" disabled title="Em breve">Confira nossa pré-venda de camisetas</button>
                     }
                 </div>
-                <div class="has-text-centered">
-                    <a class="back-link" onclick="resetForm()">&#8592; Voltar ao início</a>
-                </div>
+                <div class="has-text-centered"><a class="back-link" onclick="resetForm()">&#8592; Voltar ao início</a></div>
             </div>
         </div>
     </div>
@@ -334,19 +142,11 @@
 <script>
     let currentEmail = '';
     let sesFallback = false;
+    let selectedLectureId = 0;
 
-    function showMessage(text, type) {
-        document.getElementById('messageArea').innerHTML = `<div class="msg-${type}">${text}</div>`;
-    }
-
-    function clearMessage() {
-        document.getElementById('messageArea').innerHTML = '';
-    }
-
-    function showStep(step) {
-        document.querySelectorAll('.step-section').forEach(el => el.classList.remove('active'));
-        document.getElementById('step' + step).classList.add('active');
-    }
+    function showMessage(t, type) { document.getElementById('messageArea').innerHTML = `<div class="msg-${type}">${t}</div>`; }
+    function clearMessage() { document.getElementById('messageArea').innerHTML = ''; }
+    function showStep(s) { document.querySelectorAll('.step-section').forEach(el => el.classList.remove('active')); document.getElementById('step' + s).classList.add('active'); }
 
     async function loadProfile(email) {
         try {
@@ -364,24 +164,16 @@
     async function requestOtp() {
         const email = document.getElementById('emailInput').value.trim();
         if (!email) { showMessage('Informe seu e-mail.', 'error'); return; }
-
         clearMessage();
         const btn = document.getElementById('btnSendOtp');
-        btn.classList.add('is-loading');
-        btn.disabled = true;
-
+        btn.classList.add('is-loading'); btn.disabled = true;
         try {
-            const res = await fetch('/Home/RequestOtp', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email })
-            });
+            const res = await fetch('/Home/RequestOtp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
             const data = await res.json();
             if (data.success) {
                 currentEmail = email;
                 document.getElementById('emailDisplay').textContent = email;
                 showStep('Otp');
-
                 if (data.sesFallback) {
                     sesFallback = true;
                     document.getElementById('otpFieldGroup').style.display = 'none';
@@ -392,89 +184,84 @@
                     document.getElementById('sesFallbackWarning').style.display = 'none';
                     document.getElementById('otpInput').focus();
                 }
-
                 loadProfile(email);
-            } else {
-                showMessage(data.message, 'error');
-            }
-        } catch {
-            showMessage('Erro de conexão.', 'error');
-        } finally {
-            btn.classList.remove('is-loading');
-            btn.disabled = false;
-        }
+            } else { showMessage(data.message, 'error'); }
+        } catch { showMessage('Erro de conexão.', 'error'); }
+        finally { btn.classList.remove('is-loading'); btn.disabled = false; }
     }
 
     async function verifyOtp() {
         const code = document.getElementById('otpInput').value.trim();
-
-        if (!sesFallback && (!code || code.length !== 6)) {
-            showMessage('Digite o código de 6 dígitos.', 'error'); return;
-        }
-
+        if (!sesFallback && (!code || code.length !== 6)) { showMessage('Digite o código de 6 dígitos.', 'error'); return; }
         const fullName = document.getElementById('fullNameInput').value.trim();
         const course = document.getElementById('courseSelect').value;
         const shift = document.getElementById('shiftSelect').value;
         const phase = parseInt(document.getElementById('phaseSelect').value) || 0;
-
         if (!fullName) { showMessage('Informe seu nome completo.', 'error'); return; }
         if (!course) { showMessage('Selecione o curso.', 'error'); return; }
         if (!shift) { showMessage('Selecione o turno.', 'error'); return; }
         if (phase < 1) { showMessage('Selecione a fase.', 'error'); return; }
-
         clearMessage();
         const btn = document.getElementById('btnVerify');
-        btn.classList.add('is-loading');
-        btn.disabled = true;
-
+        btn.classList.add('is-loading'); btn.disabled = true;
         try {
-            const res = await fetch('/Home/VerifyOtp', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    email: currentEmail, code,
-                    sesFallback, fullName, course, shift, phase
-                })
-            });
+            const res = await fetch('/Home/VerifyOtp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: currentEmail, code, sesFallback, fullName, course, shift, phase }) });
             const data = await res.json();
-            if (data.success) {
-                clearMessage();
-                document.getElementById('successMessage').textContent = data.message;
-                showStep('Success');
+            if (data.success) { clearMessage(); await loadLectures(); }
+            else { showMessage(data.message, 'error'); }
+        } catch { showMessage('Erro de conexão.', 'error'); }
+        finally { btn.classList.remove('is-loading'); btn.disabled = false; }
+    }
+
+    async function loadLectures() {
+        try {
+            const res = await fetch('/Home/GetActiveLectures');
+            const data = await res.json();
+            const lectures = data.lectures || [];
+            const list = document.getElementById('lectureList');
+            if (lectures.length === 0) {
+                list.innerHTML = '<div class="empty-state">Nenhuma palestra acontecendo neste momento.</div>';
             } else {
-                showMessage(data.message, 'error');
+                selectedLectureId = 0;
+                list.innerHTML = lectures.map(l => `
+                    <label class="lecture-option" data-id="${l.id}" onclick="selectLecture(${l.id}, this)">
+                        <input type="radio" name="lecture" value="${l.id}">
+                        <div class="l-title">${esc(l.title)}</div>
+                        <div class="l-speaker">${esc(l.speaker)}</div>
+                    </label>`).join('');
             }
-        } catch {
-            showMessage('Erro de conexão.', 'error');
-        } finally {
-            btn.classList.remove('is-loading');
-            btn.disabled = false;
-        }
+            showStep('Lecture');
+        } catch { showMessage('Erro ao carregar palestras.', 'error'); }
     }
 
-    function goBack() {
-        clearMessage();
-        sesFallback = false;
-        showStep('Email');
-        document.getElementById('otpInput').value = '';
-        document.getElementById('otpFieldGroup').style.display = 'block';
-        document.getElementById('sesFallbackWarning').style.display = 'none';
+    function selectLecture(id, el) {
+        selectedLectureId = id;
+        document.querySelectorAll('.lecture-option').forEach(o => o.classList.remove('selected'));
+        el.classList.add('selected');
     }
 
-    function resetForm() {
+    async function submitCheckIn() {
+        if (!selectedLectureId) { showMessage('Selecione uma palestra.', 'error'); return; }
+        const kw1 = document.getElementById('kw1').value.trim();
+        const kw2 = document.getElementById('kw2').value.trim();
+        const kw3 = document.getElementById('kw3').value.trim();
+        if (!kw1 || !kw2 || !kw3) { showMessage('Preencha as 3 palavras-chave.', 'error'); return; }
         clearMessage();
-        sesFallback = false;
-        document.getElementById('emailInput').value = '';
-        document.getElementById('otpInput').value = '';
-        document.getElementById('fullNameInput').value = '';
-        document.getElementById('courseSelect').value = '';
-        document.getElementById('shiftSelect').value = '';
-        document.getElementById('phaseSelect').value = '';
-        document.getElementById('otpFieldGroup').style.display = 'block';
-        document.getElementById('sesFallbackWarning').style.display = 'none';
-        currentEmail = '';
-        showStep('Email');
+        const btn = document.getElementById('btnSubmit');
+        btn.classList.add('is-loading'); btn.disabled = true;
+        try {
+            const res = await fetch('/Home/SubmitCheckIn', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: currentEmail, lectureId: selectedLectureId, keyword1: kw1, keyword2: kw2, keyword3: kw3 }) });
+            const data = await res.json();
+            if (data.success) { clearMessage(); document.getElementById('successMessage').textContent = data.message; showStep('Success'); }
+            else { showMessage(data.message, 'error'); }
+        } catch { showMessage('Erro de conexão.', 'error'); }
+        finally { btn.classList.remove('is-loading'); btn.disabled = false; }
     }
+
+    function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+    function goBack() { clearMessage(); sesFallback = false; showStep('Email'); document.getElementById('otpInput').value = ''; document.getElementById('otpFieldGroup').style.display = 'block'; document.getElementById('sesFallbackWarning').style.display = 'none'; }
+    function goBackToOtp() { clearMessage(); showStep('Otp'); }
+    function resetForm() { clearMessage(); sesFallback = false; selectedLectureId = 0; ['emailInput','otpInput','fullNameInput','kw1','kw2','kw3'].forEach(id => document.getElementById(id).value = ''); ['courseSelect','shiftSelect','phaseSelect'].forEach(id => document.getElementById(id).value = ''); document.getElementById('otpFieldGroup').style.display = 'block'; document.getElementById('sesFallbackWarning').style.display = 'none'; currentEmail = ''; showStep('Email'); }
 
     document.getElementById('emailInput').addEventListener('keydown', e => { if (e.key === 'Enter') requestOtp(); });
     document.getElementById('otpInput').addEventListener('keydown', e => { if (e.key === 'Enter') verifyOtp(); });

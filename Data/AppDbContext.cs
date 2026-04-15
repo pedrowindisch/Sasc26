@@ -7,7 +7,8 @@ public class AppDbContext : DbContext
 {
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
-    public DbSet<Session> Sessions => Set<Session>();
+    public DbSet<TimeSlot> TimeSlots => Set<TimeSlot>();
+    public DbSet<Lecture> Lectures => Set<Lecture>();
     public DbSet<Attendee> Attendees => Set<Attendee>();
     public DbSet<CheckIn> CheckIns => Set<CheckIn>();
 
@@ -26,21 +27,33 @@ public class AppDbContext : DbContext
                   .OnDelete(DeleteBehavior.Cascade);
         });
 
-        modelBuilder.Entity<Session>(entity =>
+        modelBuilder.Entity<TimeSlot>(entity =>
         {
             entity.HasKey(e => e.Id);
-            entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
-            entity.HasMany(e => e.CheckIns)
-                  .WithOne(c => c.Session)
-                  .HasForeignKey(c => c.SessionId)
+            entity.HasMany(e => e.Lectures)
+                  .WithOne(l => l.TimeSlot)
+                  .HasForeignKey(l => l.TimeSlotId)
                   .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Lecture>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Title).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Speaker).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Keyword1).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.Keyword2).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.Keyword3).IsRequired().HasMaxLength(50);
+            entity.HasMany(e => e.CheckIns)
+                  .WithOne(c => c.Lecture)
+                  .HasForeignKey(c => c.LectureId)
+                  .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<CheckIn>(entity =>
         {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.OtpCode).IsRequired().HasMaxLength(6);
-            entity.HasIndex(e => new { e.AttendeeEmail, e.SessionId });
         });
     }
 }

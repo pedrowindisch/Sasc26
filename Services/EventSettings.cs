@@ -1,5 +1,3 @@
-using Sasc26.Models;
-
 namespace Sasc26.Services;
 
 public class EventSettings
@@ -10,12 +8,11 @@ public class EventSettings
     public string InstagramUrl { get; set; } = string.Empty;
     public string TshirtPresaleUrl { get; set; } = string.Empty;
     public List<string> AdminEmails { get; set; } = [];
-    public List<SessionConfig> Sessions { get; set; } = [];
+    public List<TimeSlotConfig> TimeSlots { get; set; } = [];
 }
 
-public class SessionConfig
+public class TimeSlotConfig
 {
-    public string Name { get; set; } = string.Empty;
-    public string StartTime { get; set; } = string.Empty;
-    public string EndTime { get; set; } = string.Empty;
+    public DateTime StartTime { get; set; }
+    public DateTime EndTime { get; set; }
 }

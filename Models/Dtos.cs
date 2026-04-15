@@ -16,6 +16,15 @@ public class VerifyOtpDto
     public int Phase { get; set; }
 }
 
+public class SubmitCheckInDto
+{
+    public string Email { get; set; } = string.Empty;
+    public int LectureId { get; set; }
+    public string Keyword1 { get; set; } = string.Empty;
+    public string Keyword2 { get; set; } = string.Empty;
+    public string Keyword3 { get; set; } = string.Empty;
+}
+
 public class AttendeeProfileDto
 {
     public string Email { get; set; } = string.Empty;
@@ -24,4 +33,11 @@ public class AttendeeProfileDto
     public string Shift { get; set; } = string.Empty;
     public int Phase { get; set; }
     public bool Found { get; set; }
+}
+
+public class LectureDto
+{
+    public int Id { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string Speaker { get; set; } = string.Empty;
 }

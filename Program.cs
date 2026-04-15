@@ -65,19 +65,18 @@ static async Task SeedDatabaseAsync(WebApplication app)
 
     await db.Database.EnsureCreatedAsync();
 
-    if (!await db.Sessions.AnyAsync())
+    if (!await db.TimeSlots.AnyAsync())
     {
-        foreach (var s in eventSettings.Sessions)
+        foreach (var ts in eventSettings.TimeSlots)
         {
-            db.Sessions.Add(new Session
+            db.TimeSlots.Add(new TimeSlot
             {
-                Name = s.Name,
-                StartTime = DateTime.Parse(s.StartTime),
-                EndTime = DateTime.Parse(s.EndTime)
+                StartTime = ts.StartTime,
+                EndTime = ts.EndTime
             });
         }
 
         await db.SaveChangesAsync();
-        logger.LogInformation("Seeded {Count} sessions", eventSettings.Sessions.Count);
+        logger.LogInformation("Seeded {Count} time slots", eventSettings.TimeSlots.Count);
     }
 }
