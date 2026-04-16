@@ -224,6 +224,140 @@ public class AttendanceService : IAttendanceService
             .ToListAsync();
     }
 
+    public async Task<List<LectureWithPreRegDto>> GetAllLecturesAsync()
+    {
+        return await _db.Lectures
+            .Include(l => l.TimeSlot)
+            .Include(l => l.PreRegistrations)
+            .OrderBy(l => l.TimeSlot.StartTime)
+            .ThenBy(l => l.Title)
+            .Select(l => new LectureWithPreRegDto
+            {
+                Id = l.Id,
+                TimeSlotId = l.TimeSlotId,
+                Title = l.Title,
+                Speaker = l.Speaker,
+                TimeSlotLabel = l.TimeSlot.StartTime.ToString("dd/MM HH:mm") + " - " + l.TimeSlot.EndTime.ToString("HH:mm"),
+                Shift = l.TimeSlot.Shift,
+                Date = l.TimeSlot.StartTime.ToString("yyyy-MM-dd"),
+                IsPreRegistrationEnabled = l.IsPreRegistrationEnabled,
+                PreRegistrationCount = l.PreRegistrations.Count(p => p.IsVerified)
+            })
+            .ToListAsync();
+    }
+
+    public async Task<PreRegisterResult> SubmitPreRegistrationBatchAsync(string email, List<int> lectureIds)
+    {
+        email = email.Trim().ToLowerInvariant();
+
+        if (string.IsNullOrWhiteSpace(email))
+            return new PreRegisterResult { Success = false, Message = "Informe seu e-mail." };
+
+        if (lectureIds == null || lectureIds.Count == 0)
+            return new PreRegisterResult { Success = false, Message = "Selecione pelo menos uma palestra." };
+
+        var pending = await _db.PreRegistrations
+            .Where(p => p.AttendeeEmail == email && !p.IsVerified)
+            .ToListAsync();
+        if (pending.Count > 0)
+        {
+            _db.PreRegistrations.RemoveRange(pending);
+            await _db.SaveChangesAsync();
+        }
+
+        var otpCode = Random.Shared.Next(100000, 999999).ToString("D6");
+        var now = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, BrasiliaTz);
+        var expiresAt = now.AddMinutes(_settings.OtpExpirationMinutes);
+        var addedCount = 0;
+        var usedTimeSlots = new HashSet<int>();
+
+        foreach (var lectureId in lectureIds.Distinct())
+        {
+            var lecture = await _db.Lectures.FindAsync(lectureId);
+            if (lecture is null || !lecture.IsPreRegistrationEnabled) continue;
+
+            if (usedTimeSlots.Contains(lecture.TimeSlotId)) continue;
+            usedTimeSlots.Add(lecture.TimeSlotId);
+
+            var existingInSlot = await _db.PreRegistrations
+                .FirstOrDefaultAsync(p => p.Lecture.TimeSlotId == lecture.TimeSlotId && p.AttendeeEmail == email && p.IsVerified);
+            if (existingInSlot is not null)
+                _db.PreRegistrations.Remove(existingInSlot);
+
+            var sameLecture = await _db.PreRegistrations
+                .AnyAsync(p => p.LectureId == lectureId && p.AttendeeEmail == email && p.IsVerified);
+            if (sameLecture) continue;
+
+            _db.PreRegistrations.Add(new PreRegistration
+            {
+                LectureId = lectureId,
+                AttendeeEmail = email,
+                RegisteredAt = now,
+                OtpCode = otpCode,
+                ExpiresAt = expiresAt,
+                IsVerified = false
+            });
+            addedCount++;
+        }
+
+        if (addedCount == 0)
+            return new PreRegisterResult { Success = false, Message = "Nenhuma palestra nova para inscrever." };
+
+        await _db.SaveChangesAsync();
+
+        try
+        {
+            await _emailService.SendOtpEmailAsync(email, otpCode, "Inscrição SASC 26");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send pre-registration OTP to {Email}", email);
+        }
+
+        return new PreRegisterResult
+        {
+            Success = true,
+            Message = $"Código enviado para {email}. Verifique sua caixa de entrada."
+        };
+    }
+
+    public async Task<PreRegisterResult> VerifyPreRegistrationOtpAsync(string email, string code)
+    {
+        email = email.Trim().ToLowerInvariant();
+        var codeTrimmed = code.Trim();
+        var now = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, BrasiliaTz);
+
+        var pending = await _db.PreRegistrations
+            .Where(p => p.AttendeeEmail == email && !p.IsVerified && p.OtpCode == codeTrimmed)
+            .ToListAsync();
+
+        if (pending.Count == 0)
+            return new PreRegisterResult { Success = false, Message = "Código inválido." };
+
+        if (pending.Any(p => now > p.ExpiresAt))
+            return new PreRegisterResult { Success = false, Message = "O código expirou. Tente novamente." };
+
+        foreach (var p in pending)
+            p.IsVerified = true;
+
+        await _db.SaveChangesAsync();
+
+        return new PreRegisterResult
+        {
+            Success = true,
+            Message = $"Inscrição confirmada! Você se inscreveu em {pending.Count} palestra(s)."
+        };
+    }
+
+    public async Task<HashSet<int>> GetPreRegisteredLectureIdsAsync(string email)
+    {
+        email = email.Trim().ToLowerInvariant();
+        return await _db.PreRegistrations
+            .Where(p => p.AttendeeEmail == email && p.IsVerified)
+            .Select(p => p.LectureId)
+            .ToHashSetAsync();
+    }
+
     public async Task<SubmitCheckInResult> SubmitCheckInAsync(SubmitCheckInDto dto)
     {
         var email = dto.Email.Trim().ToLowerInvariant();

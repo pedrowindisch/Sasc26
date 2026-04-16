@@ -1,0 +1,325 @@
+@{
+    ViewData["Title"] = "Programação";
+}
+
+@section Styles {
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="~/css/bulmaswatch.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; background: #f5f5f5; min-height: 100vh; display: flex; flex-direction: column; }
+        .page-header { background: #113D76; padding: 24px 20px; text-align: center; }
+        .page-header img.logo { width: 44px; height: 44px; margin-bottom: 8px; }
+        .page-header h1 { font-size: 1.1rem; font-weight: 700; color: #fff; margin: 0; }
+        .page-header p { font-size: 0.7rem; color: rgba(255,255,255,0.5); margin: 4px 0 0; text-transform: uppercase; letter-spacing: 0.05em; }
+        .container-area { max-width: 560px; margin: 0 auto; padding: 20px 16px; flex: 1; width: 100%; }
+        .step-section { display: none; }
+        .step-section.active { display: block; }
+
+        .day-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 18px; }
+        .day-tab { padding: 8px 14px; border-radius: 100px; font-size: 0.78rem; font-weight: 600; background: #fff; color: #666; border: 1.5px solid #e0e0e0; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+        .day-tab:hover { border-color: #2EBDEF; color: #113D76; }
+        .day-tab.active { background: #113D76; color: #fff; border-color: #113D76; }
+        .day-tab .tab-count { display: inline-block; background: rgba(0,0,0,0.15); border-radius: 100px; padding: 0 6px; font-size: 0.65rem; margin-left: 4px; }
+        .day-tab.active .tab-count { background: rgba(255,255,255,0.25); }
+
+        .lecture-card { background: #fff; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); padding: 16px 20px; margin-bottom: 12px; cursor: pointer; transition: border-color 0.2s; border: 2px solid transparent; }
+        .lecture-card:hover { border-color: #2EBDEF; }
+        .lecture-card.selected { border-color: #113D76; background: #f8faff; }
+        .lecture-card.disabled { opacity: 0.6; cursor: default; pointer-events: none; }
+        .lecture-card .l-title { font-size: 0.9rem; font-weight: 700; color: #1a1a1a; margin-bottom: 2px; }
+        .lecture-card .l-speaker { font-size: 0.8rem; color: #666; }
+
+        .pre-reg-badge { display: inline-block; padding: 2px 8px; border-radius: 100px; font-size: 0.65rem; font-weight: 600; margin-top: 6px; }
+        .pre-reg-badge.open { background: #ecfdf5; color: #059669; }
+        .pre-reg-badge.closed { background: #f3f4f6; color: #9ca3af; }
+        .pre-reg-badge.registered { background: #eff6ff; color: #1d4ed8; }
+
+        .check-icon { float: right; width: 22px; height: 22px; border-radius: 50%; border: 2px solid #ddd; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; color: transparent; transition: all 0.2s; margin-top: 2px; }
+        .lecture-card.selected .check-icon { border-color: #113D76; background: #113D76; color: #fff; }
+        .lecture-card.disabled .check-icon { border-color: transparent; background: transparent; color: transparent; }
+
+        .input:focus { border-color: #2EBDEF; box-shadow: 0 0 0 3px rgba(46,189,239,0.15); }
+        .button.is-brand { background-color: #113D76; color: #fff; }
+        .button.is-brand:hover { background-color: #0d2d5a; color: #fff; }
+        .button.is-brand:disabled { background-color: #bbb; color: #fff; }
+
+        .otp-input { letter-spacing: 6px; font-size: 1.25rem; font-weight: 600; text-align: center; }
+        .msg-error { background: #fef2f2; color: #b91c1c; padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; margin-bottom: 12px; }
+        .msg-success { background: #ecfdf5; color: #047857; padding: 12px 14px; border-radius: 8px; font-size: 0.85rem; margin-bottom: 12px; line-height: 1.5; }
+        .msg-info { padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; margin-bottom: 12px; }
+        .empty-state { text-align: center; padding: 40px 20px; color: #bbb; font-size: 0.85rem; }
+
+        .section-label { font-size: 0.7rem; font-weight: 600; color: #bbb; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 12px; }
+        .back-link { display: inline-block; margin-top: 12px; font-size: 0.8rem; color: #aaa; cursor: pointer; }
+        .back-link:hover { color: #555; }
+        .nav-links { text-align: center; margin-top: 24px; }
+        .nav-links a { font-size: 0.8rem; color: #aaa; }
+        .nav-links a:hover { color: #555; }
+        .submit-bar { position: sticky; bottom: 0; background: #fff; padding: 14px 0; border-top: 1px solid #eee; margin-top: 8px; z-index: 10; }
+        .shift-divider { margin: 20px 0 10px; padding-bottom: 6px; border-bottom: 2px solid #113D76; display: flex; align-items: baseline; gap: 8px; }
+        .shift-divider .shift-label { font-size: 0.78rem; font-weight: 700; color: #113D76; text-transform: uppercase; letter-spacing: 0.03em; }
+        .shift-divider .shift-hint { font-size: 0.65rem; color: #999; font-weight: 400; }
+    </style>
+}
+
+<div class="page-header">
+    <img class="logo" src="~/dasc.svg" alt="DASC">
+    <h1>SASC 26 - Programação</h1>
+    <p>Semana Acadêmica de Sistemas e Computação</p>
+</div>
+
+<div class="container-area">
+    <div id="messageArea"></div>
+
+    <div class="step-section active" id="stepEmail">
+        <div class="field">
+            <label class="label is-small has-text-grey">Seu e-mail</label>
+            <div class="control"><input class="input" type="email" id="emailInput" placeholder="seu.nome@furb.br" autocomplete="email" autofocus></div>
+        </div>
+        <div class="field" style="margin-top:14px;">
+            <div class="control"><button class="button is-brand is-fullwidth" id="btnContinue" onclick="loadScheduleWithEmail()">Ver programação</button></div>
+        </div>
+        <div class="nav-links"><a href="/">&#8592; Registrar presença</a></div>
+    </div>
+
+    <div class="step-section" id="stepSchedule">
+        <p class="email-hint" id="emailDisplay" style="font-size:0.8rem;color:#999;margin-bottom:14px;"></p>
+        <div id="dayTabs" class="day-tabs"></div>
+        <div id="lectureContainer"><div class="empty-state">Selecione um dia acima.</div></div>
+        <div class="submit-bar">
+            <button class="button is-brand is-fullwidth" id="btnSubmit" onclick="submitPreRegistration()" disabled>Registrar inscrição</button>
+        </div>
+        <a class="back-link" onclick="goBackToEmail()">&#8592; Voltar</a>
+    </div>
+
+    <div class="step-section" id="stepOtp">
+        <div class="msg-info">Enviamos um código de verificação para <strong id="otpEmailDisplay"></strong>.</div>
+        <div id="otpMsg"></div>
+        <div class="field">
+            <label class="label is-small has-text-grey">Código de verificação</label>
+            <div class="control"><input class="input otp-input" type="text" id="otpInput" maxlength="6" inputmode="numeric" pattern="[0-9]*" placeholder="000000" autocomplete="one-time-code"></div>
+        </div>
+        <div class="field" style="margin-top:14px;">
+            <div class="control"><button class="button is-brand is-fullwidth" id="btnVerifyOtp" onclick="verifyOtp()">Confirmar inscrição</button></div>
+        </div>
+        <a class="back-link" onclick="goBackToSchedule()">&#8592; Voltar e alterar seleção</a>
+    </div>
+
+    <div class="step-section" id="stepSuccess">
+        <div class="msg-success has-text-centered" id="successMessage" style="padding:20px;font-size:0.9rem;"></div>
+        <div style="text-align:center;margin-top:16px;">
+            <button class="button is-brand" onclick="resetForm()">Nova inscrição</button>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    let currentEmail = '';
+    let selectedIds = {};
+    let allLectures = [];
+    let activeDay = null;
+
+    function showMessage(t, type) { document.getElementById('messageArea').innerHTML = t ? `<div class="msg-${type}">${t}</div>` : ''; }
+    function clearMessage() { document.getElementById('messageArea').innerHTML = ''; }
+    function showStep(s) { document.querySelectorAll('.step-section').forEach(el => el.classList.remove('active')); document.getElementById('step' + s).classList.add('active'); }
+    function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+    function fmtDate(iso) { const [y,m,d] = iso.split('-'); const dt = new Date(y, m-1, d); return dt.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' }); }
+
+    async function loadScheduleWithEmail() {
+        const email = document.getElementById('emailInput').value.trim();
+        if (!email) { showMessage('Informe seu e-mail.', 'error'); return; }
+        currentEmail = email;
+        clearMessage();
+        const btn = document.getElementById('btnContinue');
+        btn.classList.add('is-loading'); btn.disabled = true;
+        try {
+            const res = await fetch(`/Home/GetSchedule?email=${encodeURIComponent(email)}`);
+            const data = await res.json();
+            if (!data.success) { showMessage('Erro ao carregar.', 'error'); return; }
+            allLectures = data.lectures || [];
+            selectedIds = {};
+            activeDay = null;
+            renderDayTabs();
+            document.getElementById('emailDisplay').textContent = email;
+            showStep('Schedule');
+        } catch { showMessage('Erro de conexão.', 'error'); }
+        finally { btn.classList.remove('is-loading'); btn.disabled = false; }
+    }
+
+    function renderDayTabs() {
+        const tabs = document.getElementById('dayTabs');
+        const days = [...new Set(allLectures.map(l => l.date))].sort();
+        if (days.length === 0) {
+            tabs.innerHTML = '';
+            document.getElementById('lectureContainer').innerHTML = '<div class="empty-state">Nenhuma palestra cadastrada ainda.</div>';
+            return;
+        }
+        tabs.innerHTML = days.map(d => {
+            const regCount = allLectures.filter(l => l.date === d && l.alreadyRegistered).length;
+            const selCount = Object.keys(selectedIds).filter(tsId => {
+                const l = allLectures.find(x => x.timeSlotId === parseInt(tsId));
+                return l && l.date === d;
+            }).length;
+            const count = regCount + selCount;
+            return `<div class="day-tab${activeDay === d ? ' active' : ''}" onclick="selectDay('${d}')">
+                ${fmtDate(d)}${count > 0 ? `<span class="tab-count">${count}</span>` : ''}
+            </div>`;
+        }).join('');
+        if (!activeDay) selectDay(days[0]);
+        else renderDayLectures();
+    }
+
+    function selectDay(day) {
+        activeDay = day;
+        document.querySelectorAll('.day-tab').forEach(t => t.classList.remove('active'));
+        const tabs = document.querySelectorAll('.day-tab');
+        const days = [...new Set(allLectures.map(l => l.date))].sort();
+        const idx = days.indexOf(day);
+        if (idx >= 0 && tabs[idx]) tabs[idx].classList.add('active');
+        renderDayLectures();
+    }
+
+    function renderDayLectures() {
+        const container = document.getElementById('lectureContainer');
+        if (!activeDay) { container.innerHTML = '<div class="empty-state">Selecione um dia acima.</div>'; return; }
+        const dayLectures = allLectures.filter(l => l.date === activeDay);
+        if (dayLectures.length === 0) { container.innerHTML = '<div class="empty-state">Nenhuma palestra neste dia.</div>'; return; }
+
+        const shiftGroups = {};
+        for (const l of dayLectures) {
+            const key = l.timeSlotId;
+            if (!shiftGroups[key]) shiftGroups[key] = { shift: l.shift, label: l.timeSlotLabel, lectures: [] };
+            shiftGroups[key].lectures.push(l);
+        }
+
+        let html = '';
+        for (const [tsId, group] of Object.entries(shiftGroups)) {
+            html += `<div class="shift-divider"><span class="shift-label">${esc(group.shift)}</span><span class="shift-hint">${esc(group.label)} &middot; Escolha até 1</span></div>`;
+            for (const l of group.lectures) {
+                const isReg = l.alreadyRegistered;
+                const isOpen = l.isPreRegistrationEnabled;
+                let badge = '';
+                let cardClass = 'lecture-card';
+                if (isReg && selectedIds[tsId] === undefined) { badge = '<span class="pre-reg-badge registered">Inscrito</span>'; }
+                else if (isOpen) { badge = '<span class="pre-reg-badge open">Inscrições Abertas</span>'; }
+                else { badge = '<span class="pre-reg-badge closed">Inscrições Encerradas</span>'; cardClass += ' disabled'; }
+
+                const sel = selectedIds[tsId] === l.id || (isReg && selectedIds[tsId] === undefined);
+                if (sel) cardClass += ' selected';
+
+                html += `<div class="${cardClass}" data-id="${l.id}" data-ts="${tsId}" ${isOpen ? `onclick="toggleLecture(${l.id}, ${tsId}, this)"` : ''}>
+                    <div class="check-icon">&#10003;</div>
+                    <div class="l-title">${esc(l.title)}</div>
+                    <div class="l-speaker">${esc(l.speaker)}</div>
+                    ${badge}
+                </div>`;
+            }
+        }
+        container.innerHTML = html;
+        updateSubmitBtn();
+    }
+
+    function toggleLecture(id, tsId, el) {
+        const prev = selectedIds[tsId];
+        if (prev === id) {
+            delete selectedIds[tsId];
+            el.classList.remove('selected');
+        } else {
+            if (prev !== undefined) {
+                const prevEl = document.querySelector(`.lecture-card[data-id="${prev}"]`);
+                if (prevEl) prevEl.classList.remove('selected');
+            }
+            selectedIds[tsId] = id;
+            el.classList.add('selected');
+        }
+        updateSubmitBtn();
+        renderDayTabs();
+    }
+
+    function updateSubmitBtn() {
+        const btn = document.getElementById('btnSubmit');
+        const hasChanges = Object.keys(selectedIds).length > 0;
+        btn.disabled = !hasChanges;
+        const count = Object.keys(selectedIds).length;
+        btn.textContent = count > 0 ? `Registrar inscrição (${count} alteração${count > 1 ? 'ões' : ''})` : 'Registrar inscrição';
+    }
+
+    async function submitPreRegistration() {
+        const ids = Object.values(selectedIds);
+        if (ids.length === 0) return;
+        clearMessage();
+        const btn = document.getElementById('btnSubmit');
+        btn.classList.add('is-loading'); btn.disabled = true;
+        try {
+            const res = await fetch('/Home/PreRegister', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: currentEmail, lectureIds: ids })
+            });
+            const data = await res.json();
+            if (data.success) {
+                document.getElementById('otpEmailDisplay').textContent = currentEmail;
+                document.getElementById('otpInput').value = '';
+                document.getElementById('otpMsg').innerHTML = '';
+                showStep('Otp');
+                setTimeout(() => document.getElementById('otpInput').focus(), 100);
+            } else {
+                showMessage(data.message, 'error');
+                btn.classList.remove('is-loading'); btn.disabled = false;
+            }
+        } catch {
+            showMessage('Erro de conexão.', 'error');
+            btn.classList.remove('is-loading'); btn.disabled = false;
+        }
+    }
+
+    async function verifyOtp() {
+        const code = document.getElementById('otpInput').value.trim();
+        if (code.length !== 6) { document.getElementById('otpMsg').innerHTML = '<div class="msg-error">Digite o código de 6 dígitos.</div>'; return; }
+        const btn = document.getElementById('btnVerifyOtp');
+        btn.classList.add('is-loading'); btn.disabled = true;
+        document.getElementById('otpMsg').innerHTML = '';
+        try {
+            const res = await fetch('/Home/VerifyPreRegistration', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: currentEmail, code })
+            });
+            const data = await res.json();
+            if (data.success) {
+                clearMessage();
+                document.getElementById('successMessage').textContent = data.message;
+                showStep('Success');
+            } else {
+                document.getElementById('otpMsg').innerHTML = `<div class="msg-error">${data.message}</div>`;
+                btn.classList.remove('is-loading'); btn.disabled = false;
+            }
+        } catch {
+            document.getElementById('otpMsg').innerHTML = '<div class="msg-error">Erro de conexão.</div>';
+            btn.classList.remove('is-loading'); btn.disabled = false;
+        }
+    }
+
+    function goBackToEmail() { clearMessage(); showStep('Email'); }
+    function goBackToSchedule() { showStep('Schedule'); document.getElementById('otpInput').value = ''; }
+
+    function resetForm() {
+        clearMessage();
+        currentEmail = '';
+        selectedIds = {};
+        allLectures = [];
+        activeDay = null;
+        document.getElementById('emailInput').value = '';
+        document.getElementById('otpInput').value = '';
+        document.getElementById('otpMsg').innerHTML = '';
+        showStep('Email');
+    }
+
+    document.getElementById('emailInput').addEventListener('keydown', e => { if (e.key === 'Enter') loadScheduleWithEmail(); });
+    document.getElementById('otpInput').addEventListener('keydown', e => { if (e.key === 'Enter') verifyOtp(); });
+    document.getElementById('otpInput').addEventListener('input', e => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6); });
+</script>
+}

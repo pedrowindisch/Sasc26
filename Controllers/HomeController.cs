@@ -49,6 +49,49 @@ public class HomeController : Controller
         return Json(new { success = true, lectures });
     }
 
+    [HttpGet]
+    public async Task<IActionResult> Schedule()
+    {
+        var lectures = await _attendanceService.GetAllLecturesAsync();
+        return View(lectures);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetSchedule(string? email)
+    {
+        var lectures = await _attendanceService.GetAllLecturesAsync();
+        if (!string.IsNullOrWhiteSpace(email))
+        {
+            email = email.Trim().ToLowerInvariant();
+            var registeredIds = await _attendanceService.GetPreRegisteredLectureIdsAsync(email);
+            foreach (var l in lectures)
+                l.AlreadyRegistered = registeredIds.Contains(l.Id);
+        }
+        return Json(new { success = true, lectures });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> PreRegister([FromBody] PreRegisterDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.Email))
+            return Json(new { success = false, message = "Informe seu e-mail." });
+        if (dto.LectureIds == null || dto.LectureIds.Count == 0)
+            return Json(new { success = false, message = "Selecione pelo menos uma palestra." });
+        var result = await _attendanceService.SubmitPreRegistrationBatchAsync(dto.Email, dto.LectureIds);
+        return Json(new { result.Success, result.Message });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> VerifyPreRegistration([FromBody] VerifyPreRegDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.Email))
+            return Json(new { success = false, message = "E-mail não informado." });
+        if (string.IsNullOrWhiteSpace(dto.Code))
+            return Json(new { success = false, message = "Informe o código." });
+        var result = await _attendanceService.VerifyPreRegistrationOtpAsync(dto.Email, dto.Code);
+        return Json(new { result.Success, result.Message });
+    }
+
     [HttpPost]
     public async Task<IActionResult> RequestOtp([FromBody] RequestOtpDto dto)
     {

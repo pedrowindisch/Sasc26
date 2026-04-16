@@ -16,13 +16,22 @@ public interface IAdminService
     Task<List<Lecture>> GetAllLecturesAsync();
     Task<Lecture> CreateLectureAsync(string title, string speaker, int timeSlotId);
     Task<bool> DeleteLectureAsync(int lectureId);
-    Task<TimeSlot> CreateTimeSlotAsync(DateTime startTime, DateTime endTime);
+    Task<TimeSlot> CreateTimeSlotAsync(DateTime startTime, DateTime endTime, string shift);
     Task<bool> DeleteTimeSlotAsync(int timeSlotId);
+    Task TogglePreRegistrationAsync(int lectureId);
+    Task<List<PreRegistrationEntryDto>> GetPreRegistrationsAsync(int lectureId);
+    Task<Dictionary<int, int>> GetPreRegistrationCountsAsync();
 }
 
 public class AdminOtpResult { public bool Success { get; set; } public string Message { get; set; } = string.Empty; }
 public class AdminLoginResult { public bool Success { get; set; } public string Message { get; set; } = string.Empty; }
 public class ManualCheckInResult { public bool Success { get; set; } public string Message { get; set; } = string.Empty; }
+
+public class PreRegistrationEntryDto
+{
+    public string AttendeeEmail { get; set; } = string.Empty;
+    public DateTime RegisteredAt { get; set; }
+}
 
 public class CheckInEntryDto
 {
@@ -218,9 +227,9 @@ public class AdminService : IAdminService
         return true;
     }
 
-    public async Task<TimeSlot> CreateTimeSlotAsync(DateTime startTime, DateTime endTime)
+    public async Task<TimeSlot> CreateTimeSlotAsync(DateTime startTime, DateTime endTime, string shift)
     {
-        var ts = new TimeSlot { StartTime = startTime, EndTime = endTime };
+        var ts = new TimeSlot { StartTime = startTime, EndTime = endTime, Shift = shift };
         _db.TimeSlots.Add(ts);
         await _db.SaveChangesAsync();
         return ts;
@@ -233,6 +242,36 @@ public class AdminService : IAdminService
         _db.TimeSlots.Remove(ts);
         await _db.SaveChangesAsync();
         return true;
+    }
+
+    public async Task TogglePreRegistrationAsync(int lectureId)
+    {
+        var lecture = await _db.Lectures.FindAsync(lectureId);
+        if (lecture is null) return;
+        lecture.IsPreRegistrationEnabled = !lecture.IsPreRegistrationEnabled;
+        await _db.SaveChangesAsync();
+    }
+
+    public async Task<List<PreRegistrationEntryDto>> GetPreRegistrationsAsync(int lectureId)
+    {
+        return await _db.PreRegistrations
+            .Where(p => p.LectureId == lectureId && p.IsVerified)
+            .OrderByDescending(p => p.RegisteredAt)
+            .Select(p => new PreRegistrationEntryDto
+            {
+                AttendeeEmail = p.AttendeeEmail,
+                RegisteredAt = p.RegisteredAt
+            })
+            .ToListAsync();
+    }
+
+    public async Task<Dictionary<int, int>> GetPreRegistrationCountsAsync()
+    {
+        return await _db.PreRegistrations
+            .Where(p => p.IsVerified)
+            .GroupBy(p => p.LectureId)
+            .Select(g => new { LectureId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.LectureId, x => x.Count);
     }
 
     private static string[] GenerateKeywords()

@@ -11,6 +11,7 @@ public class AppDbContext : DbContext
     public DbSet<Lecture> Lectures => Set<Lecture>();
     public DbSet<Attendee> Attendees => Set<Attendee>();
     public DbSet<CheckIn> CheckIns => Set<CheckIn>();
+    public DbSet<PreRegistration> PreRegistrations => Set<PreRegistration>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -48,12 +49,24 @@ public class AppDbContext : DbContext
                   .WithOne(c => c.Lecture)
                   .HasForeignKey(c => c.LectureId)
                   .OnDelete(DeleteBehavior.SetNull);
+            entity.HasMany(e => e.PreRegistrations)
+                  .WithOne(p => p.Lecture)
+                  .HasForeignKey(p => p.LectureId)
+                  .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<CheckIn>(entity =>
         {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.OtpCode).IsRequired().HasMaxLength(6);
+        });
+
+        modelBuilder.Entity<PreRegistration>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.AttendeeEmail).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.OtpCode).IsRequired().HasMaxLength(6);
+            entity.HasIndex(e => new { e.LectureId, e.AttendeeEmail }).IsUnique();
         });
     }
 }

@@ -41,3 +41,15 @@ public class LectureDto
     public string Title { get; set; } = string.Empty;
     public string Speaker { get; set; } = string.Empty;
 }
+
+public class PreRegisterDto
+{
+    public string Email { get; set; } = string.Empty;
+    public List<int> LectureIds { get; set; } = [];
+}
+
+public class VerifyPreRegDto
+{
+    public string Email { get; set; } = string.Empty;
+    public string Code { get; set; } = string.Empty;
+}

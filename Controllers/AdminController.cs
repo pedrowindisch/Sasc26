@@ -50,6 +50,7 @@ public class AdminController : Controller
         if (!IsAdminLoggedIn) return RedirectToAction(nameof(Index));
         ViewBag.TimeSlots = await _adminService.GetAllTimeSlotsAsync();
         ViewBag.Lectures = await _adminService.GetAllLecturesAsync();
+        ViewBag.PreRegCounts = await _adminService.GetPreRegistrationCountsAsync();
         return View();
     }
 
@@ -93,7 +94,7 @@ public class AdminController : Controller
     public async Task<IActionResult> CreateTimeSlot([FromBody] CreateTimeSlotDto dto)
     {
         if (!IsAdminLoggedIn) return Json(new { success = false, message = "Não autenticado." });
-        var ts = await _adminService.CreateTimeSlotAsync(dto.StartTime, dto.EndTime);
+        var ts = await _adminService.CreateTimeSlotAsync(dto.StartTime, dto.EndTime, dto.Shift);
         return Json(new { success = true, timeSlot = ts });
     }
 
@@ -103,6 +104,37 @@ public class AdminController : Controller
         if (!IsAdminLoggedIn) return Json(new { success = false });
         var ok = await _adminService.DeleteTimeSlotAsync(dto.TimeSlotId);
         return Json(new { success = ok });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> TogglePreRegistration([FromBody] TogglePreRegDto dto)
+    {
+        if (!IsAdminLoggedIn) return Json(new { success = false, message = "Não autenticado." });
+        await _adminService.TogglePreRegistrationAsync(dto.LectureId);
+        return Json(new { success = true });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> PreRegistrations(int lectureId)
+    {
+        if (!IsAdminLoggedIn) return RedirectToAction(nameof(Index));
+        var lecture = (await _adminService.GetAllLecturesAsync()).FirstOrDefault(l => l.Id == lectureId);
+        if (lecture is null) return RedirectToAction(nameof(Dashboard));
+        var entries = await _adminService.GetPreRegistrationsAsync(lectureId);
+        ViewBag.Lecture = lecture;
+        ViewBag.Entries = entries;
+        return View();
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> ExportPreRegistrationsCsv(int lectureId)
+    {
+        if (!IsAdminLoggedIn) return RedirectToAction(nameof(Index));
+        var entries = await _adminService.GetPreRegistrationsAsync(lectureId);
+        var lecture = (await _adminService.GetAllLecturesAsync()).FirstOrDefault(l => l.Id == lectureId);
+        var csv = "Email,Data_Inscricao\n" + string.Join("\n", entries.Select(e => $"{e.AttendeeEmail},{e.RegisteredAt:yyyy-MM-dd HH:mm:ss}"));
+        var fileName = $"inscricoes_{lecture?.Title?.Replace(" ", "_") ?? lectureId.ToString()}.csv";
+        return File(System.Text.Encoding.UTF8.GetBytes(csv), "text/csv", fileName);
     }
 
     [HttpPost]
@@ -118,5 +150,6 @@ public class AdminVerifyDto { public string Email { get; set; } = string.Empty; 
 public class ManualCheckInDto { public string Email { get; set; } = string.Empty; public string FullName { get; set; } = string.Empty; public string? Course { get; set; } public string? Shift { get; set; } public int Phase { get; set; } public int LectureId { get; set; } }
 public class CreateLectureDto { public string Title { get; set; } = string.Empty; public string Speaker { get; set; } = string.Empty; public int TimeSlotId { get; set; } }
 public class DeleteLectureDto { public int LectureId { get; set; } }
-public class CreateTimeSlotDto { public DateTime StartTime { get; set; } public DateTime EndTime { get; set; } }
+public class CreateTimeSlotDto { public DateTime StartTime { get; set; } public DateTime EndTime { get; set; } public string Shift { get; set; } = string.Empty; }
 public class DeleteTimeSlotDto { public int TimeSlotId { get; set; } }
+public class TogglePreRegDto { public int LectureId { get; set; } }

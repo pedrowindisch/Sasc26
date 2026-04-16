@@ -72,7 +72,8 @@ static async Task SeedDatabaseAsync(WebApplication app)
             db.TimeSlots.Add(new TimeSlot
             {
                 StartTime = ts.StartTime,
-                EndTime = ts.EndTime
+                EndTime = ts.EndTime,
+                Shift = ts.Shift
             });
         }
 

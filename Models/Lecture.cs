@@ -10,5 +10,7 @@ public class Lecture
     public string Keyword1 { get; set; } = string.Empty;
     public string Keyword2 { get; set; } = string.Empty;
     public string Keyword3 { get; set; } = string.Empty;
+    public bool IsPreRegistrationEnabled { get; set; }
     public ICollection<CheckIn> CheckIns { get; set; } = new List<CheckIn>();
+    public ICollection<PreRegistration> PreRegistrations { get; set; } = new List<PreRegistration>();
 }

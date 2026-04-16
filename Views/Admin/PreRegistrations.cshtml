@@ -1,0 +1,106 @@
+@{
+    ViewData["Title"] = "Inscritos";
+    Layout = null;
+    var lecture = ViewBag.Lecture as Sasc26.Models.Lecture;
+    var entries = ViewBag.Entries as List<Sasc26.Services.PreRegistrationEntryDto> ?? new();
+}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - SASC 26</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@1.0.4/css/bulma.min.css" />
+    <link rel="stylesheet" href="~/css/bulmaswatch.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background: #f5f5f5; min-height: 100vh; }
+        .nav-bar { background: #113D76; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; }
+        .nav-bar h1 { font-size: 0.95rem; font-weight: 700; color: #fff; margin: 0; }
+        .nav-bar a { font-size: 0.8rem; color: rgba(255,255,255,0.6); }
+        .nav-bar a:hover { color: #fff; }
+        .container-area { max-width: 700px; margin: 0 auto; padding: 24px 16px; }
+        .panel-card { background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); padding: 24px; margin-bottom: 20px; }
+        .panel-card h2 { font-size: 0.95rem; font-weight: 700; color: #1a1a1a; margin: 0 0 4px; }
+        .panel-card .subtitle { font-size: 0.8rem; color: #888; margin: 0 0 16px; }
+        .table { font-size: 0.82rem; }
+        .table th { font-weight: 600; color: #555; }
+        .button.is-brand { background-color: #113D76; color: #fff; }
+        .button.is-brand:hover { background-color: #0d2d5a; color: #fff; }
+        .button.is-brand.is-light { background-color: #fff; color: #113D76; border: 1px solid #113D76; }
+        .button.is-brand.is-light:hover { background-color: #113D76; color: #fff; }
+        .stat-row { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+        .stat-box { background: #f8faff; border-radius: 8px; padding: 12px 16px; flex: 1; min-width: 120px; text-align: center; border: 1px solid #e0e4f0; }
+        .stat-box .num { font-size: 1.3rem; font-weight: 700; color: #113D76; }
+        .stat-box .lbl { font-size: 0.65rem; color: #999; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
+        .empty-state { text-align: center; padding: 32px; color: #bbb; font-size: 0.85rem; }
+        .actions { display: flex; gap: 8px; margin-bottom: 16px; }
+        .copied-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #113D76; color: #fff; padding: 10px 20px; border-radius: 8px; font-size: 0.85rem; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+        .copied-toast.show { opacity: 1; }
+    </style>
+</head>
+<body>
+    <div class="nav-bar">
+        <h1>Inscritos - @lecture?.Title</h1>
+        <a href="/Admin/Dashboard">&#8592; Dashboard</a>
+    </div>
+
+    <div class="container-area">
+        <div class="panel-card">
+            <h2>@lecture?.Title</h2>
+            <p class="subtitle">@lecture?.Speaker &middot; @lecture?.TimeSlot.StartTime.ToString("dd/MM HH:mm") - @lecture?.TimeSlot.EndTime.ToString("HH:mm")</p>
+
+            <div class="stat-row">
+                <div class="stat-box"><div class="num">@entries.Count</div><div class="lbl">Inscritos</div></div>
+                <div class="stat-box"><div class="num">@entries.Count(e => e.AttendeeEmail.EndsWith("@@furb.br", StringComparison.OrdinalIgnoreCase))</div><div class="lbl">@@furb.br</div></div>
+                <div class="stat-box"><div class="num">@entries.Count(e => !e.AttendeeEmail.EndsWith("@@furb.br", StringComparison.OrdinalIgnoreCase))</div><div class="lbl">Externo</div></div>
+            </div>
+
+            <div class="actions">
+                <button class="button is-brand is-light is-small" onclick="copyEmails()">Copiar e-mails</button>
+                <a href="/Admin/ExportPreRegistrationsCsv?lectureId=@lecture?.Id" class="button is-brand is-light is-small">Exportar CSV</a>
+            </div>
+
+            @if (entries.Count == 0)
+            {
+                <div class="empty-state">Nenhum inscrito ainda.</div>
+            }
+            else
+            {
+                <table class="table is-fullwidth is-hoverable is-striped">
+                    <thead><tr><th>#</th><th>E-mail</th><th>Data de inscrição</th></tr></thead>
+                    <tbody>
+                        @for (int i = 0; i < entries.Count; i++)
+                        {
+                            <tr>
+                                <td>@(i + 1)</td>
+                                <td><strong>@entries[i].AttendeeEmail</strong></td>
+                                <td>@entries[i].RegisteredAt.ToString("dd/MM/yyyy HH:mm")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+
+        <div style="text-align:center;">
+            <a href="/Admin/Dashboard" style="font-size:0.8rem;color:#aaa;">&#8592; Voltar ao Dashboard</a>
+        </div>
+    </div>
+
+    <div class="copied-toast" id="toast">E-mails copiados!</div>
+
+    <script>
+        function copyEmails() {
+            const emails = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(entries.Select(e => e.AttendeeEmail).ToList()));
+            navigator.clipboard.writeText(emails.join('\n')).then(() => {
+                const toast = document.getElementById('toast');
+                toast.classList.add('show');
+                setTimeout(() => toast.classList.remove('show'), 2000);
+            });
+        }
+    </script>
+</body>
+</html>
