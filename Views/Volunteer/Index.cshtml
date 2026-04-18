@@ -1,0 +1,251 @@
+@{
+    ViewData["Title"] = "Portal do Voluntário";
+}
+
+@section Styles {
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="~/css/bulmaswatch.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; background: #f5f5f5; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+        .card-wrapper { width: 100%; max-width: 440px; padding: 0 16px; }
+        .event-card { background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); overflow: hidden; }
+        .event-header { background: #113D76; padding: 28px 24px 20px; text-align: center; }
+        .event-header img.logo { width: 56px; height: 56px; margin-bottom: 12px; }
+        .event-header h1 { font-size: 1.25rem; font-weight: 700; color: #fff; margin: 0; }
+        .event-header p { font-size: 0.75rem; color: rgba(255,255,255,0.6); margin: 4px 0 0; text-transform: uppercase; letter-spacing: 0.05em; }
+        .volunteer-tag { display: inline-block; margin-top: 12px; padding: 4px 14px; border-radius: 100px; font-size: 0.75rem; font-weight: 600; background: rgba(46,189,239,0.2); color: #2EBDEF; }
+        .event-body { padding: 8px 24px 28px; }
+        .otp-input { letter-spacing: 6px; font-size: 1.25rem; font-weight: 600; text-align: center; }
+        .step-section { display: none; padding-top: 16px; }
+        .step-section.active { display: block; }
+        .msg-error { background: #fef2f2; color: #b91c1c; padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; margin-bottom: 16px; }
+        .msg-success { background: #ecfdf5; color: #047857; padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; margin-bottom: 16px; }
+        .back-link { display: inline-block; margin-top: 12px; font-size: 0.8rem; color: #aaa; cursor: pointer; }
+        .back-link:hover { color: #555; }
+        .email-hint { font-size: 0.8rem; color: #999; margin-bottom: 16px; }
+        .field + .field { margin-top: 12px; }
+        .section-divider { border: none; border-top: 1px solid #eee; margin: 20px 0; }
+        .section-label { font-size: 0.7rem; font-weight: 600; color: #bbb; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 12px; }
+        .button.is-brand { background-color: #fff; color: #113D76; }
+        .button.is-brand:hover { background-color: #f0f0f0; color: #113D76; }
+        .button.is-outlined-brand { background-color: transparent; color: #113D76; border: 1px solid #113D76; }
+        .button.is-outlined-brand:hover { background-color: #113D76; color: #fff; }
+        .input:focus, .select select:focus { border-color: #2EBDEF; box-shadow: 0 0 0 3px rgba(46,189,239,0.15); }
+        .empty-state { text-align: center; padding: 24px 0; color: #bbb; font-size: 0.9rem; }
+        .active-slot { background: #ecfdf5; border: 2px solid #047857; border-radius: 10px; padding: 14px 16px; text-align: center; margin-bottom: 14px; }
+        .active-slot .slot-time { font-size: 1.1rem; font-weight: 700; color: #047857; }
+        .active-slot .slot-shift { font-size: 0.75rem; color: #666; margin-top: 2px; }
+        .checkin-item { background: #f8faff; border-radius: 8px; padding: 10px 14px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; }
+        .checkin-item .ci-label { font-size: 0.85rem; font-weight: 500; color: #1a1a1a; }
+        .checkin-item .ci-time { font-size: 0.72rem; color: #888; }
+        .checkin-item .ci-badge { display: inline-block; padding: 2px 10px; border-radius: 100px; font-size: 0.7rem; font-weight: 600; background: #ecfdf5; color: #059669; }
+        .volunteer-name { font-size: 1rem; font-weight: 700; color: #113D76; }
+        .volunteer-email { font-size: 0.75rem; color: #888; }
+        .dash-header { display: flex; align-items: center; justify-content: space-between; padding-top: 12px; }
+        .logout-btn { font-size: 0.75rem; color: #aaa; cursor: pointer; background: none; border: 1px solid #ddd; border-radius: 6px; padding: 4px 10px; }
+        .logout-btn:hover { color: #555; border-color: #aaa; }
+    </style>
+}
+
+<div class="card-wrapper">
+    <div class="event-card">
+        <div class="event-header">
+            <img class="logo" src="~/dasc.svg" alt="DASC">
+            <h1>Voluntário SASC 26</h1>
+            <p>Portal do Voluntário</p>
+            <span class="volunteer-tag">Staff</span>
+        </div>
+
+        <div class="event-body">
+            <div id="messageArea"></div>
+
+            <!-- Step: Email -->
+            <div class="step-section active" id="stepEmail">
+                <div class="field">
+                    <label class="label is-small has-text-grey">E-mail institucional (@@furb.br)</label>
+                    <div class="control"><input class="input" type="email" id="emailInput" placeholder="seu.nome@furb.br" autocomplete="email" autofocus></div>
+                </div>
+                <div class="field" style="margin-top:16px;">
+                    <div class="control"><button class="button is-brand is-fullwidth" id="btnContinue" onclick="lookupEmail()">Continuar</button></div>
+                </div>
+                <div class="has-text-centered" style="margin-top:12px;">
+                    <a href="/" class="back-link">Registrar presença de aluno</a>
+                    <span style="color:#ddd;margin:0 6px;">|</span>
+                    <a href="/Admin" class="back-link">Área de administração</a>
+                </div>
+            </div>
+
+            <!-- Step: Profile form (new volunteer) -->
+            <div class="step-section" id="stepProfile">
+                <p class="email-hint" id="profileEmailDisplay"></p>
+                <hr class="section-divider">
+                <p class="section-label">Dados cadastrais</p>
+                <div class="field"><label class="label is-small has-text-grey">Nome completo</label><div class="control"><input class="input" type="text" id="volunteerName" placeholder="João da Silva" autocomplete="name"></div></div>
+                <div class="field"><label class="label is-small has-text-grey">Curso</label><div class="control"><div class="select is-fullwidth"><select id="volunteerCourse"><option value="">Selecione</option><option value="Ciência da Computação">Ciência da Computação</option><option value="Ciência de Dados">Ciência de Dados</option><option value="Sistemas de Informação">Sistemas de Informação</option></select></div></div></div>
+                <div class="field"><label class="label is-small has-text-grey">Turno</label><div class="control"><div class="select is-fullwidth"><select id="volunteerShift"><option value="">Selecione</option><option value="Matutino">Matutino</option><option value="Noturno">Noturno</option></select></div></div></div>
+                <div class="field"><label class="label is-small has-text-grey">Fase</label><div class="control"><div class="select is-fullwidth"><select id="volunteerSemester"><option value="">-</option>@for (var i = 1; i <= 9; i++) {<option value="@i">@i</option>}</select></div></div></div>
+                <div class="field" style="margin-top:16px;"><div class="control"><button class="button is-brand is-fullwidth" id="btnRegister" onclick="registerVolunteer()">Cadastrar</button></div></div>
+                <a class="back-link" onclick="goBackToEmail()">&#8592; Voltar</a>
+            </div>
+
+            <!-- Step: Dashboard -->
+            <div class="step-section" id="stepDashboard">
+                <div class="dash-header">
+                    <div>
+                        <div class="volunteer-name" id="dashName"></div>
+                        <div class="volunteer-email" id="dashEmail"></div>
+                    </div>
+                    <button class="logout-btn" onclick="volunteerLogout()">Sair</button>
+                </div>
+
+                <div id="dashSlotArea"></div>
+                <div id="dashCheckInArea"></div>
+                <div id="dashHistoryArea"></div>
+
+                <div class="has-text-centered" style="margin-top:16px;">
+                    <a href="/" class="back-link">Registrar presença de aluno</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    let currentEmail = '';
+
+    function showMessage(t, type) { document.getElementById('messageArea').innerHTML = `<div class="msg-${type}">${t}</div>`; }
+    function clearMessage() { document.getElementById('messageArea').innerHTML = ''; }
+    function showStep(s) { document.querySelectorAll('.step-section').forEach(el => el.classList.remove('active')); document.getElementById('step' + s).classList.add('active'); }
+    function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+
+    // Step 1: Email lookup
+    async function lookupEmail() {
+        const email = document.getElementById('emailInput').value.trim();
+        if (!email) { showMessage('Informe seu e-mail.', 'error'); return; }
+        clearMessage();
+        const btn = document.getElementById('btnContinue');
+        btn.classList.add('is-loading'); btn.disabled = true;
+        try {
+            const res = await fetch('/Volunteer/Lookup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
+            const data = await res.json();
+            if (!data.success) { showMessage(data.message, 'error'); }
+            else {
+                currentEmail = email;
+                if (data.exists) {
+                    // Already registered, set session and go to dashboard
+                    const sessRes = await fetch('/Volunteer/SetSession', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
+                    await loadDashboard();
+                } else {
+                    // New volunteer, show profile form
+                    document.getElementById('profileEmailDisplay').textContent = email;
+                    showStep('Profile');
+                }
+            }
+        } catch { showMessage('Erro de conexão.', 'error'); }
+        finally { btn.classList.remove('is-loading'); btn.disabled = false; }
+    }
+
+    function goBackToEmail() { clearMessage(); showStep('Email'); }
+
+    // Step 2: Register new volunteer
+    async function registerVolunteer() {
+        const name = document.getElementById('volunteerName').value.trim();
+        const course = document.getElementById('volunteerCourse').value;
+        const shift = document.getElementById('volunteerShift').value;
+        const semester = parseInt(document.getElementById('volunteerSemester').value) || 0;
+        if (!name) { showMessage('Informe seu nome completo.', 'error'); return; }
+        if (!course) { showMessage('Selecione o curso.', 'error'); return; }
+        if (!shift) { showMessage('Selecione o turno.', 'error'); return; }
+        if (semester < 1) { showMessage('Selecione a fase.', 'error'); return; }
+        clearMessage();
+        const btn = document.getElementById('btnRegister');
+        btn.classList.add('is-loading'); btn.disabled = true;
+        try {
+            const res = await fetch('/Volunteer/Register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: currentEmail, name, course, shift, semester }) });
+            const data = await res.json();
+            if (data.success) { await loadDashboard(); }
+            else { showMessage(data.message, 'error'); }
+        } catch { showMessage('Erro de conexão.', 'error'); }
+        finally { btn.classList.remove('is-loading'); btn.disabled = false; }
+    }
+
+    // Dashboard
+    async function loadDashboard() {
+        clearMessage();
+        try {
+            const res = await fetch('/Volunteer/GetDashboard');
+            const data = await res.json();
+            if (!data.success) { showMessage(data.message || 'Erro ao carregar.', 'error'); return; }
+            renderDashboard(data);
+            showStep('Dashboard');
+        } catch { showMessage('Erro de conexão.', 'error'); }
+    }
+
+    function renderDashboard(data) {
+        document.getElementById('dashName').textContent = data.name;
+        document.getElementById('dashEmail').textContent = data.email;
+
+        const slotArea = document.getElementById('dashSlotArea');
+        if (data.activeTimeSlot) {
+            const at = data.activeTimeSlot;
+            slotArea.innerHTML = `
+                <div class="active-slot" style="margin-top:14px;">
+                    <div class="slot-time">${esc(at.label)}</div>
+                    <div class="slot-shift">Turno: ${esc(at.shift)}</div>
+                </div>`;
+
+            const checkInArea = document.getElementById('dashCheckInArea');
+            if (data.alreadyCheckedIn) {
+                checkInArea.innerHTML = `<button class="button is-outlined-brand is-fullwidth" disabled>Presença já registrada neste horário</button>`;
+            } else {
+                checkInArea.innerHTML = `<button class="button is-brand is-fullwidth" id="btnCheckIn" onclick="doCheckIn()">Registrar Trabalho Neste Horário</button>`;
+            }
+        } else {
+            slotArea.innerHTML = `<div class="empty-state" style="margin-top:14px;">Nenhum horário ativo no momento.</div>`;
+            document.getElementById('dashCheckInArea').innerHTML = '';
+        }
+
+        const histArea = document.getElementById('dashHistoryArea');
+        if (data.checkIns && data.checkIns.length > 0) {
+            let html = '<hr class="section-divider"><p class="section-label">Histórico de presenças</p>';
+            for (const ci of data.checkIns) {
+                const dt = new Date(ci.createdAt).toLocaleString('pt-BR');
+                html += `<div class="checkin-item">
+                    <div><div class="ci-label">${esc(ci.timeSlotLabel)}</div><div class="ci-time">${dt}</div></div>
+                    <span class="ci-badge">Confirmado</span>
+                </div>`;
+            }
+            histArea.innerHTML = html;
+        } else {
+            histArea.innerHTML = '<hr class="section-divider"><p class="section-label">Histórico de presenças</p><div class="empty-state">Nenhuma presença registrada ainda.</div>';
+        }
+    }
+
+    async function doCheckIn() {
+        const btn = document.getElementById('btnCheckIn');
+        if (!btn) return;
+        btn.classList.add('is-loading'); btn.disabled = true;
+        clearMessage();
+        try {
+            const res = await fetch('/Volunteer/CheckIn', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+            const data = await res.json();
+            if (data.success) { await loadDashboard(); }
+            else { showMessage(data.message, 'error'); btn.classList.remove('is-loading'); btn.disabled = false; }
+        } catch { showMessage('Erro de conexão.', 'error'); btn.classList.remove('is-loading'); btn.disabled = false; }
+    }
+
+    async function volunteerLogout() {
+        await fetch('/Volunteer/Logout', { method: 'POST' });
+        currentEmail = '';
+        ['emailInput', 'volunteerName'].forEach(id => document.getElementById(id).value = '');
+        ['volunteerCourse', 'volunteerShift', 'volunteerSemester'].forEach(id => document.getElementById(id).value = '');
+        clearMessage();
+        showStep('Email');
+    }
+
+    document.getElementById('emailInput').addEventListener('keydown', e => { if (e.key === 'Enter') lookupEmail(); });
+</script>
+}

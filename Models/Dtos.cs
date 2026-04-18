@@ -53,3 +53,49 @@ public class VerifyPreRegDto
     public string Email { get; set; } = string.Empty;
     public string Code { get; set; } = string.Empty;
 }
+
+public class VolunteerProfileDto
+{
+    public string Email { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string Course { get; set; } = string.Empty;
+    public string Shift { get; set; } = string.Empty;
+    public int Semester { get; set; }
+}
+
+public class VolunteerCheckInDto
+{
+    public string Email { get; set; } = string.Empty;
+}
+
+public class VolunteerDetailDto
+{
+    public Guid Id { get; set; }
+    public string Email { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string Course { get; set; } = string.Empty;
+    public string Shift { get; set; } = string.Empty;
+    public int Semester { get; set; }
+    public bool IsVerified { get; set; }
+    public DateTime RegisteredAt { get; set; }
+    public List<VolunteerCheckInEntryDto> CheckIns { get; set; } = [];
+}
+
+public class VolunteerCheckInEntryDto
+{
+    public Guid Id { get; set; }
+    public int TimeSlotId { get; set; }
+    public string TimeSlotLabel { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; }
+}
+
+public class AdminVolunteerCheckInDto
+{
+    public Guid VolunteerId { get; set; }
+    public int TimeSlotId { get; set; }
+}
+
+public class AdminRemoveVolunteerCheckInDto
+{
+    public Guid CheckInId { get; set; }
+}

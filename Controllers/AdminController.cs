@@ -9,11 +9,13 @@ public class AdminController : Controller
 {
     private const string AdminSessionKey = "AdminEmail";
     private readonly IAdminService _adminService;
+    private readonly IVolunteerService _volunteerService;
     private readonly EventSettings _settings;
 
-    public AdminController(IAdminService adminService, IOptions<EventSettings> settings)
+    public AdminController(IAdminService adminService, IVolunteerService volunteerService, IOptions<EventSettings> settings)
     {
         _adminService = adminService;
+        _volunteerService = volunteerService;
         _settings = settings.Value;
     }
 
@@ -142,6 +144,50 @@ public class AdminController : Controller
     {
         HttpContext.Session.Remove(AdminSessionKey);
         return RedirectToAction(nameof(Index));
+    }
+
+    // Volunteer Admin Endpoints
+    public async Task<IActionResult> Volunteers()
+    {
+        if (!IsAdminLoggedIn) return RedirectToAction(nameof(Index));
+        var volunteers = await _volunteerService.GetAllVolunteersAsync();
+        var timeSlots = await _adminService.GetAllTimeSlotsAsync();
+        ViewBag.Volunteers = volunteers;
+        ViewBag.TimeSlots = timeSlots;
+        return View();
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetVolunteers()
+    {
+        if (!IsAdminLoggedIn) return Json(new { success = false });
+        var volunteers = await _volunteerService.GetAllVolunteersAsync();
+        return Json(new { success = true, volunteers });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetVolunteerDetail(Guid id)
+    {
+        if (!IsAdminLoggedIn) return Json(new { success = false });
+        var volunteer = await _volunteerService.GetVolunteerByIdAsync(id);
+        if (volunteer is null) return Json(new { success = false, message = "Voluntário não encontrado." });
+        return Json(new { success = true, volunteer });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> AddVolunteerCheckIn([FromBody] AdminVolunteerCheckInDto dto)
+    {
+        if (!IsAdminLoggedIn) return Json(new { success = false, message = "Não autenticado." });
+        var result = await _volunteerService.AdminAddCheckInAsync(dto.VolunteerId, dto.TimeSlotId);
+        return Json(new { result.Success, result.Message });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> RemoveVolunteerCheckIn([FromBody] AdminRemoveVolunteerCheckInDto dto)
+    {
+        if (!IsAdminLoggedIn) return Json(new { success = false, message = "Não autenticado." });
+        var ok = await _volunteerService.AdminRemoveCheckInAsync(dto.CheckInId);
+        return Json(new { success = ok });
     }
 }
 

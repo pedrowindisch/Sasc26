@@ -12,6 +12,8 @@ public class AppDbContext : DbContext
     public DbSet<Attendee> Attendees => Set<Attendee>();
     public DbSet<CheckIn> CheckIns => Set<CheckIn>();
     public DbSet<PreRegistration> PreRegistrations => Set<PreRegistration>();
+    public DbSet<Volunteer> Volunteers => Set<Volunteer>();
+    public DbSet<VolunteerCheckIn> VolunteerCheckIns => Set<VolunteerCheckIn>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -67,6 +69,26 @@ public class AppDbContext : DbContext
             entity.Property(e => e.AttendeeEmail).IsRequired().HasMaxLength(200);
             entity.Property(e => e.OtpCode).IsRequired().HasMaxLength(6);
             entity.HasIndex(e => new { e.LectureId, e.AttendeeEmail }).IsUnique();
+        });
+
+        modelBuilder.Entity<Volunteer>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Email).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Course).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Shift).IsRequired().HasMaxLength(50);
+            entity.HasIndex(e => e.Email).IsUnique();
+            entity.HasMany(e => e.CheckIns)
+                  .WithOne(c => c.Volunteer)
+                  .HasForeignKey(c => c.VolunteerId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<VolunteerCheckIn>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.VolunteerId, e.TimeSlotId }).IsUnique();
         });
     }
 }

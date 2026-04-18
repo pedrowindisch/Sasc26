@@ -37,6 +37,7 @@ builder.Services.AddSingleton<IEmailService>(sp =>
 
 builder.Services.AddScoped<IAttendanceService, AttendanceService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
+builder.Services.AddScoped<IVolunteerService, VolunteerService>();
 
 var app = builder.Build();
 
