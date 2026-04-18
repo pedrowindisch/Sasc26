@@ -38,6 +38,7 @@ builder.Services.AddSingleton<IEmailService>(sp =>
 builder.Services.AddScoped<IAttendanceService, AttendanceService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<IVolunteerService, VolunteerService>();
+builder.Services.AddScoped<ICertificateService, CertificateService>();
 
 var app = builder.Build();
 
@@ -64,7 +65,7 @@ static async Task SeedDatabaseAsync(WebApplication app)
     var eventSettings = scope.ServiceProvider.GetRequiredService<IOptions<EventSettings>>().Value;
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
 
-    await db.Database.EnsureCreatedAsync();
+    await db.Database.MigrateAsync();
 
     if (!await db.TimeSlots.AnyAsync())
     {
@@ -74,11 +75,35 @@ static async Task SeedDatabaseAsync(WebApplication app)
             {
                 StartTime = ts.StartTime,
                 EndTime = ts.EndTime,
-                Shift = ts.Shift
+                Shift = ts.Shift,
+                CreditHours = ts.CreditHours > 0 ? ts.CreditHours : 2
             });
         }
 
         await db.SaveChangesAsync();
         logger.LogInformation("Seeded {Count} time slots", eventSettings.TimeSlots.Count);
+    }
+
+    if (!await db.CertificateConfigs.AnyAsync())
+    {
+        db.CertificateConfigs.Add(new CertificateConfig
+        {
+            TitleColor = "#113D76",
+            BodyColor = "#1a1a1a",
+            BorderColor = "#113D76"
+        });
+        await db.SaveChangesAsync();
+        logger.LogInformation("Seeded default certificate config");
+    }
+    else
+    {
+        var config = await db.CertificateConfigs.FirstOrDefaultAsync();
+        if (config is not null && string.IsNullOrEmpty(config.TitleColor))
+        {
+            config.TitleColor = "#113D76";
+            config.BodyColor = "#1a1a1a";
+            config.BorderColor = "#113D76";
+            await db.SaveChangesAsync();
+        }
     }
 }

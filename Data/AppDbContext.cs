@@ -14,6 +14,8 @@ public class AppDbContext : DbContext
     public DbSet<PreRegistration> PreRegistrations => Set<PreRegistration>();
     public DbSet<Volunteer> Volunteers => Set<Volunteer>();
     public DbSet<VolunteerCheckIn> VolunteerCheckIns => Set<VolunteerCheckIn>();
+    public DbSet<CertificateConfig> CertificateConfigs => Set<CertificateConfig>();
+    public DbSet<IssuedCertificate> IssuedCertificates => Set<IssuedCertificate>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -89,6 +91,24 @@ public class AppDbContext : DbContext
         {
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => new { e.VolunteerId, e.TimeSlotId }).IsUnique();
+        });
+
+        modelBuilder.Entity<CertificateConfig>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.TemplateMessage).IsRequired();
+            entity.Property(e => e.BackgroundImageContentType).HasMaxLength(100);
+        });
+
+        modelBuilder.Entity<IssuedCertificate>(entity =>
+        {
+            entity.HasKey(e => e.ValidationCode);
+            entity.Property(e => e.ValidationCode).HasMaxLength(100);
+            entity.Property(e => e.Email).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Course).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Phase).IsRequired().HasMaxLength(50);
+            entity.HasIndex(e => e.Email).IsUnique();
         });
     }
 }

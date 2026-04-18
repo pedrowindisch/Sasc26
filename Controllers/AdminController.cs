@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Sasc26.Data;
 using Sasc26.Models;
 using Sasc26.Services;
 
@@ -10,12 +12,16 @@ public class AdminController : Controller
     private const string AdminSessionKey = "AdminEmail";
     private readonly IAdminService _adminService;
     private readonly IVolunteerService _volunteerService;
+    private readonly ICertificateService _certificateService;
+    private readonly AppDbContext _db;
     private readonly EventSettings _settings;
 
-    public AdminController(IAdminService adminService, IVolunteerService volunteerService, IOptions<EventSettings> settings)
+    public AdminController(IAdminService adminService, IVolunteerService volunteerService, ICertificateService certificateService, AppDbContext db, IOptions<EventSettings> settings)
     {
         _adminService = adminService;
         _volunteerService = volunteerService;
+        _certificateService = certificateService;
+        _db = db;
         _settings = settings.Value;
     }
 
@@ -96,7 +102,7 @@ public class AdminController : Controller
     public async Task<IActionResult> CreateTimeSlot([FromBody] CreateTimeSlotDto dto)
     {
         if (!IsAdminLoggedIn) return Json(new { success = false, message = "Não autenticado." });
-        var ts = await _adminService.CreateTimeSlotAsync(dto.StartTime, dto.EndTime, dto.Shift);
+        var ts = await _adminService.CreateTimeSlotAsync(dto.StartTime, dto.EndTime, dto.Shift, dto.CreditHours);
         return Json(new { success = true, timeSlot = ts });
     }
 
@@ -105,6 +111,14 @@ public class AdminController : Controller
     {
         if (!IsAdminLoggedIn) return Json(new { success = false });
         var ok = await _adminService.DeleteTimeSlotAsync(dto.TimeSlotId);
+        return Json(new { success = ok });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> UpdateTimeSlotCreditHours([FromBody] UpdateTimeSlotCreditHoursDto dto)
+    {
+        if (!IsAdminLoggedIn) return Json(new { success = false, message = "Não autenticado." });
+        var ok = await _adminService.UpdateTimeSlotCreditHoursAsync(dto.TimeSlotId, dto.CreditHours);
         return Json(new { success = ok });
     }
 
@@ -189,6 +203,60 @@ public class AdminController : Controller
         var ok = await _volunteerService.AdminRemoveCheckInAsync(dto.CheckInId);
         return Json(new { success = ok });
     }
+
+    // Certificate Config Endpoints
+    public async Task<IActionResult> CertificateConfig()
+    {
+        if (!IsAdminLoggedIn) return RedirectToAction(nameof(Index));
+        var config = await _certificateService.GetConfigAsync();
+        ViewBag.CertificateConfig = config;
+        return View();
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> UpdateCertificateConfig([FromBody] CertificateConfigDto dto)
+    {
+        if (!IsAdminLoggedIn) return Json(new { success = false, message = "Não autenticado." });
+        var result = await _certificateService.UpdateConfigAsync(dto);
+        return Json(new { success = true, templateMessage = result.TemplateMessage, titleColor = result.TitleColor, bodyColor = result.BodyColor, borderColor = result.BorderColor });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> UploadCertificateBackground(IFormFile file)
+    {
+        if (!IsAdminLoggedIn) return Json(new { success = false, message = "Não autenticado." });
+        if (file is null || file.Length == 0) return Json(new { success = false, message = "Nenhum arquivo selecionado." });
+        if (file.Length > 5 * 1024 * 1024) return Json(new { success = false, message = "Arquivo muito grande (máx 5MB)." });
+        using var ms = new MemoryStream();
+        await file.CopyToAsync(ms);
+        await _certificateService.UpdateBackgroundImageAsync(ms.ToArray(), file.ContentType);
+        return Json(new { success = true });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> RemoveCertificateBackground()
+    {
+        if (!IsAdminLoggedIn) return Json(new { success = false, message = "Não autenticado." });
+        await _certificateService.RemoveBackgroundImageAsync();
+        return Json(new { success = true });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetCertificateBackground()
+    {
+        var config = await _db.CertificateConfigs.FirstOrDefaultAsync();
+        if (config?.BackgroundImage is null || config.BackgroundImage.Length == 0)
+            return NotFound();
+        return File(config.BackgroundImage, config.BackgroundImageContentType ?? "image/png");
+    }
+
+    public async Task<IActionResult> IssuedCertificates()
+    {
+        if (!IsAdminLoggedIn) return RedirectToAction(nameof(Index));
+        var certs = await _certificateService.GetAllIssuedCertificatesAsync();
+        ViewBag.Certificates = certs;
+        return View();
+    }
 }
 
 public class AdminLoginDto { public string Email { get; set; } = string.Empty; }
@@ -196,6 +264,7 @@ public class AdminVerifyDto { public string Email { get; set; } = string.Empty; 
 public class ManualCheckInDto { public string Email { get; set; } = string.Empty; public string FullName { get; set; } = string.Empty; public string? Course { get; set; } public string? Shift { get; set; } public int Phase { get; set; } public int LectureId { get; set; } }
 public class CreateLectureDto { public string Title { get; set; } = string.Empty; public string Speaker { get; set; } = string.Empty; public int TimeSlotId { get; set; } }
 public class DeleteLectureDto { public int LectureId { get; set; } }
-public class CreateTimeSlotDto { public DateTime StartTime { get; set; } public DateTime EndTime { get; set; } public string Shift { get; set; } = string.Empty; }
+public class CreateTimeSlotDto { public DateTime StartTime { get; set; } public DateTime EndTime { get; set; } public string Shift { get; set; } = string.Empty; public int CreditHours { get; set; } = 2; }
+public class UpdateTimeSlotCreditHoursDto { public int TimeSlotId { get; set; } public int CreditHours { get; set; } }
 public class DeleteTimeSlotDto { public int TimeSlotId { get; set; } }
 public class TogglePreRegDto { public int LectureId { get; set; } }

@@ -16,7 +16,8 @@ public interface IAdminService
     Task<List<Lecture>> GetAllLecturesAsync();
     Task<Lecture> CreateLectureAsync(string title, string speaker, int timeSlotId);
     Task<bool> DeleteLectureAsync(int lectureId);
-    Task<TimeSlot> CreateTimeSlotAsync(DateTime startTime, DateTime endTime, string shift);
+    Task<TimeSlot> CreateTimeSlotAsync(DateTime startTime, DateTime endTime, string shift, int creditHours = 2);
+    Task<bool> UpdateTimeSlotCreditHoursAsync(int timeSlotId, int creditHours);
     Task<bool> DeleteTimeSlotAsync(int timeSlotId);
     Task TogglePreRegistrationAsync(int lectureId);
     Task<List<PreRegistrationEntryDto>> GetPreRegistrationsAsync(int lectureId);
@@ -227,12 +228,21 @@ public class AdminService : IAdminService
         return true;
     }
 
-    public async Task<TimeSlot> CreateTimeSlotAsync(DateTime startTime, DateTime endTime, string shift)
+    public async Task<TimeSlot> CreateTimeSlotAsync(DateTime startTime, DateTime endTime, string shift, int creditHours = 2)
     {
-        var ts = new TimeSlot { StartTime = startTime, EndTime = endTime, Shift = shift };
+        var ts = new TimeSlot { StartTime = startTime, EndTime = endTime, Shift = shift, CreditHours = creditHours };
         _db.TimeSlots.Add(ts);
         await _db.SaveChangesAsync();
         return ts;
+    }
+
+    public async Task<bool> UpdateTimeSlotCreditHoursAsync(int timeSlotId, int creditHours)
+    {
+        var ts = await _db.TimeSlots.FindAsync(timeSlotId);
+        if (ts is null) return false;
+        ts.CreditHours = creditHours;
+        await _db.SaveChangesAsync();
+        return true;
     }
 
     public async Task<bool> DeleteTimeSlotAsync(int timeSlotId)

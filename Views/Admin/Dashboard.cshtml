@@ -17,18 +17,23 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; background: #f5f5f5; min-height: 100vh; }
-        .nav-bar { background: #113D76; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; }
-        .nav-bar h1 { font-size: 0.95rem; font-weight: 700; color: #fff; margin: 0; }
-        .nav-bar a { font-size: 0.8rem; color: rgba(255,255,255,0.6); }
-        .nav-bar a:hover { color: #fff; }
+        .nav-bar { background: #113D76; padding: 16px 24px; display: flex; align-items: center; gap: 16px; }
+        .nav-logo { display: flex; align-items: center; gap: 12px; flex: 1; }
+        .nav-logo img { height: 32px; }
+        .nav-logo h1 { font-size: 1rem; font-weight: 700; color: #fff; margin: 0; }
+        .nav-links { display: flex; gap: 16px; align-items: center; }
+        .nav-links a { font-size: 0.8rem; color: #2EBDEF; }
+        .nav-links a:hover { color: #fff; }
+        .nav-links a.nav-logout { color: rgba(255,255,255,0.6); }
+        .nav-links a.nav-logout:hover { color: #fff; }
         .container-area { max-width: 1200px; margin: 0 auto; padding: 24px 16px; }
         .panel-card { background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); padding: 24px; margin-bottom: 20px; }
         .panel-card h2 { font-size: 0.95rem; font-weight: 700; color: #1a1a1a; margin: 0 0 16px; }
         .input:focus, .select select:focus { border-color: #2EBDEF; box-shadow: 0 0 0 3px rgba(46,189,239,0.15); }
-        .button.is-brand { background-color: #113D76; color: #fff; }
-        .button.is-brand:hover { background-color: #0d2d5a; color: #fff; }
-        .button.is-brand.is-light { background-color: #fff; color: #113D76; border: 1px solid #113D76; }
-        .button.is-brand.is-light:hover { background-color: #113D76; color: #fff; }
+        .button.is-brand { background-color: #fff; color: #113D76; }
+        .button.is-brand:hover { background-color: #f0f0f0; color: #113D76; }
+        .button.is-outlined-brand { background-color: transparent; color: #113D76; border: 1px solid #113D76; }
+        .button.is-outlined-brand:hover { background-color: #113D76; color: #fff; }
         .button.is-danger-light { background: #fff; color: #dc2626; border: 1px solid #dc2626; }
         .button.is-danger-light:hover { background: #dc2626; color: #fff; }
         .msg-error { background: #fef2f2; color: #b91c1c; padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; margin-bottom: 12px; }
@@ -51,10 +56,14 @@
 </head>
 <body>
     <div class="nav-bar">
-        <h1>SASC 26 - Painel Administrativo</h1>
-        <div style="display:flex;gap:16px;align-items:center;">
-            <a href="/Admin/Volunteers" style="color:#2EBDEF;font-size:0.8rem;">Voluntários</a>
-            <a href="/Admin/Logout">Sair</a>
+        <div class="nav-logo">
+            <img src="~/dasc.svg" alt="DASC">
+            <h1>Painel Administrativo</h1>
+        </div>
+        <div class="nav-links">
+            <a href="/Admin/Volunteers">Voluntários</a>
+            <a href="/Admin/CertificateConfig">Certificados</a>
+            <a href="/Admin/Logout" class="nav-logout">Sair</a>
         </div>
     </div>
 
@@ -70,7 +79,7 @@
             <h2>Horários (Time Slots)</h2>
             <div id="tsMsg"></div>
             <table class="table is-fullwidth is-hoverable is-striped">
-                <thead><tr><th>ID</th><th>Início</th><th>Fim</th><th>Turno</th><th>Palestras</th><th></th></tr></thead>
+                <thead><tr><th>ID</th><th>Início</th><th>Fim</th><th>Turno</th><th>Horas AACC</th><th>Palestras</th><th></th></tr></thead>
                 <tbody>
                     @foreach (var ts in timeSlots)
                     {
@@ -80,6 +89,7 @@
                             <td>@ts.StartTime.ToString("dd/MM HH:mm")</td>
                             <td>@ts.EndTime.ToString("dd/MM HH:mm")</td>
                             <td><span class="badge badge-ok">@ts.Shift</span></td>
+                            <td><input class="input is-small" type="number" id="tsHours_@ts.Id" value="@ts.CreditHours" min="1" max="20" style="width:60px;display:inline-block;" onchange="updateCreditHours(@ts.Id, this.value)"></td>
                             <td>@lecCount palestra(s)</td>
                             <td><button class="button is-danger-light is-small" onclick="deleteTimeSlot(@ts.Id)">Remover</button></td>
                         </tr>
@@ -89,7 +99,7 @@
             <div class="columns" style="margin-top:12px;">
                 <div class="column is-3"><div class="field"><div class="control"><input class="input" type="datetime-local" id="tsStart"></div></div></div>
                 <div class="column is-3"><div class="field"><div class="control"><input class="input" type="datetime-local" id="tsEnd"></div></div></div>
-                <div class="column is-4">
+                <div class="column is-2">
                     <div class="field"><div class="control"><div class="select is-fullwidth">
                         <select id="tsShift">
                             <option value="Matutino">Matutino</option>
@@ -99,6 +109,7 @@
                         </select>
                     </div></div></div>
                 </div>
+                <div class="column is-2"><div class="field"><label class="label is-small">Horas AACC</label><div class="control"><input class="input" type="number" id="tsCreditHours" value="2" min="1" max="10"></div></div></div>
                 <div class="column is-2" style="display:flex;align-items:flex-end;"><button class="button is-brand is-fullwidth" onclick="createTimeSlot()">Criar</button></div>
             </div>
         </div>
@@ -124,7 +135,7 @@
                                 <span class="kw-badge">@l.Keyword3</span>
                             </td>
                             <td>
-                                <button class="button is-small @(l.IsPreRegistrationEnabled ? "is-brand" : "is-light")" style="font-size:0.7rem;padding:2px 10px;" onclick="togglePreReg(@l.Id)">
+                                <button class="button is-small @(l.IsPreRegistrationEnabled ? "is-brand" : "is-outlined-brand")" style="font-size:0.7rem;padding:2px 10px;" onclick="togglePreReg(@l.Id)">
                                     @(l.IsPreRegistrationEnabled ? "Abertas" : "Fechadas")
                                 </button>
                             </td>
@@ -201,7 +212,7 @@
                             }
                         </select>
                     </div>
-                    <button class="button is-brand is-light is-small" onclick="loadCheckIns()">Atualizar</button>
+                    <button class="button is-brand is-small" onclick="loadCheckIns()">Atualizar</button>
                 </div>
             </div>
             <div id="checkinsTable"><div class="empty-state">Carregando...</div></div>
@@ -210,7 +221,10 @@
         <!-- CERTIFICATES -->
         <div class="panel-card">
             <h2>Certificados</h2>
-            <button class="button is-brand" disabled title="Em breve">Emitir certificado</button>
+            <div style="display:flex;gap:12px;">
+                <a href="/Admin/CertificateConfig" class="button is-brand">Configurar mensagem</a>
+                <a href="/Admin/IssuedCertificates" class="button is-brand">Ver emissões</a>
+            </div>
         </div>
 
         <div style="text-align:center;margin-top:16px;">
@@ -222,12 +236,18 @@
         function showMsg(id, t, type) { document.getElementById(id).innerHTML = `<div class="msg-${type}">${t}</div>`; }
         function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
 
+        async function updateCreditHours(id, val) {
+            const creditHours = parseInt(val) || 2;
+            await fetch('/Admin/UpdateTimeSlotCreditHours', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ timeSlotId: id, creditHours }) });
+        }
+
         async function createTimeSlot() {
             const start = document.getElementById('tsStart').value;
             const end = document.getElementById('tsEnd').value;
             const shift = document.getElementById('tsShift').value;
+            const creditHours = parseInt(document.getElementById('tsCreditHours').value) || 2;
             if (!start || !end) { showMsg('tsMsg', 'Preencha início e fim.', 'error'); return; }
-            const res = await fetch('/Admin/CreateTimeSlot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ startTime: start, endTime: end, shift }) });
+            const res = await fetch('/Admin/CreateTimeSlot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ startTime: start, endTime: end, shift, creditHours }) });
             const data = await res.json();
             if (data.success) location.reload();
             else showMsg('tsMsg', data.message || 'Erro.', 'error');

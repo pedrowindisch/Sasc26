@@ -99,3 +99,37 @@ public class AdminRemoveVolunteerCheckInDto
 {
     public Guid CheckInId { get; set; }
 }
+
+public class CertificateRequestDto
+{
+    public string Email { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string Course { get; set; } = string.Empty;
+    public string Phase { get; set; } = string.Empty;
+}
+
+public class CertificateValidateDto
+{
+    public string Email { get; set; } = string.Empty;
+    public string ValidationCode { get; set; } = string.Empty;
+}
+
+public class CertificateConfigDto
+{
+    public string TemplateMessage { get; set; } = string.Empty;
+    public string TitleColor { get; set; } = "#113D76";
+    public string BodyColor { get; set; } = "#1a1a1a";
+    public string BorderColor { get; set; } = "#113D76";
+    public bool HasBackgroundImage { get; set; }
+}
+
+public class IssuedCertificateDto
+{
+    public string ValidationCode { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string Course { get; set; } = string.Empty;
+    public string Phase { get; set; } = string.Empty;
+    public decimal TotalHours { get; set; }
+    public DateTime IssuedAt { get; set; }
+}

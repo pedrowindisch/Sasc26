@@ -1,0 +1,92 @@
+@{
+    Layout = null;
+    var cert = ViewBag.Certificate as Sasc26.Services.CertificateDisplayResult;
+    var titleColor = cert?.TitleColor ?? "#113D76";
+    var bodyColor = cert?.BodyColor ?? "#1a1a1a";
+    var borderColor = cert?.BorderColor ?? "#113D76";
+    var hasBg = cert?.HasBackgroundImage ?? false;
+}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Certificado - SASC 26</title>
+    <link rel="stylesheet" href="~/css/bulmaswatch.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #fff; color: @bodyColor; }
+        @@media print {
+            .no-print { display: none !important; }
+            body { background: #fff; }
+            .cert-page { box-shadow: none !important; margin: 0 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
+        }
+        .cert-page {
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 60px 50px;
+            border: 3px solid @borderColor;
+            border-radius: 4px;
+            position: relative;
+            min-height: 500px;
+            background-size: cover;
+            background-position: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+            color-adjust: exact;
+        }
+        .cert-page::before, .cert-page::after {
+            content: '';
+            position: absolute;
+            width: 40px; height: 40px;
+            border: 2px solid @borderColor;
+        }
+        .cert-page::before { top: 10px; left: 10px; border-right: none; border-bottom: none; }
+        .cert-page::after { bottom: 10px; right: 10px; border-left: none; border-top: none; }
+        .cert-header { text-align: center; padding-bottom: 30px; border-bottom: 1px solid #ddd; margin-bottom: 30px; }
+        .cert-header h1 { font-family: 'Playfair Display', serif; font-size: 2rem; color: @titleColor; margin-bottom: 4px; }
+        .cert-header p { font-size: 0.8rem; color: #888; text-transform: uppercase; letter-spacing: 0.1em; }
+        .cert-body { text-align: center; padding: 20px 0; line-height: 1.8; font-size: 1rem; }
+        .cert-body .cert-text { font-size: 1rem; line-height: 1.9; }
+        .cert-body .cert-name { font-family: 'Playfair Display', serif; font-size: 1.5rem; font-weight: 700; color: @titleColor; margin: 10px 0; }
+        .cert-hours { font-size: 1.3rem; font-weight: 700; color: @titleColor; margin: 10px 0; }
+        .cert-footer { margin-top: 40px; text-align: center; font-size: 0.7rem; color: #aaa; }
+        .cert-footer .val-code { font-family: monospace; font-size: 0.75rem; color: #888; margin-top: 6px; }
+        .no-print { text-align: center; margin: 20px; padding: 16px; }
+        .no-print button, .no-print .button.is-brand { font-family: 'Inter', sans-serif; }
+        .button.is-brand { background-color: #fff; color: #113D76; }
+        .button.is-brand:hover { background-color: #f0f0f0; color: #113D76; }
+        .back-link { display: inline-block; margin-top: 8px; font-size: 0.8rem; color: #888; cursor: pointer; }
+        .back-link:hover { color: #555; }
+        .input:focus, .select select:focus { border-color: #2EBDEF; box-shadow: 0 0 0 3px rgba(46,189,239,0.15); }
+    </style>
+</head>
+<body>
+    <div class="no-print">
+        <button class="button is-brand" onclick="window.print()">Imprimir certificado</button><br>
+        <a href="/Certificate" class="back-link">Voltar</a>
+    </div>
+
+    <div class="cert-page" @if(hasBg) { <text>style="background-image: url('/Certificate/BackgroundImage');"</text> }>
+        <div class="cert-header">
+            <h1>SASC 26</h1>
+            <p>Semana Acadêmica de Sistemas e Computação</p>
+        </div>
+
+        <div class="cert-body">
+            <div class="cert-text">@Html.Raw(cert?.RenderedText?.Replace("\n", "<br>") ?? "")</div>
+            <div class="cert-hours">@cert?.TotalHours hora(s)</div>
+        </div>
+
+        <div class="cert-footer">
+            <div>Código de validação: <span class="val-code">@cert?.ValidationCode</span></div>
+            <div style="margin-top:4px;">Valide em: @Context.Request.Scheme://@Context.Request.Host/Certificate/Validate</div>
+            <div style="margin-top:2px;">Emitido em: @cert?.IssuedAt.ToString("dd/MM/yyyy HH:mm")</div>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,143 @@
+@{
+    ViewData["Title"] = "Certificados";
+}
+
+@section Styles {
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="~/css/bulmaswatch.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; background: #f5f5f5; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+        .card-wrapper { width: 100%; max-width: 440px; padding: 0 16px; }
+        .event-card { background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); overflow: hidden; }
+        .event-header { background: #113D76; padding: 28px 24px 20px; text-align: center; }
+        .event-header img.logo { width: 56px; height: 56px; margin-bottom: 12px; }
+        .event-header h1 { font-size: 1.25rem; font-weight: 700; color: #fff; margin: 0; }
+        .event-header p { font-size: 0.75rem; color: rgba(255,255,255,0.6); margin: 4px 0 0; text-transform: uppercase; letter-spacing: 0.05em; }
+        .cert-tag { display: inline-block; margin-top: 12px; padding: 4px 14px; border-radius: 100px; font-size: 0.75rem; font-weight: 600; background: rgba(5,150,105,0.2); color: #059669; }
+        .event-body { padding: 8px 24px 28px; }
+        .step-section { display: none; padding-top: 16px; }
+        .step-section.active { display: block; }
+        .msg-error { background: #fef2f2; color: #b91c1c; padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; margin-bottom: 16px; }
+        .msg-success { background: #ecfdf5; color: #047857; padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; margin-bottom: 16px; }
+        .back-link { display: inline-block; margin-top: 12px; font-size: 0.8rem; color: #aaa; cursor: pointer; }
+        .back-link:hover { color: #555; }
+        .field + .field { margin-top: 12px; }
+        .button.is-brand { background-color: #fff; color: #113D76; }
+        .button.is-brand:hover { background-color: #f0f0f0; color: #113D76; }
+        .input:focus, .select select:focus { border-color: #2EBDEF; box-shadow: 0 0 0 3px rgba(46,189,239,0.15); }
+    </style>
+}
+
+<div class="card-wrapper">
+    <div class="event-card">
+        <div class="event-header">
+            <img class="logo" src="~/dasc.svg" alt="DASC">
+            <h1>SASC 26</h1>
+            <p>Semana Acadêmica de Sistemas e Computação</p>
+            <span class="cert-tag">Certificados</span>
+        </div>
+
+        <div class="event-body">
+            <div id="messageArea"></div>
+
+            <div class="step-section active" id="stepEmail">
+                <div class="field">
+                    <label class="label is-small has-text-grey">E-mail institucional (@@furb.br)</label>
+                    <div class="control"><input class="input" type="email" id="emailInput" placeholder="seu.nome@furb.br" autocomplete="email" autofocus></div>
+                </div>
+                <div class="field" style="margin-top:16px;">
+                    <div class="control"><button class="button is-brand is-fullwidth" id="btnLookup" onclick="lookupEmail()">Buscar certificado</button></div>
+                </div>
+                <div class="has-text-centered" style="margin-top:12px;">
+                    <a href="/" class="back-link">Voltar ao site</a>
+                    <span style="color:#ddd;margin:0 6px;">|</span>
+                    <a href="/Certificate/Validate" class="back-link">Validar certificado</a>
+                </div>
+            </div>
+
+            <div class="step-section" id="stepProfile">
+                <p style="font-size:0.85rem;color:#666;margin-bottom:12px;">Complete seu perfil para emitir o certificado:</p>
+                <div class="field"><label class="label is-small has-text-grey">Nome completo</label><div class="control"><input class="input" type="text" id="profileName" placeholder="João da Silva"></div></div>
+                <div class="field"><label class="label is-small has-text-grey">Curso</label><div class="control"><div class="select is-fullwidth"><select id="profileCourse"><option value="">Selecione</option><option value="Ciência da Computação">Ciência da Computação</option><option value="Ciência de Dados">Ciência de Dados</option><option value="Sistemas de Informação">Sistemas de Informação</option></select></div></div></div>
+                <div class="field"><label class="label is-small has-text-grey">Fase</label><div class="control"><div class="select is-fullwidth"><select id="profilePhase"><option value="">-</option>@for (var i = 1; i <= 9; i++) {<option value="@i">@i</option>}</select></div></div></div>
+                <div class="field" style="margin-top:16px;"><div class="control"><button class="button is-brand is-fullwidth" id="btnIssue" onclick="issueCertificate()">Emitir certificado</button></div></div>
+                <a class="back-link" onclick="goBack()">&#8592; Voltar</a>
+            </div>
+
+            <div class="step-section" id="stepSuccess">
+                <div class="msg-success has-text-centered" id="successMessage"></div>
+                <div class="has-text-centered" style="margin-top:12px;">
+                    <a id="certLink" href="#" class="button is-brand is-fullwidth" target="_blank" rel="noopener">Visualizar / Imprimir certificado</a>
+                </div>
+                <div class="has-text-centered" style="margin-top:8px;">
+                    <a href="/Certificate/Validate" class="back-link">Validar certificado</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    let currentEmail = '';
+
+    function showMessage(t, type) { document.getElementById('messageArea').innerHTML = `<div class="msg-${type}">${t}</div>`; }
+    function clearMessage() { document.getElementById('messageArea').innerHTML = ''; }
+    function showStep(s) { document.querySelectorAll('.step-section').forEach(el => el.classList.remove('active')); document.getElementById('step' + s).classList.add('active'); }
+
+    async function lookupEmail() {
+        const email = document.getElementById('emailInput').value.trim();
+        if (!email) { showMessage('Informe o e-mail.', 'error'); return; }
+        clearMessage();
+        const btn = document.getElementById('btnLookup');
+        btn.classList.add('is-loading'); btn.disabled = true;
+        try {
+            const res = await fetch('/Certificate/Lookup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
+            const data = await res.json();
+            if (!data.success) { showMessage(data.message, 'error'); }
+            else {
+                currentEmail = email;
+                if (data.exists) {
+                    document.getElementById('profileName').value = data.name || '';
+                    document.getElementById('profileCourse').value = data.course || '';
+                    document.getElementById('profilePhase').value = data.phase || '';
+                } else {
+                    document.getElementById('profileName').value = '';
+                    document.getElementById('profileCourse').value = '';
+                    document.getElementById('profilePhase').value = '';
+                }
+                showStep('Profile');
+            }
+        } catch { showMessage('Erro de conexão.', 'error'); }
+        finally { btn.classList.remove('is-loading'); btn.disabled = false; }
+    }
+
+    async function issueCertificate() {
+        const name = document.getElementById('profileName').value.trim();
+        const course = document.getElementById('profileCourse').value;
+        const phase = document.getElementById('profilePhase').value;
+        if (!name) { showMessage('Informe seu nome.', 'error'); return; }
+        if (!course) { showMessage('Selecione o curso.', 'error'); return; }
+        if (!phase) { showMessage('Selecione a fase.', 'error'); return; }
+        clearMessage();
+        const btn = document.getElementById('btnIssue');
+        btn.classList.add('is-loading'); btn.disabled = true;
+        try {
+            const res = await fetch('/Certificate/Issue', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: currentEmail, name, course, phase }) });
+            const data = await res.json();
+            if (data.success) {
+                document.getElementById('successMessage').textContent = data.message || 'Certificado emitido com sucesso!';
+                document.getElementById('certLink').href = '/Certificate/Print?code=' + encodeURIComponent(data.validationCode);
+                showStep('Success');
+            } else { showMessage(data.message, 'error'); }
+        } catch { showMessage('Erro de conexão.', 'error'); }
+        finally { btn.classList.remove('is-loading'); btn.disabled = false; }
+    }
+
+    function goBack() { clearMessage(); showStep('Email'); }
+
+    document.getElementById('emailInput').addEventListener('keydown', e => { if (e.key === 'Enter') lookupEmail(); });
+</script>
+}

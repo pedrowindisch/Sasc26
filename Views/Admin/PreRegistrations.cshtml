@@ -10,27 +10,31 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - SASC 26</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@1.0.4/css/bulma.min.css" />
     <link rel="stylesheet" href="~/css/bulmaswatch.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; background: #f5f5f5; min-height: 100vh; }
-        .nav-bar { background: #113D76; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; }
-        .nav-bar h1 { font-size: 0.95rem; font-weight: 700; color: #fff; margin: 0; }
-        .nav-bar a { font-size: 0.8rem; color: rgba(255,255,255,0.6); }
-        .nav-bar a:hover { color: #fff; }
+        .nav-bar { background: #113D76; padding: 16px 24px; display: flex; align-items: center; gap: 16px; }
+        .nav-logo { display: flex; align-items: center; gap: 12px; flex: 1; }
+        .nav-logo img { height: 32px; }
+        .nav-logo h1 { font-size: 1rem; font-weight: 700; color: #fff; margin: 0; }
+        .nav-links { display: flex; gap: 16px; align-items: center; }
+        .nav-links a { font-size: 0.8rem; color: #2EBDEF; }
+        .nav-links a:hover { color: #fff; }
+        .nav-links a.nav-logout { color: rgba(255,255,255,0.6); }
+        .nav-links a.nav-logout:hover { color: #fff; }
         .container-area { max-width: 700px; margin: 0 auto; padding: 24px 16px; }
         .panel-card { background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); padding: 24px; margin-bottom: 20px; }
         .panel-card h2 { font-size: 0.95rem; font-weight: 700; color: #1a1a1a; margin: 0 0 4px; }
         .panel-card .subtitle { font-size: 0.8rem; color: #888; margin: 0 0 16px; }
         .table { font-size: 0.82rem; }
         .table th { font-weight: 600; color: #555; }
-        .button.is-brand { background-color: #113D76; color: #fff; }
-        .button.is-brand:hover { background-color: #0d2d5a; color: #fff; }
-        .button.is-brand.is-light { background-color: #fff; color: #113D76; border: 1px solid #113D76; }
-        .button.is-brand.is-light:hover { background-color: #113D76; color: #fff; }
+        .button.is-brand { background-color: #fff; color: #113D76; }
+        .button.is-brand:hover { background-color: #f0f0f0; color: #113D76; }
+        .button.is-outlined-brand { background-color: transparent; color: #113D76; border: 1px solid #113D76; }
+        .button.is-outlined-brand:hover { background-color: #113D76; color: #fff; }
         .stat-row { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
         .stat-box { background: #f8faff; border-radius: 8px; padding: 12px 16px; flex: 1; min-width: 120px; text-align: center; border: 1px solid #e0e4f0; }
         .stat-box .num { font-size: 1.3rem; font-weight: 700; color: #113D76; }
@@ -43,8 +47,13 @@
 </head>
 <body>
     <div class="nav-bar">
-        <h1>Inscritos - @lecture?.Title</h1>
-        <a href="/Admin/Dashboard">&#8592; Dashboard</a>
+        <div class="nav-logo">
+            <img src="~/dasc.svg" alt="DASC">
+            <h1>Inscritos</h1>
+        </div>
+        <div class="nav-links">
+            <a href="/Admin/Dashboard">&#8592; Dashboard</a>
+        </div>
     </div>
 
     <div class="container-area">
@@ -59,8 +68,8 @@
             </div>
 
             <div class="actions">
-                <button class="button is-brand is-light is-small" onclick="copyEmails()">Copiar e-mails</button>
-                <a href="/Admin/ExportPreRegistrationsCsv?lectureId=@lecture?.Id" class="button is-brand is-light is-small">Exportar CSV</a>
+                <button class="button is-outlined-brand is-small" onclick="copyEmails()">Copiar e-mails</button>
+                <a href="/Admin/ExportPreRegistrationsCsv?lectureId=@lecture?.Id" class="button is-outlined-brand is-small">Exportar CSV</a>
             </div>
 
             @if (entries.Count == 0)
