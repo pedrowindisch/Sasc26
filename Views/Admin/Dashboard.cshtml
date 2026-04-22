@@ -149,7 +149,10 @@
                                     <span style="color:#bbb;">0</span>
                                 }
                             </td>
-                            <td><button class="button is-danger-light is-small" onclick="deleteLecture(@l.Id)">Remover</button></td>
+                            <td>
+                                <a href="/Admin/Projector?lectureId=@l.Id" target="_blank" class="button is-small" style="background:#2EBDEF;color:#fff;margin-right:4px;font-size:0.7rem;padding:2px 10px;" title="Abrir tela de projeção">Projetar</a>
+                                <button class="button is-danger-light is-small" onclick="deleteLecture(@l.Id)">Remover</button>
+                            </td>
                         </tr>
                     }
                 </tbody>

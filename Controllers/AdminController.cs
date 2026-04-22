@@ -257,6 +257,15 @@ public class AdminController : Controller
         ViewBag.Certificates = certs;
         return View();
     }
+
+    public async Task<IActionResult> Projector(int lectureId)
+    {
+        var lecture = await _db.Lectures
+            .Include(l => l.TimeSlot)
+            .FirstOrDefaultAsync(l => l.Id == lectureId);
+        if (lecture is null) return RedirectToAction("Index", "Home");
+        return View(lecture);
+    }
 }
 
 public class AdminLoginDto { public string Email { get; set; } = string.Empty; }
