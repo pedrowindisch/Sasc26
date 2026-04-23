@@ -137,6 +137,26 @@ public class HomeController : Controller
         return Json(new { result.Success, result.Message });
     }
 
+    [HttpGet]
+    public async Task<IActionResult> RetroactiveCheckIn()
+    {
+        return View();
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetYesterdayLectures()
+    {
+        var lectures = await _attendanceService.GetYesterdayLecturesAsync();
+        return Json(new { success = true, lectures });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> SubmitRetroactiveCheckIn([FromBody] RetroactiveRequestDto dto)
+    {
+        var result = await _attendanceService.SubmitRetroactiveRequestAsync(dto);
+        return Json(new { result.Success, result.Message });
+    }
+
     [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
     public IActionResult Error()
     {

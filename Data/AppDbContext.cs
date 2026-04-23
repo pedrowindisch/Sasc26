@@ -16,6 +16,7 @@ public class AppDbContext : DbContext
     public DbSet<VolunteerCheckIn> VolunteerCheckIns => Set<VolunteerCheckIn>();
     public DbSet<CertificateConfig> CertificateConfigs => Set<CertificateConfig>();
     public DbSet<IssuedCertificate> IssuedCertificates => Set<IssuedCertificate>();
+    public DbSet<RetroactiveCheckIn> RetroactiveCheckIns => Set<RetroactiveCheckIn>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -109,6 +110,21 @@ public class AppDbContext : DbContext
             entity.Property(e => e.Course).IsRequired().HasMaxLength(100);
             entity.Property(e => e.Phase).IsRequired().HasMaxLength(50);
             entity.HasIndex(e => e.Email).IsUnique();
+        });
+
+        modelBuilder.Entity<RetroactiveCheckIn>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.AttendeeEmail).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Justification).HasMaxLength(500);
+            entity.HasOne(e => e.Attendee)
+                  .WithMany()
+                  .HasForeignKey(e => e.AttendeeEmail)
+                  .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Lecture)
+                  .WithMany()
+                  .HasForeignKey(e => e.LectureId)
+                  .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

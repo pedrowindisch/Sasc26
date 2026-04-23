@@ -428,6 +428,110 @@ public class AttendanceService : IAttendanceService
         };
     }
 
+    public async Task<List<RetroactiveLectureDto>> GetYesterdayLecturesAsync()
+    {
+        var now = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, BrasiliaTz);
+        var yesterday = now.Date.AddDays(-1);
+
+        return await _db.Lectures
+            .Include(l => l.TimeSlot)
+            .Where(l => l.TimeSlot.StartTime.Date == yesterday)
+            .OrderBy(l => l.TimeSlot.StartTime)
+            .ThenBy(l => l.Title)
+            .Select(l => new RetroactiveLectureDto
+            {
+                Id = l.Id,
+                Title = l.Title,
+                Speaker = l.Speaker,
+                TimeSlotLabel = l.TimeSlot.StartTime.ToString("dd/MM HH:mm") + " - " + l.TimeSlot.EndTime.ToString("HH:mm"),
+                Date = l.TimeSlot.StartTime.ToString("yyyy-MM-dd")
+            })
+            .ToListAsync();
+    }
+
+    public async Task<RetroactiveRequestResult> SubmitRetroactiveRequestAsync(RetroactiveRequestDto dto)
+    {
+        var email = dto.Email.Trim().ToLowerInvariant();
+
+        if (!email.EndsWith($"@{_settings.AllowedEmailDomain}", StringComparison.OrdinalIgnoreCase))
+        {
+            return new RetroactiveRequestResult
+            {
+                Success = false,
+                Message = $"Utilize seu e-mail institucional @{_settings.AllowedEmailDomain}."
+            };
+        }
+
+        if (string.IsNullOrWhiteSpace(dto.FullName))
+            return new RetroactiveRequestResult { Success = false, Message = "Informe seu nome completo." };
+
+        if (string.IsNullOrWhiteSpace(dto.Course) || string.IsNullOrWhiteSpace(dto.Shift) || dto.Phase < 1)
+            return new RetroactiveRequestResult { Success = false, Message = "Preencha todos os campos do cadastro." };
+
+        var lecture = await _db.Lectures.Include(l => l.TimeSlot).FirstOrDefaultAsync(l => l.Id == dto.LectureId);
+        if (lecture is null)
+            return new RetroactiveRequestResult { Success = false, Message = "Palestra não encontrada." };
+
+        var now = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, BrasiliaTz);
+        var yesterday = now.Date.AddDays(-1);
+
+        if (lecture.TimeSlot.StartTime.Date != yesterday)
+            return new RetroactiveRequestResult { Success = false, Message = "Só é possível solicitar presença retroativa para palestras de ontem." };
+
+        var alreadyVerified = await _db.CheckIns
+            .AnyAsync(c => c.AttendeeEmail == email &&
+                           c.Lecture != null &&
+                           c.Lecture.TimeSlotId == lecture.TimeSlotId &&
+                           c.Status == CheckInStatus.Verified);
+        if (alreadyVerified)
+            return new RetroactiveRequestResult { Success = false, Message = "Sua presença nesta palestra já foi registrada." };
+
+        var alreadyRequested = await _db.RetroactiveCheckIns
+            .AnyAsync(r => r.AttendeeEmail == email && r.LectureId == dto.LectureId && r.Status == RetroactiveCheckInStatus.Pending);
+        if (alreadyRequested)
+            return new RetroactiveRequestResult { Success = false, Message = "Você já possui uma solicitação pendente para esta palestra." };
+
+        var existingAttendee = await _db.Attendees.FindAsync(email);
+        if (existingAttendee is not null)
+        {
+            existingAttendee.FullName = dto.FullName.Trim();
+            existingAttendee.Course = dto.Course;
+            existingAttendee.Shift = dto.Shift;
+            existingAttendee.Phase = dto.Phase;
+        }
+        else
+        {
+            _db.Attendees.Add(new Attendee
+            {
+                Email = email,
+                FullName = dto.FullName.Trim(),
+                Course = dto.Course,
+                Shift = dto.Shift,
+                Phase = dto.Phase
+            });
+        }
+
+        _db.RetroactiveCheckIns.Add(new RetroactiveCheckIn
+        {
+            Id = Guid.NewGuid(),
+            AttendeeEmail = email,
+            LectureId = dto.LectureId,
+            Status = RetroactiveCheckInStatus.Pending,
+            Justification = dto.Justification?.Trim() ?? string.Empty,
+            RequestedAt = now
+        });
+
+        await _db.SaveChangesAsync();
+
+        _logger.LogInformation("Retroactive check-in request created for {Email} in lecture {LectureId}", email, dto.LectureId);
+
+        return new RetroactiveRequestResult
+        {
+            Success = true,
+            Message = "Solicitação enviada! Um administrador irá verificar sua presença."
+        };
+    }
+
     private static TimeZoneInfo GetBrasiliaTimeZone()
     {
         try { return TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo"); }

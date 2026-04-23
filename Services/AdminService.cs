@@ -22,11 +22,33 @@ public interface IAdminService
     Task TogglePreRegistrationAsync(int lectureId);
     Task<List<PreRegistrationEntryDto>> GetPreRegistrationsAsync(int lectureId);
     Task<Dictionary<int, int>> GetPreRegistrationCountsAsync();
+    Task<List<RetroactiveRequestEntryDto>> GetPendingRetroactiveRequestsAsync();
+    Task<ApproveRetroactiveResult> ApproveRetroactiveRequestAsync(Guid requestId);
+    Task<RejectRetroactiveResult> RejectRetroactiveRequestAsync(Guid requestId);
 }
 
 public class AdminOtpResult { public bool Success { get; set; } public string Message { get; set; } = string.Empty; }
 public class AdminLoginResult { public bool Success { get; set; } public string Message { get; set; } = string.Empty; }
 public class ManualCheckInResult { public bool Success { get; set; } public string Message { get; set; } = string.Empty; }
+
+public class RetroactiveRequestEntryDto
+{
+    public Guid Id { get; set; }
+    public string Email { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public string Course { get; set; } = string.Empty;
+    public string Shift { get; set; } = string.Empty;
+    public int Phase { get; set; }
+    public int LectureId { get; set; }
+    public string LectureTitle { get; set; } = string.Empty;
+    public string Speaker { get; set; } = string.Empty;
+    public string TimeSlotLabel { get; set; } = string.Empty;
+    public string Justification { get; set; } = string.Empty;
+    public DateTime RequestedAt { get; set; }
+}
+
+public class ApproveRetroactiveResult { public bool Success { get; set; } public string Message { get; set; } = string.Empty; }
+public class RejectRetroactiveResult { public bool Success { get; set; } public string Message { get; set; } = string.Empty; }
 
 public class PreRegistrationEntryDto
 {
@@ -282,6 +304,96 @@ public class AdminService : IAdminService
             .GroupBy(p => p.LectureId)
             .Select(g => new { LectureId = g.Key, Count = g.Count() })
             .ToDictionaryAsync(x => x.LectureId, x => x.Count);
+    }
+
+    public async Task<List<RetroactiveRequestEntryDto>> GetPendingRetroactiveRequestsAsync()
+    {
+        return await _db.RetroactiveCheckIns
+            .Include(r => r.Attendee)
+            .Include(r => r.Lecture)
+                .ThenInclude(l => l.TimeSlot)
+            .Where(r => r.Status == RetroactiveCheckInStatus.Pending)
+            .OrderByDescending(r => r.RequestedAt)
+            .Select(r => new RetroactiveRequestEntryDto
+            {
+                Id = r.Id,
+                Email = r.AttendeeEmail,
+                FullName = r.Attendee.FullName,
+                Course = r.Attendee.Course,
+                Shift = r.Attendee.Shift,
+                Phase = r.Attendee.Phase,
+                LectureId = r.LectureId,
+                LectureTitle = r.Lecture.Title,
+                Speaker = r.Lecture.Speaker,
+                TimeSlotLabel = r.Lecture.TimeSlot.StartTime.ToString("dd/MM HH:mm") + " - " + r.Lecture.TimeSlot.EndTime.ToString("HH:mm"),
+                Justification = r.Justification,
+                RequestedAt = r.RequestedAt
+            })
+            .ToListAsync();
+    }
+
+    public async Task<ApproveRetroactiveResult> ApproveRetroactiveRequestAsync(Guid requestId)
+    {
+        var request = await _db.RetroactiveCheckIns
+            .Include(r => r.Lecture)
+                .ThenInclude(l => l.TimeSlot)
+            .FirstOrDefaultAsync(r => r.Id == requestId);
+
+        if (request is null)
+            return new ApproveRetroactiveResult { Success = false, Message = "Solicitação não encontrada." };
+
+        if (request.Status != RetroactiveCheckInStatus.Pending)
+            return new ApproveRetroactiveResult { Success = false, Message = "Solicitação já foi processada." };
+
+        var alreadyVerified = await _db.CheckIns
+            .AnyAsync(c => c.AttendeeEmail == request.AttendeeEmail &&
+                           c.Lecture != null &&
+                           c.Lecture.TimeSlotId == request.Lecture.TimeSlotId &&
+                           c.Status == CheckInStatus.Verified);
+        if (alreadyVerified)
+        {
+            request.Status = RetroactiveCheckInStatus.Approved;
+            request.ResolvedAt = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, BrasiliaTz);
+            await _db.SaveChangesAsync();
+            return new ApproveRetroactiveResult { Success = false, Message = "O aluno já possui presença verificada neste horário. Solicitação descartada." };
+        }
+
+        var now = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, BrasiliaTz);
+
+        _db.CheckIns.Add(new CheckIn
+        {
+            Id = Guid.NewGuid(),
+            AttendeeEmail = request.AttendeeEmail,
+            LectureId = request.LectureId,
+            OtpCode = "RETROACTIVE",
+            Status = CheckInStatus.Verified,
+            CreatedAt = now,
+            ExpiresAt = now,
+            VerifiedAt = now
+        });
+
+        request.Status = RetroactiveCheckInStatus.Approved;
+        request.ResolvedAt = now;
+
+        await _db.SaveChangesAsync();
+
+        return new ApproveRetroactiveResult { Success = true, Message = "Solicitação aprovada e presença registrada." };
+    }
+
+    public async Task<RejectRetroactiveResult> RejectRetroactiveRequestAsync(Guid requestId)
+    {
+        var request = await _db.RetroactiveCheckIns.FindAsync(requestId);
+        if (request is null)
+            return new RejectRetroactiveResult { Success = false, Message = "Solicitação não encontrada." };
+
+        if (request.Status != RetroactiveCheckInStatus.Pending)
+            return new RejectRetroactiveResult { Success = false, Message = "Solicitação já foi processada." };
+
+        request.Status = RetroactiveCheckInStatus.Rejected;
+        request.ResolvedAt = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, BrasiliaTz);
+        await _db.SaveChangesAsync();
+
+        return new RejectRetroactiveResult { Success = true, Message = "Solicitação rejeitada." };
     }
 
     private static string[] GenerateKeywords()

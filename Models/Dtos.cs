@@ -100,6 +100,32 @@ public class AdminRemoveVolunteerCheckInDto
     public Guid CheckInId { get; set; }
 }
 
+public class RetroactiveRequestDto
+{
+    public string Email { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public string Course { get; set; } = string.Empty;
+    public string Shift { get; set; } = string.Empty;
+    public int Phase { get; set; }
+    public int LectureId { get; set; }
+    public string Justification { get; set; } = string.Empty;
+}
+
+public class RetroactiveLectureDto
+{
+    public int Id { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string Speaker { get; set; } = string.Empty;
+    public string TimeSlotLabel { get; set; } = string.Empty;
+    public string Date { get; set; } = string.Empty;
+}
+
+public class RetroactiveRequestResult
+{
+    public bool Success { get; set; }
+    public string Message { get; set; } = string.Empty;
+}
+
 public class CertificateRequestDto
 {
     public string Email { get; set; } = string.Empty;

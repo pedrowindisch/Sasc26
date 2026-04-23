@@ -14,6 +14,8 @@ public interface IAttendanceService
     Task<PreRegisterResult> VerifyPreRegistrationOtpAsync(string email, string code);
     Task<HashSet<int>> GetPreRegisteredLectureIdsAsync(string email);
     Task<SubmitCheckInResult> SubmitCheckInAsync(SubmitCheckInDto dto);
+    Task<List<RetroactiveLectureDto>> GetYesterdayLecturesAsync();
+    Task<RetroactiveRequestResult> SubmitRetroactiveRequestAsync(RetroactiveRequestDto dto);
 }
 
 public class RequestOtpResult

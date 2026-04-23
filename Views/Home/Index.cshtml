@@ -34,10 +34,12 @@
         .field + .field { margin-top: 12px; }
         .section-divider { border: none; border-top: 1px solid #eee; margin: 20px 0; }
         .section-label { font-size: 0.7rem; font-weight: 600; color: #bbb; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 12px; }
-        .button.is-brand { background-color: #fff; color: #113D76; }
-        .button.is-brand:hover { background-color: #f0f0f0; color: #113D76; }
+        .button.is-brand { background-color: #113D76; color: #fff; border-color: #0b274d; }
+        .button.is-brand:hover { background-color: #0e3160; color: #fff; }
         .button.is-outlined-brand { background-color: transparent; color: #113D76; border: 1px solid #113D76; }
         .button.is-outlined-brand:hover { background-color: #113D76; color: #fff; }
+        .button.is-secondary { background-color: #fff; color: #113D76; }
+        .button.is-secondary:hover { background-color: #f0f0f0; color: #113D76; }
         .input:focus, .select select:focus { border-color: #2EBDEF; box-shadow: 0 0 0 3px rgba(46,189,239,0.15); }
         .success-actions { margin-top: 16px; }
         .success-actions .button { margin-bottom: 8px; }
@@ -80,7 +82,10 @@
                 <div class="field" style="margin-top:16px;">
                     <div class="control"><button class="button is-brand is-fullwidth" id="btnSendOtp" onclick="requestOtp()">Enviar código</button></div>
                 </div>
-<div class="has-text-centered" style="margin-top:12px;">
+                <div class="field" style="margin-top:10px;">
+                    <div class="control"><button onclick="location.href='/Home/RetroactiveCheckIn'" class="button is-secondary is-fullwidth">Esqueceu de validar suas AACCs?</button></div>
+                </div>
+                <div class="has-text-centered" style="margin-top:12px;">
                     <a href="/Volunteer" class="back-link">Sou voluntário</a>
                     <span style="color:#ddd;margin:0 6px;">|</span>
                     <a href="/Admin" class="back-link">Administração</a>

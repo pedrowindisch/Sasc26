@@ -1,0 +1,204 @@
+@{
+    ViewData["Title"] = "Validação Retroativa de AACCs";
+}
+
+@section Styles {
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="~/css/bulmaswatch.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; background: #f5f5f5; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+        .card-wrapper { width: 100%; max-width: 440px; padding: 0 16px; }
+        .event-card { background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); overflow: hidden; }
+        .event-header { background: #113D76; padding: 28px 24px 20px; text-align: center; }
+        .event-header img.logo { width: 56px; height: 56px; margin-bottom: 12px; }
+        .event-header h1 { font-size: 1.1rem; font-weight: 700; color: #fff; margin: 0; }
+        .event-header p { font-size: 0.75rem; color: rgba(255,255,255,0.6); margin: 4px 0 0; }
+        .event-body { padding: 8px 24px 28px; }
+        .step-section { display: none; padding-top: 16px; }
+        .step-section.active { display: block; }
+        .msg-error { background: #fef2f2; color: #b91c1c; padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; margin-bottom: 16px; }
+        .msg-success { background: #ecfdf5; color: #047857; padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; margin-bottom: 16px; }
+        .msg-warning { background: #fffbeb; color: #92400e; padding: 12px 14px; border-radius: 8px; font-size: 0.85rem; margin-bottom: 16px; line-height: 1.5; }
+        .back-link { display: inline-block; margin-top: 12px; font-size: 0.8rem; color: #aaa; cursor: pointer; }
+        .back-link:hover { color: #555; }
+        .field + .field { margin-top: 12px; }
+        .section-divider { border: none; border-top: 1px solid #eee; margin: 20px 0; }
+        .section-label { font-size: 0.7rem; font-weight: 600; color: #bbb; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 12px; }
+        .button.is-brand { background-color: #fff; color: #113D76; }
+        .button.is-brand:hover { background-color: #f0f0f0; color: #113D76; }
+        .button.is-outlined-brand { background-color: transparent; color: #113D76; border: 1px solid #113D76; }
+        .button.is-outlined-brand:hover { background-color: #113D76; color: #fff; }
+        .input:focus, .select select:focus, .textarea:focus { border-color: #2EBDEF; box-shadow: 0 0 0 3px rgba(46,189,239,0.15); }
+        .lecture-option { border: 2px solid #e0e0e0; border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; cursor: pointer; transition: border-color 0.2s; display: block; }
+        .lecture-option:hover { border-color: #2EBDEF; }
+        .lecture-option.selected { border-color: #113D76; background: #f8faff; }
+        .lecture-option input[type="radio"] { display: none; }
+        .lecture-option .l-title { font-weight: 600; font-size: 0.9rem; color: #1a1a1a; }
+        .lecture-option .l-speaker { font-size: 0.8rem; color: #888; margin-top: 2px; }
+        .lecture-option .l-time { font-size: 0.75rem; color: #2EBDEF; margin-top: 2px; }
+        .empty-state { text-align: center; padding: 24px 0; color: #bbb; font-size: 0.9rem; }
+        .info-box { background: #f0f7ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 12px 14px; font-size: 0.82rem; color: #1e40af; margin-bottom: 16px; line-height: 1.5; }
+    </style>
+}
+
+<div class="card-wrapper">
+    <div class="event-card">
+        <div class="event-header">
+            <img class="logo" src="~/dasc.svg" alt="DASC">
+            <h1>Validação Retroativa de AACCs</h1>
+            <p>Esqueceu de validar suas AACCs?</p>
+        </div>
+
+        <div class="event-body">
+            <div id="messageArea"></div>
+
+            <div class="step-section active" id="stepEmail">
+                <div class="info-box">
+                    Informe seu e-mail institucional para solicitar a validação de presença em uma palestra anterior. Só é possível solicitar presença para palestras do dia anterior.
+                </div>
+                <div class="field">
+                    <label class="label is-small has-text-grey">E-mail institucional</label>
+                    <div class="control"><input class="input" type="email" id="emailInput" placeholder="seu.nome@furb.br" autocomplete="email" autofocus></div>
+                </div>
+                <div class="field" style="margin-top:16px;">
+                    <div class="control"><button class="button is-brand is-fullwidth" id="btnLoadProfile" onclick="loadProfileAndContinue()">Continuar</button></div>
+                </div>
+                <div class="has-text-centered" style="margin-top:12px;">
+                    <a href="/" class="back-link">&larr; Voltar ao início</a>
+                </div>
+            </div>
+
+            <div class="step-section" id="stepForm">
+                <p class="section-label">Seus dados</p>
+                <div class="field"><label class="label is-small has-text-grey">Nome completo</label><div class="control"><input class="input" type="text" id="fullNameInput" placeholder="João da Silva" autocomplete="name"></div></div>
+                <div class="field"><label class="label is-small has-text-grey">Curso</label><div class="control"><div class="select is-fullwidth"><select id="courseSelect"><option value="">Selecione</option><option value="Ciência da Computação">Ciência da Computação</option><option value="Ciência de Dados">Ciência de Dados</option><option value="Sistemas de Informação">Sistemas de Informação</option></select></div></div></div>
+                <div class="field"><label class="label is-small has-text-grey">Turno</label><div class="control"><div class="select is-fullwidth"><select id="shiftSelect"><option value="">Selecione</option><option value="Matutino">Matutino</option><option value="Noturno">Noturno</option></select></div></div></div>
+                <div class="field"><label class="label is-small has-text-grey">Fase</label><div class="control"><div class="select is-fullwidth"><select id="phaseSelect"><option value="">-</option>@for (var i = 1; i <= 9; i++) {<option value="@i">@i</option>}</select></div></div></div>
+
+                <hr class="section-divider">
+                <p class="section-label">Selecione a palestra (do dia anterior)</p>
+                <div id="lectureList"></div>
+
+                <div class="field" style="margin-top:12px;">
+                    <label class="label is-small has-text-grey">Justificativa (opcional)</label>
+                    <div class="control"><textarea class="textarea is-small" id="justificationInput" placeholder="Explique o motivo da ausência na validação..." rows="3"></textarea></div>
+                </div>
+
+                <div class="field" style="margin-top:16px;">
+                    <div class="control"><button class="button is-brand is-fullwidth" id="btnSubmit" onclick="submitRetroactive()">Enviar solicitação</button></div>
+                </div>
+                <a class="back-link" onclick="goBack()">&larr; Voltar</a>
+            </div>
+
+            <div class="step-section" id="stepSuccess">
+                <div class="msg-success has-text-centered" id="successMessage" style="padding:16px;"></div>
+                <div class="info-box" style="margin-top:12px;">
+                    Sua solicitação será analisada por um administrador. Você receberá a confirmação assim que for validada.
+                </div>
+                <div class="has-text-centered" style="margin-top:12px;">
+                    <a href="/" class="back-link">&larr; Voltar ao início</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    let currentEmail = '';
+    let selectedLectureId = 0;
+
+    function showMessage(t, type) { document.getElementById('messageArea').innerHTML = `<div class="msg-${type}">${t}</div>`; }
+    function clearMessage() { document.getElementById('messageArea').innerHTML = ''; }
+    function showStep(s) { document.querySelectorAll('.step-section').forEach(el => el.classList.remove('active')); document.getElementById('step' + s).classList.add('active'); }
+
+    async function loadProfileAndContinue() {
+        const email = document.getElementById('emailInput').value.trim();
+        if (!email) { showMessage('Informe seu e-mail.', 'error'); return; }
+        clearMessage();
+        const btn = document.getElementById('btnLoadProfile');
+        btn.classList.add('is-loading'); btn.disabled = true;
+        try {
+            const res = await fetch(`/Home/GetProfile?email=${encodeURIComponent(email)}`);
+            const data = await res.json();
+            currentEmail = email;
+            if (data && data.found) {
+                document.getElementById('fullNameInput').value = data.fullName || '';
+                document.getElementById('courseSelect').value = data.course || '';
+                document.getElementById('shiftSelect').value = data.shift || '';
+                document.getElementById('phaseSelect').value = data.phase || '';
+            }
+            await loadYesterdayLectures();
+            showStep('Form');
+        } catch { showMessage('Erro de conexão.', 'error'); }
+        finally { btn.classList.remove('is-loading'); btn.disabled = false; }
+    }
+
+    async function loadYesterdayLectures() {
+        try {
+            const res = await fetch('/Home/GetYesterdayLectures');
+            const data = await res.json();
+            const lectures = data.lectures || [];
+            const list = document.getElementById('lectureList');
+            if (lectures.length === 0) {
+                list.innerHTML = '<div class="empty-state">Nenhuma palestra disponível para validação retroativa. Só é possível solicitar presença para palestras do dia anterior.</div>';
+            } else {
+                selectedLectureId = 0;
+                list.innerHTML = lectures.map(l => `
+                    <label class="lecture-option" data-id="${l.id}" onclick="selectLecture(${l.id}, this)">
+                        <input type="radio" name="retroLecture" value="${l.id}">
+                        <div class="l-title">${esc(l.title)}</div>
+                        <div class="l-speaker">${esc(l.speaker)}</div>
+                        <div class="l-time">${esc(l.timeSlotLabel)}</div>
+                    </label>`).join('');
+            }
+        } catch { showMessage('Erro ao carregar palestras.', 'error'); }
+    }
+
+    function selectLecture(id, el) {
+        selectedLectureId = id;
+        document.querySelectorAll('.lecture-option').forEach(o => o.classList.remove('selected'));
+        el.classList.add('selected');
+    }
+
+    async function submitRetroactive() {
+        if (!currentEmail) { showMessage('Informe seu e-mail.', 'error'); return; }
+        if (!selectedLectureId) { showMessage('Selecione uma palestra.', 'error'); return; }
+        const fullName = document.getElementById('fullNameInput').value.trim();
+        const course = document.getElementById('courseSelect').value;
+        const shift = document.getElementById('shiftSelect').value;
+        const phase = parseInt(document.getElementById('phaseSelect').value) || 0;
+        const justification = document.getElementById('justificationInput').value.trim();
+
+        if (!fullName) { showMessage('Informe seu nome completo.', 'error'); return; }
+        if (!course) { showMessage('Selecione o curso.', 'error'); return; }
+        if (!shift) { showMessage('Selecione o turno.', 'error'); return; }
+        if (phase < 1) { showMessage('Selecione a fase.', 'error'); return; }
+
+        clearMessage();
+        const btn = document.getElementById('btnSubmit');
+        btn.classList.add('is-loading'); btn.disabled = true;
+        try {
+            const res = await fetch('/Home/SubmitRetroactiveCheckIn', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: currentEmail, fullName, course, shift, phase, lectureId: selectedLectureId, justification })
+            });
+            const data = await res.json();
+            if (data.success) {
+                clearMessage();
+                document.getElementById('successMessage').textContent = data.message;
+                showStep('Success');
+            } else { showMessage(data.message, 'error'); }
+        } catch { showMessage('Erro de conexão.', 'error'); }
+        finally { btn.classList.remove('is-loading'); btn.disabled = false; }
+    }
+
+    function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+    function goBack() { clearMessage(); selectedLectureId = 0; showStep('Email'); }
+
+    document.getElementById('emailInput').addEventListener('keydown', e => { if (e.key === 'Enter') loadProfileAndContinue(); });
+</script>
+}

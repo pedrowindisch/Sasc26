@@ -258,6 +258,38 @@ public class AdminController : Controller
         return View();
     }
 
+    public async Task<IActionResult> RetroactiveRequests()
+    {
+        if (!IsAdminLoggedIn) return RedirectToAction(nameof(Index));
+        var requests = await _adminService.GetPendingRetroactiveRequestsAsync();
+        ViewBag.Requests = requests;
+        return View();
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetPendingRetroactiveRequests()
+    {
+        if (!IsAdminLoggedIn) return Json(new { success = false });
+        var requests = await _adminService.GetPendingRetroactiveRequestsAsync();
+        return Json(new { success = true, requests });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> ApproveRetroactiveRequest([FromBody] ApproveRetroactiveDto dto)
+    {
+        if (!IsAdminLoggedIn) return Json(new { success = false, message = "Não autenticado." });
+        var result = await _adminService.ApproveRetroactiveRequestAsync(dto.RequestId);
+        return Json(new { result.Success, result.Message });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> RejectRetroactiveRequest([FromBody] RejectRetroactiveDto dto)
+    {
+        if (!IsAdminLoggedIn) return Json(new { success = false, message = "Não autenticado." });
+        var result = await _adminService.RejectRetroactiveRequestAsync(dto.RequestId);
+        return Json(new { result.Success, result.Message });
+    }
+
     public async Task<IActionResult> Projector(int lectureId)
     {
         var lecture = await _db.Lectures
@@ -277,3 +309,5 @@ public class CreateTimeSlotDto { public DateTime StartTime { get; set; } public 
 public class UpdateTimeSlotCreditHoursDto { public int TimeSlotId { get; set; } public int CreditHours { get; set; } }
 public class DeleteTimeSlotDto { public int TimeSlotId { get; set; } }
 public class TogglePreRegDto { public int LectureId { get; set; } }
+public class ApproveRetroactiveDto { public Guid RequestId { get; set; } }
+public class RejectRetroactiveDto { public Guid RequestId { get; set; } }
