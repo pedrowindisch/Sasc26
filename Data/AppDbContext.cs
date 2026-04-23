@@ -17,6 +17,7 @@ public class AppDbContext : DbContext
     public DbSet<CertificateConfig> CertificateConfigs => Set<CertificateConfig>();
     public DbSet<IssuedCertificate> IssuedCertificates => Set<IssuedCertificate>();
     public DbSet<RetroactiveCheckIn> RetroactiveCheckIns => Set<RetroactiveCheckIn>();
+    public DbSet<MagicCheckInSession> MagicCheckInSessions => Set<MagicCheckInSession>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -121,6 +122,16 @@ public class AppDbContext : DbContext
                   .WithMany()
                   .HasForeignKey(e => e.AttendeeEmail)
                   .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Lecture)
+                  .WithMany()
+                  .HasForeignKey(e => e.LectureId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<MagicCheckInSession>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Token).IsRequired().HasMaxLength(20);
             entity.HasOne(e => e.Lecture)
                   .WithMany()
                   .HasForeignKey(e => e.LectureId)

@@ -140,6 +140,17 @@ public class CertificateValidateDto
     public string ValidationCode { get; set; } = string.Empty;
 }
 
+public class MagicCheckInDto
+{
+    public string Email     { get; set; } = string.Empty;
+    public string FullName  { get; set; } = string.Empty;
+    public string Course    { get; set; } = string.Empty;
+    public string Shift     { get; set; } = string.Empty;
+    public int    Phase     { get; set; }
+    public int    LectureId { get; set; }
+    public string Token     { get; set; } = string.Empty;
+}
+
 public class CertificateConfigDto
 {
     public string TemplateMessage { get; set; } = string.Empty;

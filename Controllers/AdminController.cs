@@ -298,6 +298,44 @@ public class AdminController : Controller
         if (lecture is null) return RedirectToAction("Index", "Home");
         return View(lecture);
     }
+
+    [HttpGet]
+    public async Task<IActionResult> MagicCheckInBroadcast(int lectureId)
+    {
+        if (!IsAdminLoggedIn) return RedirectToAction(nameof(Index));
+        var lecture = await _db.Lectures.FindAsync(lectureId);
+        if (lecture is null) return RedirectToAction(nameof(Dashboard));
+
+        var old = await _db.MagicCheckInSessions
+            .Where(s => s.LectureId == lectureId && s.IsActive)
+            .ToListAsync();
+        old.ForEach(s => s.IsActive = false);
+
+        var session = new MagicCheckInSession
+        {
+            Id = Guid.NewGuid(),
+            LectureId = lectureId,
+            Token = GenerateMagicToken(),
+            CreatedAt = DateTime.UtcNow,
+            ExpiresAt = DateTime.UtcNow.AddMinutes(10),
+            IsActive = true
+        };
+        _db.MagicCheckInSessions.Add(session);
+        await _db.SaveChangesAsync();
+
+        ViewBag.Lecture = lecture;
+        ViewBag.Token = session.Token;
+        ViewBag.Payload = $"SASC:{lectureId}:{session.Token}";
+        return View();
+    }
+
+    private static string GenerateMagicToken()
+    {
+        const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        return new string(Enumerable.Range(0, 12)
+            .Select(_ => chars[Random.Shared.Next(chars.Length)])
+            .ToArray());
+    }
 }
 
 public class AdminLoginDto { public string Email { get; set; } = string.Empty; }

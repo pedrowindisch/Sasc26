@@ -157,6 +157,21 @@ public class HomeController : Controller
         return Json(new { result.Success, result.Message });
     }
 
+    [HttpGet]
+    public IActionResult MagicCheckIn() => View();
+
+    [HttpPost]
+    public async Task<IActionResult> MagicCheckIn([FromBody] MagicCheckInDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.Email))
+            return Json(new { success = false, message = "Informe seu e-mail." });
+        if (string.IsNullOrWhiteSpace(dto.Token) || dto.LectureId <= 0)
+            return Json(new { success = false, message = "Token inválido." });
+
+        var result = await _attendanceService.MagicCheckInAsync(dto);
+        return Json(new { result.Success, result.Message });
+    }
+
     [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
     public IActionResult Error()
     {

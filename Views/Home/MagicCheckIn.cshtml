@@ -1,0 +1,256 @@
+@{
+    ViewData["Title"] = "Check-in Mágico";
+}
+
+@section Styles {
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="~/css/bulmaswatch.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; background: #f5f5f5; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+        .card-wrapper { width: 100%; max-width: 440px; padding: 0 16px; }
+        .event-card { background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); overflow: hidden; }
+        .event-header { background: #113D76; padding: 28px 24px 20px; text-align: center; }
+        .event-header img.logo { width: 56px; height: 56px; margin-bottom: 12px; }
+        .event-header h1 { font-size: 1.25rem; font-weight: 700; color: #fff; margin: 0; }
+        .event-header p { font-size: 0.75rem; color: rgba(255,255,255,0.6); margin: 4px 0 0; text-transform: uppercase; letter-spacing: 0.05em; }
+        .event-body { padding: 8px 24px 28px; }
+        .step-section { display: none; padding-top: 16px; }
+        .step-section.active { display: block; }
+        .msg-error { background: #fef2f2; color: #b91c1c; padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; margin-bottom: 16px; }
+        .msg-success { background: #ecfdf5; color: #047857; padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; margin-bottom: 16px; }
+        .button.is-brand { background-color: #113D76; color: #fff; border-color: #0b274d; }
+        .button.is-brand:hover { background-color: #0e3160; color: #fff; }
+        .button.is-outlined-brand { background-color: transparent; color: #113D76; border: 1px solid #113D76; }
+        .button.is-outlined-brand:hover { background-color: #113D76; color: #fff; }
+        .input:focus, .select select:focus { border-color: #2EBDEF; box-shadow: 0 0 0 3px rgba(46,189,239,0.15); }
+        .field + .field { margin-top: 12px; }
+        .section-label { font-size: 0.7rem; font-weight: 600; color: #bbb; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 12px; }
+        .listening-indicator { text-align: center; padding: 32px 0; }
+        .listening-indicator .pulse { display: inline-block; width: 64px; height: 64px; border-radius: 50%; background: rgba(46,189,239,0.15); position: relative; margin-bottom: 12px; }
+        .listening-indicator .pulse::before, .listening-indicator .pulse::after { content: ''; position: absolute; inset: 0; border-radius: 50%; border: 3px solid #2EBDEF; animation: pulse-wave 2s ease-out infinite; }
+        .listening-indicator .pulse::after { animation-delay: 1s; }
+        .listening-indicator .pulse-icon { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 1.6rem; }
+        @@keyframes pulse-wave { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(1.8); opacity: 0; } }
+        .listening-text { font-size: 0.95rem; font-weight: 600; color: #113D76; }
+        .back-link { display: inline-block; margin-top: 12px; font-size: 0.8rem; color: #aaa; cursor: pointer; }
+        .back-link:hover { color: #555; }
+    </style>
+}
+
+<div class="card-wrapper">
+    <div class="event-card">
+        <div class="event-header">
+            <img class="logo" src="~/dasc.svg" alt="DASC">
+            <h1>Check-in Mágico</h1>
+            <p>Escaneie o áudio da palestra</p>
+        </div>
+
+        <div class="event-body">
+            <div id="messageArea"></div>
+
+            <div class="step-section active" id="stepForm">
+                <p class="section-label">Identificação</p>
+                <div class="field">
+                    <label class="label is-small has-text-grey">E-mail institucional</label>
+                    <div class="control"><input class="input" type="email" id="emailInput" placeholder="seu.nome@furb.br" autocomplete="email" autofocus></div>
+                </div>
+                <div class="field">
+                    <label class="label is-small has-text-grey">Nome completo</label>
+                    <div class="control"><input class="input" type="text" id="fullNameInput" placeholder="João da Silva" autocomplete="name"></div>
+                </div>
+                <div class="field">
+                    <label class="label is-small has-text-grey">Curso</label>
+                    <div class="control"><div class="select is-fullwidth"><select id="courseSelect"><option value="">Selecione</option><option value="Ciência da Computação">Ciência da Computação</option><option value="Ciência de Dados">Ciência de Dados</option><option value="Sistemas de Informação">Sistemas de Informação</option></select></div></div>
+                </div>
+                <div class="field">
+                    <label class="label is-small has-text-grey">Turno</label>
+                    <div class="control"><div class="select is-fullwidth"><select id="shiftSelect"><option value="">Selecione</option><option value="Matutino">Matutino</option><option value="Noturno">Noturno</option></select></div></div>
+                </div>
+                <div class="field">
+                    <label class="label is-small has-text-grey">Fase</label>
+                    <div class="control"><div class="select is-fullwidth"><select id="phaseSelect"><option value="">-</option>@for (var i = 1; i <= 9; i++) {<option value="@i">@i</option>}</select></div></div>
+                </div>
+                <div class="field" style="margin-top:16px;">
+                    <div class="control"><button class="button is-brand is-fullwidth" id="btnStart" onclick="startListening()">Escanear áudio 🎙️</button></div>
+                </div>
+                <div class="has-text-centered" style="margin-top:12px;">
+                    <a href="/" class="back-link">← Voltar ao check-in normal</a>
+                </div>
+            </div>
+
+            <div class="step-section" id="stepListening">
+                <div class="listening-indicator">
+                    <div class="pulse">
+                        <span class="pulse-icon">🎙️</span>
+                    </div>
+                    <div class="listening-text" id="listeningText">Ouvindo...</div>
+                </div>
+                <p class="has-text-centered is-size-7 has-text-grey">Aguarde a detecção do sinal de áudio da palestra.</p>
+                <div class="field" style="margin-top:16px;">
+                    <div class="control"><button class="button is-outlined-brand is-fullwidth" onclick="cancelListening()">Cancelar</button></div>
+                </div>
+            </div>
+
+            <div class="step-section" id="stepResult">
+                <div id="resultMessage"></div>
+                <div class="field" style="margin-top:16px;">
+                    <div class="control"><button class="button is-brand is-fullwidth" id="btnRetry" onclick="retryFromResult()">Tentar novamente</button></div>
+                </div>
+                <div class="has-text-centered" style="margin-top:8px;">
+                    <a href="/" class="back-link">← Voltar ao check-in normal</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    let currentEmail = '';
+    let receiver = null;
+
+    function showMessage(t, type) { document.getElementById('messageArea').innerHTML = '<div class="msg-' + type + '">' + t + '</div>'; }
+    function clearMessage() { document.getElementById('messageArea').innerHTML = ''; }
+    function showStep(s) { document.querySelectorAll('.step-section').forEach(el => el.classList.remove('active')); document.getElementById('step' + s).classList.add('active'); }
+
+    async function loadProfile(email) {
+        try {
+            const res = await fetch('/Home/GetProfile?email=' + encodeURIComponent(email));
+            const data = await res.json();
+            if (data && data.found) {
+                document.getElementById('fullNameInput').value = data.fullName || '';
+                document.getElementById('courseSelect').value = data.course || '';
+                document.getElementById('shiftSelect').value = data.shift || '';
+                document.getElementById('phaseSelect').value = data.phase || '';
+            }
+        } catch {}
+    }
+
+    document.getElementById('emailInput').addEventListener('blur', function () {
+        const email = this.value.trim();
+        if (email && email.indexOf('\x40') >= 0) loadProfile(email);
+    });
+
+    async function startListening() {
+        const email = document.getElementById('emailInput').value.trim();
+        const fullName = document.getElementById('fullNameInput').value.trim();
+        const course = document.getElementById('courseSelect').value;
+        const shift = document.getElementById('shiftSelect').value;
+        const phase = parseInt(document.getElementById('phaseSelect').value) || 0;
+
+        if (!email) { showMessage('Informe seu e-mail.', 'error'); return; }
+        if (!fullName) { showMessage('Informe seu nome completo.', 'error'); return; }
+        if (!course) { showMessage('Selecione o curso.', 'error'); return; }
+        if (!shift) { showMessage('Selecione o turno.', 'error'); return; }
+        if (phase < 1) { showMessage('Selecione a fase.', 'error'); return; }
+
+        currentEmail = email;
+        clearMessage();
+
+        try {
+            await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch (e) {
+            showMessage('Permissão de microfone negada. Permita o acesso ao microfone.', 'error');
+            return;
+        }
+
+        showStep('Listening');
+        document.getElementById('listeningText').textContent = 'Ouvindo... Carregando biblioteca...';
+
+        var scriptQuiet = document.createElement('script');
+        scriptQuiet.src = 'https://quiet.github.io/quiet-js/quiet.js';
+        scriptQuiet.onload = function () {
+            var scriptProfiles = document.createElement('script');
+            scriptProfiles.src = 'https://quiet.github.io/quiet-js/quiet-profiles.js';
+            scriptProfiles.onload = function () { initReceiver(); };
+            scriptProfiles.onerror = function () { showMessage('Erro ao carregar perfis de áudio.', 'error'); showStep('Form'); };
+            document.head.appendChild(scriptProfiles);
+        };
+        scriptQuiet.onerror = function () { showMessage('Erro ao carregar biblioteca de áudio.', 'error'); showStep('Form'); };
+        document.head.appendChild(scriptQuiet);
+    }
+
+    function initReceiver() {
+        document.getElementById('listeningText').textContent = 'Ouvindo...';
+        try {
+            Quiet.init({ profilesPrefix: 'https://quiet.github.io/quiet-js/' });
+            Quiet.addReadyCallback(function () {
+                receiver = Quiet.receiver({
+                    profile: 'ultrasonic',
+                    onReceive: function (payload) {
+                        var text;
+                        try { text = Quiet.ab2str(payload); } catch (e) { text = ''; }
+                        if (text.startsWith('SASC:')) {
+                            var parts = text.split(':');
+                            if (parts.length >= 3) {
+                                var lectureId = parseInt(parts[1]);
+                                var token = parts[2];
+                                submitMagicCheckIn(lectureId, token);
+                            }
+                        }
+                    },
+                    onReceiveFail: function (numFails) {
+                        document.getElementById('listeningText').textContent = 'Ouvindo... (tentativa ' + (numFails + 1) + ')';
+                    }
+                });
+            });
+        } catch (e) {
+            showMessage('Erro ao iniciar receptor de áudio: ' + e.message, 'error');
+            showStep('Form');
+        }
+    }
+
+    async function submitMagicCheckIn(lectureId, token) {
+        if (receiver) { try { receiver.close(); } catch (e) {} receiver = null; }
+
+        document.getElementById('listeningText').textContent = 'Sinal detectado! Processando...';
+
+        const fullName = document.getElementById('fullNameInput').value.trim();
+        const course = document.getElementById('courseSelect').value;
+        const shift = document.getElementById('shiftSelect').value;
+        const phase = parseInt(document.getElementById('phaseSelect').value) || 0;
+
+        try {
+            const res = await fetch('/Home/MagicCheckIn', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email: currentEmail,
+                    fullName: fullName,
+                    course: course,
+                    shift: shift,
+                    phase: phase,
+                    lectureId: lectureId,
+                    token: token
+                })
+            });
+            const data = await res.json();
+            showStep('Result');
+            if (data.success) {
+                document.getElementById('resultMessage').innerHTML = '<div class="msg-success has-text-centered" style="padding:16px;">✅ ' + data.message + '</div>';
+                document.getElementById('btnRetry').style.display = 'none';
+            } else {
+                document.getElementById('resultMessage').innerHTML = '<div class="msg-error">❌ ' + data.message + '</div>';
+                document.getElementById('btnRetry').style.display = '';
+            }
+        } catch {
+            showStep('Result');
+            document.getElementById('resultMessage').innerHTML = '<div class="msg-error">❌ Erro de conexão.</div>';
+            document.getElementById('btnRetry').style.display = '';
+        }
+    }
+
+    function cancelListening() {
+        if (receiver) { try { receiver.close(); } catch (e) {} receiver = null; }
+        clearMessage();
+        showStep('Form');
+    }
+
+    function retryFromResult() {
+        clearMessage();
+        showStep('Form');
+    }
+</script>
+}

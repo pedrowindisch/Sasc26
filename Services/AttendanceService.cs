@@ -532,6 +532,60 @@ public class AttendanceService : IAttendanceService
         };
     }
 
+    public async Task<ServiceResult> MagicCheckInAsync(MagicCheckInDto dto)
+    {
+        var email = dto.Email.Trim().ToLowerInvariant();
+
+        var session = await _db.MagicCheckInSessions
+            .FirstOrDefaultAsync(s => s.Token == dto.Token && s.LectureId == dto.LectureId && s.IsActive && s.ExpiresAt > DateTime.UtcNow);
+        if (session is null)
+            return new ServiceResult { Success = false, Message = "Token inválido ou expirado." };
+
+        var existingAttendee = await _db.Attendees.FindAsync(email);
+        if (existingAttendee is not null)
+        {
+            existingAttendee.FullName = dto.FullName.Trim();
+            existingAttendee.Course = dto.Course;
+            existingAttendee.Shift = dto.Shift;
+            existingAttendee.Phase = dto.Phase;
+        }
+        else
+        {
+            _db.Attendees.Add(new Attendee
+            {
+                Email = email,
+                FullName = dto.FullName.Trim(),
+                Course = dto.Course,
+                Shift = dto.Shift,
+                Phase = dto.Phase
+            });
+        }
+
+        var alreadyCheckedIn = await _db.CheckIns
+            .AnyAsync(c => c.AttendeeEmail == email && c.LectureId == dto.LectureId && c.Status == CheckInStatus.Verified);
+        if (alreadyCheckedIn)
+            return new ServiceResult { Success = false, Message = "Você já realizou check-in nesta palestra." };
+
+        var now = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, BrasiliaTz);
+        _db.CheckIns.Add(new CheckIn
+        {
+            Id = Guid.NewGuid(),
+            AttendeeEmail = email,
+            LectureId = dto.LectureId,
+            OtpCode = "MAGIC",
+            Status = CheckInStatus.Verified,
+            CreatedAt = now,
+            ExpiresAt = now,
+            VerifiedAt = now
+        });
+
+        await _db.SaveChangesAsync();
+
+        _logger.LogInformation("Magic check-in for {Email} in lecture {LectureId}", email, dto.LectureId);
+
+        return new ServiceResult { Success = true, Message = "Check-in realizado com sucesso!" };
+    }
+
     private static TimeZoneInfo GetBrasiliaTimeZone()
     {
         try { return TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo"); }

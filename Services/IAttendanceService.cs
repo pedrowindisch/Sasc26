@@ -16,6 +16,7 @@ public interface IAttendanceService
     Task<SubmitCheckInResult> SubmitCheckInAsync(SubmitCheckInDto dto);
     Task<List<RetroactiveLectureDto>> GetYesterdayLecturesAsync();
     Task<RetroactiveRequestResult> SubmitRetroactiveRequestAsync(RetroactiveRequestDto dto);
+    Task<ServiceResult> MagicCheckInAsync(MagicCheckInDto dto);
 }
 
 public class RequestOtpResult
@@ -55,4 +56,10 @@ public class LectureWithPreRegDto
     public bool IsPreRegistrationEnabled { get; set; }
     public int PreRegistrationCount { get; set; }
     public bool AlreadyRegistered { get; set; }
+}
+
+public class ServiceResult
+{
+    public bool Success { get; set; }
+    public string Message { get; set; } = string.Empty;
 }
