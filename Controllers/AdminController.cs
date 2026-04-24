@@ -13,14 +13,16 @@ public class AdminController : Controller
     private readonly IAdminService _adminService;
     private readonly IVolunteerService _volunteerService;
     private readonly ICertificateService _certificateService;
+    private readonly IFeedbackService _feedbackService;
     private readonly AppDbContext _db;
     private readonly EventSettings _settings;
 
-    public AdminController(IAdminService adminService, IVolunteerService volunteerService, ICertificateService certificateService, AppDbContext db, IOptions<EventSettings> settings)
+    public AdminController(IAdminService adminService, IVolunteerService volunteerService, ICertificateService certificateService, IFeedbackService feedbackService, AppDbContext db, IOptions<EventSettings> settings)
     {
         _adminService = adminService;
         _volunteerService = volunteerService;
         _certificateService = certificateService;
+        _feedbackService = feedbackService;
         _db = db;
         _settings = settings.Value;
     }
@@ -151,6 +153,22 @@ public class AdminController : Controller
         var csv = "Email,Data_Inscricao\n" + string.Join("\n", entries.Select(e => $"{e.AttendeeEmail},{e.RegisteredAt:yyyy-MM-dd HH:mm:ss}"));
         var fileName = $"inscricoes_{lecture?.Title?.Replace(" ", "_") ?? lectureId.ToString()}.csv";
         return File(System.Text.Encoding.UTF8.GetBytes(csv), "text/csv", fileName);
+    }
+
+    public async Task<IActionResult> Feedback()
+    {
+        if (!IsAdminLoggedIn) return RedirectToAction(nameof(Index));
+        var summaries = await _feedbackService.GetLectureFeedbackSummariesAsync();
+        ViewBag.FeedbackSummaries = summaries;
+        return View();
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetFeedbackSummaries()
+    {
+        if (!IsAdminLoggedIn) return Json(new { success = false });
+        var summaries = await _feedbackService.GetLectureFeedbackSummariesAsync();
+        return Json(new { success = true, summaries });
     }
 
     [HttpPost]
@@ -290,6 +308,48 @@ public class AdminController : Controller
         return Json(new { result.Success, result.Message });
     }
 
+    [HttpGet]
+    public async Task<IActionResult> GetBanner()
+    {
+        if (!IsAdminLoggedIn) return Json(new { success = false });
+        var banner = await _db.Banners.FirstOrDefaultAsync();
+        return Json(new { success = true, banner });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> UpdateBanner([FromBody] UpdateBannerDto dto)
+    {
+        if (!IsAdminLoggedIn) return Json(new { success = false, message = "Não autenticado." });
+        var banner = await _db.Banners.FirstOrDefaultAsync();
+        if (banner is null)
+        {
+            banner = new Banner { Id = 1 };
+            _db.Banners.Add(banner);
+        }
+        banner.Title = dto.Title?.Trim() ?? string.Empty;
+        banner.Description = dto.Description?.Trim() ?? string.Empty;
+        banner.CtaText = dto.CtaText?.Trim() ?? string.Empty;
+        banner.CtaUrl = dto.CtaUrl?.Trim() ?? string.Empty;
+        banner.IsActive = dto.IsActive;
+        banner.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return Json(new { success = true, banner });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> DeactivateBanner()
+    {
+        if (!IsAdminLoggedIn) return Json(new { success = false, message = "Não autenticado." });
+        var banner = await _db.Banners.FirstOrDefaultAsync();
+        if (banner is not null)
+        {
+            banner.IsActive = false;
+            banner.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+        }
+        return Json(new { success = true });
+    }
+
     public async Task<IActionResult> Projector(int lectureId)
     {
         var lecture = await _db.Lectures
@@ -349,3 +409,5 @@ public class DeleteTimeSlotDto { public int TimeSlotId { get; set; } }
 public class TogglePreRegDto { public int LectureId { get; set; } }
 public class ApproveRetroactiveDto { public Guid RequestId { get; set; } }
 public class RejectRetroactiveDto { public Guid RequestId { get; set; } }
+
+public class UpdateBannerDto { public string Title { get; set; } = string.Empty; public string Description { get; set; } = string.Empty; public string CtaText { get; set; } = string.Empty; public string CtaUrl { get; set; } = string.Empty; public bool IsActive { get; set; } }

@@ -18,6 +18,8 @@ public class AppDbContext : DbContext
     public DbSet<IssuedCertificate> IssuedCertificates => Set<IssuedCertificate>();
     public DbSet<RetroactiveCheckIn> RetroactiveCheckIns => Set<RetroactiveCheckIn>();
     public DbSet<MagicCheckInSession> MagicCheckInSessions => Set<MagicCheckInSession>();
+    public DbSet<Banner> Banners => Set<Banner>();
+    public DbSet<LectureFeedback> LectureFeedbacks => Set<LectureFeedback>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -136,6 +138,27 @@ public class AppDbContext : DbContext
                   .WithMany()
                   .HasForeignKey(e => e.LectureId)
                   .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Banner>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Title).HasMaxLength(200);
+            entity.Property(e => e.Description).HasMaxLength(1000);
+            entity.Property(e => e.CtaText).HasMaxLength(100);
+            entity.Property(e => e.CtaUrl).HasMaxLength(500);
+        });
+
+        modelBuilder.Entity<LectureFeedback>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.AttendeeEmail).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Comment).HasMaxLength(1000);
+            entity.HasOne(e => e.Lecture)
+                  .WithMany()
+                  .HasForeignKey(e => e.LectureId)
+                  .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => new { e.LectureId, e.AttendeeEmail }).IsUnique();
         });
     }
 }

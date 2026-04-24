@@ -27,6 +27,36 @@
         .button.is-brand { background-color: #fff; color: #113D76; }
         .button.is-brand:hover { background-color: #f0f0f0; color: #113D76; }
         .input:focus, .select select:focus { border-color: #2EBDEF; box-shadow: 0 0 0 3px rgba(46,189,239,0.15); }
+
+        .fb-header { text-align: center; margin-bottom: 20px; }
+        .fb-header h2 { font-size: 0.95rem; font-weight: 700; color: #1a1a1a; margin: 0 0 4px; }
+        .fb-header p { font-size: 0.78rem; color: #888; margin: 0; }
+
+        .fb-progress { display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 20px; }
+        .fb-progress-dot { width: 8px; height: 8px; border-radius: 50%; background: #e5e7eb; transition: all 0.25s ease; }
+        .fb-progress-dot.active { background: #113D76; transform: scale(1.25); }
+        .fb-progress-dot.done { background: #059669; }
+        .fb-progress-dot.skipped { background: #d1d5db; }
+        .fb-progress-counter { font-size: 0.7rem; color: #aaa; font-weight: 500; margin-left: 8px; }
+
+        .fb-card { background: #f8fafc; border: 1px solid #e8ecf1; border-radius: 14px; padding: 20px 18px 16px; text-align: center; animation: fbFadeIn 0.3s ease; }
+        @@keyframes fbFadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+        .fb-card .fb-lectitle { font-size: 1rem; font-weight: 700; color: #1a1a1a; margin: 0 0 2px; }
+        .fb-card .fb-lecspeaker { font-size: 0.82rem; color: #8896a7; margin: 0 0 16px; }
+
+        .fb-stars { display: flex; gap: 8px; justify-content: center; margin-bottom: 14px; }
+        .fb-stars .fb-star { font-size: 2.2rem; cursor: pointer; color: #dde3eb; transition: color 0.15s, transform 0.12s; user-select: none; line-height: 1; }
+        .fb-stars .fb-star.active { color: #f59e0b; }
+        .fb-stars .fb-star:hover { color: #fbbf24; transform: scale(1.18); }
+
+        .fb-comment { margin-top: 2px; }
+        .fb-comment .input { background: #fff; border-color: #e0e5ec; font-size: 0.85rem; }
+        .fb-comment .input::placeholder { color: #b0b8c4; }
+
+        .fb-skipped-badge { display: inline-block; background: #f3f4f6; color: #9ca3af; font-size: 0.72rem; font-weight: 600; padding: 3px 10px; border-radius: 100px; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.04em; }
+
+        .fb-actions { display: flex; flex-direction: column-reverse; gap: 8px; margin-top: 20px; }
+        .fb-actions .button { width: 100%; }
     </style>
 }
 
@@ -66,6 +96,20 @@
                 <a class="back-link" onclick="goBack()">&#8592; Voltar</a>
             </div>
 
+            <div class="step-section" id="stepFeedback">
+                <div class="fb-header">
+                    <h2>Avaliação das Palestras</h2>
+                    <p>Responda com sinceridade. Caso não queira responder, pule.</p>
+                </div>
+                <div class="fb-progress" id="fbProgress"></div>
+                <div id="fbCard"></div>
+                <div class="fb-actions">
+                    <button class="button is-brand is-fullwidth" id="btnNext" onclick="fbNext()">Próximo &#8594;</button>
+                    <button class="button is-brand is-fullwidth" id="btnSkip" onclick="fbSkip()">Pular avaliação</button>
+                    <button class="button is-brand is-fullwidth" id="btnPrev" onclick="fbPrev()" style="display:none;">&#8592; Anterior</button>
+                </div>
+            </div>
+
             <div class="step-section" id="stepSuccess">
                 <div class="msg-success has-text-centered" id="successMessage"></div>
                 <div class="has-text-centered" style="margin-top:12px;">
@@ -82,10 +126,15 @@
 @section Scripts {
 <script>
     let currentEmail = '';
+    let pendingLectures = [];
+    let wizData = [];
+    let wizIdx = 0;
 
     function showMessage(t, type) { document.getElementById('messageArea').innerHTML = `<div class="msg-${type}">${t}</div>`; }
     function clearMessage() { document.getElementById('messageArea').innerHTML = ''; }
     function showStep(s) { document.querySelectorAll('.step-section').forEach(el => el.classList.remove('active')); document.getElementById('step' + s).classList.add('active'); }
+    function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+    function escA(s) { return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
 
     async function lookupEmail() {
         const email = document.getElementById('emailInput').value.trim();
@@ -99,15 +148,8 @@
             if (!data.success) { showMessage(data.message, 'error'); }
             else {
                 currentEmail = email;
-                if (data.exists) {
-                    document.getElementById('profileName').value = data.name || '';
-                    document.getElementById('profileCourse').value = data.course || '';
-                    document.getElementById('profilePhase').value = data.phase || '';
-                } else {
-                    document.getElementById('profileName').value = '';
-                    document.getElementById('profileCourse').value = '';
-                    document.getElementById('profilePhase').value = '';
-                }
+                if (data.exists) { document.getElementById('profileName').value = data.name || ''; document.getElementById('profileCourse').value = data.course || ''; document.getElementById('profilePhase').value = data.phase || ''; }
+                else { document.getElementById('profileName').value = ''; document.getElementById('profileCourse').value = ''; document.getElementById('profilePhase').value = ''; }
                 showStep('Profile');
             }
         } catch { showMessage('Erro de conexão.', 'error'); }
@@ -125,6 +167,21 @@
         const btn = document.getElementById('btnIssue');
         btn.classList.add('is-loading'); btn.disabled = true;
         try {
+            const fbRes = await fetch('/Certificate/CheckFeedbackStatus', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: currentEmail }) });
+            const fbData = await fbRes.json();
+            if (fbData.needsFeedback && fbData.lectures && fbData.lectures.length > 0) {
+                pendingLectures = fbData.lectures;
+                initFb();
+                showStep('Feedback');
+            } else {
+                await doIssue(name, course, phase);
+            }
+        } catch { showMessage('Erro de conexão.', 'error'); }
+        finally { btn.classList.remove('is-loading'); btn.disabled = false; }
+    }
+
+    async function doIssue(name, course, phase) {
+        try {
             const res = await fetch('/Certificate/Issue', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: currentEmail, name, course, phase }) });
             const data = await res.json();
             if (data.success) {
@@ -133,11 +190,104 @@
                 showStep('Success');
             } else { showMessage(data.message, 'error'); }
         } catch { showMessage('Erro de conexão.', 'error'); }
-        finally { btn.classList.remove('is-loading'); btn.disabled = false; }
+    }
+
+    function initFb() {
+        wizData = pendingLectures.map(l => ({ lectureId: l.lectureId, title: l.title, speaker: l.speaker, rating: 0, comment: '', skipped: false }));
+        wizIdx = 0;
+        renderFb();
+    }
+
+    function renderFb() {
+        const total = wizData.length;
+        const lec = wizData[wizIdx];
+        document.getElementById('messageArea').innerHTML = '';
+
+        const dots = wizData.map((w, i) => {
+            let cls = 'fb-progress-dot';
+            if (i === wizIdx) cls += ' active';
+            else if (w.skipped) cls += ' skipped';
+            else if (w.rating > 0) cls += ' done';
+            return `<span class="${cls}"></span>`;
+        }).join('');
+        document.getElementById('fbProgress').innerHTML = dots + `<span class="fb-progress-counter">${wizIdx + 1}/${total}</span>`;
+
+        if (lec.skipped) {
+            document.getElementById('fbCard').innerHTML = `
+                <div class="fb-card" style="opacity:0.55;">
+                    <span class="fb-skipped-badge">Avaliação pulada</span>
+                    <p class="fb-lectitle">${esc(lec.title)}</p>
+                    <p class="fb-lecspeaker">${esc(lec.speaker)}</p>
+                </div>`;
+        } else {
+            document.getElementById('fbCard').innerHTML = `
+                <div class="fb-card">
+                    <p class="fb-lectitle">${esc(lec.title)}</p>
+                    <p class="fb-lecspeaker">${esc(lec.speaker)}</p>
+                    <div class="fb-stars" id="fbStars">
+                        ${[1,2,3,4,5].map(s => `<span class="fb-star ${lec.rating >= s ? 'active' : ''}" onclick="fbRate(${s})">&#9733;</span>`).join('')}
+                    </div>
+                    <div class="fb-comment">
+                        <input class="input is-small" type="text" id="fbComment" placeholder="Comentário (opcional)" maxlength="500" value="${escA(lec.comment)}">
+                    </div>
+                </div>`;
+        }
+
+        document.getElementById('btnPrev').style.display = wizIdx > 0 ? '' : 'none';
+        document.getElementById('btnSkip').style.display = lec.skipped ? 'none' : '';
+
+        const btnNext = document.getElementById('btnNext');
+        btnNext.textContent = wizIdx === total - 1 ? 'Enviar e emitir certificado' : 'Próximo \u2192';
+        btnNext.classList.remove('is-loading');
+        btnNext.disabled = false;
+    }
+
+    function fbRate(val) {
+        wizData[wizIdx].rating = val;
+        wizData[wizIdx].skipped = false;
+        renderFb();
+    }
+
+    function fbSkip() {
+        wizData[wizIdx].rating = 0;
+        wizData[wizIdx].skipped = true;
+        saveComment();
+        renderFb();
+    }
+
+    function saveComment() {
+        const el = document.getElementById('fbComment');
+        if (el) wizData[wizIdx].comment = el.value.trim();
+    }
+
+    function fbPrev() {
+        saveComment();
+        if (wizIdx > 0) { wizIdx--; renderFb(); }
+    }
+
+    function fbNext() {
+        saveComment();
+        const lec = wizData[wizIdx];
+        if (!lec.skipped && lec.rating === 0) { showMessage('Selecione uma nota ou pule esta avaliação.', 'error'); return; }
+        clearMessage();
+        if (wizIdx < wizData.length - 1) { wizIdx++; renderFb(); }
+        else { submitFeedback(); }
+    }
+
+    async function submitFeedback() {
+        const btn = document.getElementById('btnNext');
+        btn.classList.add('is-loading'); btn.disabled = true;
+        try {
+            const feedbacks = wizData.map(w => ({ lectureId: w.lectureId, rating: w.rating, comment: w.comment, skipped: w.skipped }));
+            await fetch('/Feedback/Submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: currentEmail, feedbacks }) });
+            const name = document.getElementById('profileName').value.trim();
+            const course = document.getElementById('profileCourse').value;
+            const phase = document.getElementById('profilePhase').value;
+            await doIssue(name, course, phase);
+        } catch { showMessage('Erro ao enviar feedback.', 'error'); btn.classList.remove('is-loading'); btn.disabled = false; }
     }
 
     function goBack() { clearMessage(); showStep('Email'); }
-
     document.getElementById('emailInput').addEventListener('keydown', e => { if (e.key === 'Enter') lookupEmail(); });
 </script>
 }

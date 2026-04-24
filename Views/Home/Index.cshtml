@@ -3,6 +3,7 @@
     var hasActiveTimeSlot = (bool)ViewBag.HasActiveTimeSlot;
     var instagramUrl = ViewBag.InstagramUrl as string ?? "https://instagram.com/dascfurb";
     var tshirtPresaleUrl = ViewBag.TshirtPresaleUrl as string ?? "";
+    var banner = ViewBag.Banner as Sasc26.Models.Banner;
 }
 
 @section Styles {
@@ -52,10 +53,27 @@
         .kw-input { text-align: center; font-weight: 500; }
         .empty-state { text-align: center; padding: 24px 0; color: #bbb; font-size: 0.9rem; }
         .words { display: flex !important; flex-direction: row; gap: 0.5rem !important; }
+        .banner-alert { background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); padding: 20px 24px; margin-bottom: 16px; }
+        .banner-alert .banner-title { font-size: 0.9rem; font-weight: 700; color: #113D76; margin-bottom: 6px; }
+        .banner-alert .banner-desc { font-size: 0.82rem; color: #666; margin-bottom: 12px; line-height: 1.5; }
     </style>
 }
 
 <div class="card-wrapper">
+    @if (banner is not null && banner.IsActive && !string.IsNullOrWhiteSpace(banner.Title))
+    {
+        <div class="banner-alert">
+            <div class="banner-title">@banner.Title</div>
+            @if (!string.IsNullOrWhiteSpace(banner.Description))
+            {
+                <div class="banner-desc">@banner.Description</div>
+            }
+            @if (!string.IsNullOrWhiteSpace(banner.CtaText) && !string.IsNullOrWhiteSpace(banner.CtaUrl))
+            {
+                <a class="button is-secondary is-fullwidth" href="@banner.CtaUrl">@banner.CtaText</a>
+            }
+        </div>
+    }
     <div class="event-card">
         <div class="event-header">
             <img class="logo" src="~/dasc.svg" alt="DASC">

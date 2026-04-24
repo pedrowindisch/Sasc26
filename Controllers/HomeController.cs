@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Sasc26.Data;
 using Sasc26.Models;
 using Sasc26.Services;
 
@@ -11,12 +13,14 @@ public class HomeController : Controller
     private readonly ILogger<HomeController> _logger;
     private readonly IAttendanceService _attendanceService;
     private readonly EventSettings _eventSettings;
+    private readonly AppDbContext _db;
 
-    public HomeController(ILogger<HomeController> logger, IAttendanceService attendanceService, IOptions<EventSettings> eventSettings)
+    public HomeController(ILogger<HomeController> logger, IAttendanceService attendanceService, IOptions<EventSettings> eventSettings, AppDbContext db)
     {
         _logger = logger;
         _attendanceService = attendanceService;
         _eventSettings = eventSettings.Value;
+        _db = db;
     }
 
     public async Task<IActionResult> Index()
@@ -26,6 +30,8 @@ public class HomeController : Controller
         ViewBag.HasActiveTimeSlot = timeSlot is not null;
         ViewBag.InstagramUrl = _eventSettings.InstagramUrl;
         ViewBag.TshirtPresaleUrl = _eventSettings.TshirtPresaleUrl;
+        var banner = await _db.Banners.FirstOrDefaultAsync(b => b.IsActive);
+        ViewBag.Banner = banner;
         return View();
     }
 

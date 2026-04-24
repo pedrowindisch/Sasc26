@@ -63,6 +63,7 @@
         <div class="nav-links">
             <a href="/Admin/Volunteers">Voluntários</a>
             <a href="/Admin/RetroactiveRequests">Retroativas</a>
+            <a href="/Admin/Feedback">Avaliações</a>
             <a href="/Admin/CertificateConfig">Certificados</a>
             <a href="/Admin/Logout" class="nav-logout">Sair</a>
         </div>
@@ -223,6 +224,25 @@
             <div id="checkinsTable"><div class="empty-state">Carregando...</div></div>
         </div>
 
+        <!-- BANNER -->
+        <div class="panel-card">
+            <h2>Banner da Página Inicial</h2>
+            <div id="bannerMsg"></div>
+            <div class="columns">
+                <div class="column is-4"><div class="field"><label class="label is-small">Título</label><div class="control"><input class="input" type="text" id="bannerTitle" placeholder="Ex: Certificados disponíveis!"></div></div></div>
+                <div class="column is-4"><div class="field"><label class="label is-small">Descrição</label><div class="control"><input class="input" type="text" id="bannerDescription" placeholder="Ex: Os certificados já estão disponíveis para download."></div></div></div>
+                <div class="column is-2"><div class="field"><label class="label is-small">Texto do botão</label><div class="control"><input class="input" type="text" id="bannerCtaText" placeholder="Ex: Baixar certificado"></div></div></div>
+                <div class="column is-2"><div class="field"><label class="label is-small">Link do botão</label><div class="control"><input class="input" type="text" id="bannerCtaUrl" placeholder="Ex: /Certificate"></div></div></div>
+            </div>
+            <div style="display:flex;gap:12px;align-items:center;">
+                <label class="checkbox is-small" style="font-size:0.85rem;">
+                    <input type="checkbox" id="bannerActive"> Banner ativo
+                </label>
+                <button class="button is-brand" onclick="saveBanner()">Salvar banner</button>
+                <button class="button is-danger-light" onclick="deactivateBanner()">Desativar</button>
+            </div>
+        </div>
+
         <!-- CERTIFICATES -->
         <div class="panel-card">
             <h2>Certificados</h2>
@@ -336,6 +356,39 @@
         }
 
         loadCheckIns();
+
+        async function loadBanner() {
+            const res = await fetch('/Admin/GetBanner');
+            const data = await res.json();
+            if (data.success && data.banner) {
+                document.getElementById('bannerTitle').value = data.banner.title || '';
+                document.getElementById('bannerDescription').value = data.banner.description || '';
+                document.getElementById('bannerCtaText').value = data.banner.ctaText || '';
+                document.getElementById('bannerCtaUrl').value = data.banner.ctaUrl || '';
+                document.getElementById('bannerActive').checked = data.banner.isActive;
+            }
+        }
+
+        async function saveBanner() {
+            const title = document.getElementById('bannerTitle').value.trim();
+            const description = document.getElementById('bannerDescription').value.trim();
+            const ctaText = document.getElementById('bannerCtaText').value.trim();
+            const ctaUrl = document.getElementById('bannerCtaUrl').value.trim();
+            const isActive = document.getElementById('bannerActive').checked;
+            if (isActive && !title) { showMsg('bannerMsg', 'Informe o título do banner.', 'error'); return; }
+            const res = await fetch('/Admin/UpdateBanner', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, description, ctaText, ctaUrl, isActive }) });
+            const data = await res.json();
+            if (data.success) showMsg('bannerMsg', 'Banner salvo.', 'success');
+            else showMsg('bannerMsg', data.message || 'Erro ao salvar.', 'error');
+        }
+
+        async function deactivateBanner() {
+            await fetch('/Admin/DeactivateBanner', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+            document.getElementById('bannerActive').checked = false;
+            showMsg('bannerMsg', 'Banner desativado.', 'success');
+        }
+
+        loadBanner();
     </script>
 </body>
 </html>

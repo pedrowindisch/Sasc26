@@ -9,11 +9,13 @@ namespace Sasc26.Controllers;
 public class CertificateController : Controller
 {
     private readonly ICertificateService _certificateService;
+    private readonly IFeedbackService _feedbackService;
     private readonly AppDbContext _db;
 
-    public CertificateController(ICertificateService certificateService, AppDbContext db)
+    public CertificateController(ICertificateService certificateService, IFeedbackService feedbackService, AppDbContext db)
     {
         _certificateService = certificateService;
+        _feedbackService = feedbackService;
         _db = db;
     }
 
@@ -65,6 +67,16 @@ public class CertificateController : Controller
     public IActionResult Validate()
     {
         return View();
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> CheckFeedbackStatus([FromBody] CertificateRequestDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.Email))
+            return Json(new { success = false, message = "Informe o e-mail." });
+
+        var result = await _feedbackService.GetFeedbackStatusAsync(dto.Email);
+        return Json(new { result.Success, result.Message, result.NeedsFeedback, result.Lectures });
     }
 
     [HttpPost]

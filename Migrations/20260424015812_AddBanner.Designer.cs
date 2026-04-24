@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Sasc26.Data;
 
@@ -10,9 +11,11 @@ using Sasc26.Data;
 namespace Sasc26.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260424015812_AddBanner")]
+    partial class AddBanner
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "9.0.4");
@@ -244,42 +247,6 @@ namespace Sasc26.Migrations
                     b.ToTable("Lectures");
                 });
 
-            modelBuilder.Entity("Sasc26.Models.LectureFeedback", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("AttendeeEmail")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Comment")
-                        .IsRequired()
-                        .HasMaxLength(1000)
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("LectureId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("Rating")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("Skipped")
-                        .HasColumnType("INTEGER");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("LectureId", "AttendeeEmail")
-                        .IsUnique();
-
-                    b.ToTable("LectureFeedbacks");
-                });
-
             modelBuilder.Entity("Sasc26.Models.MagicCheckInSession", b =>
                 {
                     b.Property<Guid>("Id")
@@ -502,17 +469,6 @@ namespace Sasc26.Migrations
                         .IsRequired();
 
                     b.Navigation("TimeSlot");
-                });
-
-            modelBuilder.Entity("Sasc26.Models.LectureFeedback", b =>
-                {
-                    b.HasOne("Sasc26.Models.Lecture", "Lecture")
-                        .WithMany()
-                        .HasForeignKey("LectureId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Lecture");
                 });
 
             modelBuilder.Entity("Sasc26.Models.MagicCheckInSession", b =>

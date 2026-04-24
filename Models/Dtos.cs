@@ -170,3 +170,53 @@ public class IssuedCertificateDto
     public decimal TotalHours { get; set; }
     public DateTime IssuedAt { get; set; }
 }
+
+public class FeedbackStatusResult
+{
+    public bool Success { get; set; }
+    public string Message { get; set; } = string.Empty;
+    public bool NeedsFeedback { get; set; }
+    public List<LectureForFeedbackDto> Lectures { get; set; } = [];
+}
+
+public class LectureForFeedbackDto
+{
+    public int LectureId { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string Speaker { get; set; } = string.Empty;
+}
+
+public class SubmitFeedbackDto
+{
+    public string Email { get; set; } = string.Empty;
+    public List<SingleFeedbackDto> Feedbacks { get; set; } = [];
+}
+
+public class SingleFeedbackDto
+{
+    public int LectureId { get; set; }
+    public int Rating { get; set; }
+    public string Comment { get; set; } = string.Empty;
+    public bool Skipped { get; set; }
+}
+
+public class LectureFeedbackSummaryDto
+{
+    public int LectureId { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string Speaker { get; set; } = string.Empty;
+    public double AverageRating { get; set; }
+    public int TotalResponses { get; set; }
+    public int TotalSkipped { get; set; }
+    public List<FeedbackEntryDto> Feedbacks { get; set; } = [];
+}
+
+public class FeedbackEntryDto
+{
+    public int Id { get; set; }
+    public string AttendeeEmail { get; set; } = string.Empty;
+    public int Rating { get; set; }
+    public string Comment { get; set; } = string.Empty;
+    public bool Skipped { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
