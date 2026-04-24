@@ -40,6 +40,7 @@ builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<IVolunteerService, VolunteerService>();
 builder.Services.AddScoped<ICertificateService, CertificateService>();
 builder.Services.AddScoped<IFeedbackService, FeedbackService>();
+builder.Services.AddScoped<IThankYouService, ThankYouService>();
 
 var app = builder.Build();
 
@@ -106,5 +107,17 @@ static async Task SeedDatabaseAsync(WebApplication app)
             config.BorderColor = "#113D76";
             await db.SaveChangesAsync();
         }
+    }
+
+    if (!await db.ThankYouConfigs.AnyAsync())
+    {
+        db.ThankYouConfigs.Add(new ThankYouConfig
+        {
+            Message = "Obrigado por participar da SASC 26!",
+            IsFormEnabled = false,
+            FormFields = "[]"
+        });
+        await db.SaveChangesAsync();
+        logger.LogInformation("Seeded default thank you config");
     }
 }

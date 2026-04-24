@@ -57,6 +57,15 @@
 
         .fb-actions { display: flex; flex-direction: column-reverse; gap: 8px; margin-top: 20px; }
         .fb-actions .button { width: 100%; }
+
+        .ty-message { font-size: 0.92rem; color: #333; line-height: 1.6; text-align: center; margin-bottom: 20px; }
+        .ty-form { background: #f8fafc; border: 1px solid #e8ecf1; border-radius: 12px; padding: 18px 16px; margin-top: 8px; }
+        .ty-form h3 { font-size: 0.9rem; font-weight: 700; color: #1a1a1a; margin: 0 0 4px; }
+        .ty-form p { font-size: 0.78rem; color: #888; margin: 0 0 14px; }
+        .ty-actions { margin-top: 16px; }
+        .ty-skip { text-align: center; margin-top: 8px; }
+        .ty-skip a { font-size: 0.78rem; color: #aaa; cursor: pointer; }
+        .ty-skip a:hover { color: #555; }
     </style>
 }
 
@@ -110,6 +119,17 @@
                 </div>
             </div>
 
+            <div class="step-section" id="stepThankYou">
+                <div class="ty-message" id="tyMessage"></div>
+                <div id="tyFormArea"></div>
+                <div class="ty-actions">
+                    <button class="button is-brand is-fullwidth" id="btnTySubmit" onclick="tySubmit()">Continuar</button>
+                </div>
+                <div class="ty-skip" id="tySkipArea" style="display:none;">
+                    <a onclick="tySkip()">Pular e emitir certificado</a>
+                </div>
+            </div>
+
             <div class="step-section" id="stepSuccess">
                 <div class="msg-success has-text-centered" id="successMessage"></div>
                 <div class="has-text-centered" style="margin-top:12px;">
@@ -129,6 +149,7 @@
     let pendingLectures = [];
     let wizData = [];
     let wizIdx = 0;
+    let tyConfig = null;
 
     function showMessage(t, type) { document.getElementById('messageArea').innerHTML = `<div class="msg-${type}">${t}</div>`; }
     function clearMessage() { document.getElementById('messageArea').innerHTML = ''; }
@@ -174,7 +195,7 @@
                 initFb();
                 showStep('Feedback');
             } else {
-                await doIssue(name, course, phase);
+                await checkThankYou();
             }
         } catch { showMessage('Erro de conexão.', 'error'); }
         finally { btn.classList.remove('is-loading'); btn.disabled = false; }
@@ -190,6 +211,28 @@
                 showStep('Success');
             } else { showMessage(data.message, 'error'); }
         } catch { showMessage('Erro de conexão.', 'error'); }
+    }
+
+    async function checkThankYou() {
+        try {
+            const res = await fetch('/Certificate/GetThankYouConfig');
+            const data = await res.json();
+            if (data.success && data.config && data.config.message) {
+                tyConfig = data.config;
+                renderThankYou();
+                showStep('ThankYou');
+            } else {
+                const name = document.getElementById('profileName').value.trim();
+                const course = document.getElementById('profileCourse').value;
+                const phase = document.getElementById('profilePhase').value;
+                await doIssue(name, course, phase);
+            }
+        } catch {
+            const name = document.getElementById('profileName').value.trim();
+            const course = document.getElementById('profileCourse').value;
+            const phase = document.getElementById('profilePhase').value;
+            await doIssue(name, course, phase);
+        }
     }
 
     function initFb() {
@@ -280,11 +323,76 @@
         try {
             const feedbacks = wizData.map(w => ({ lectureId: w.lectureId, rating: w.rating, comment: w.comment, skipped: w.skipped }));
             await fetch('/Feedback/Submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: currentEmail, feedbacks }) });
+            await checkThankYou();
+        } catch { showMessage('Erro ao enviar feedback.', 'error'); btn.classList.remove('is-loading'); btn.disabled = false; }
+    }
+
+    function renderThankYou() {
+        clearMessage();
+        const msgEl = document.getElementById('tyMessage');
+        msgEl.innerHTML = esc(tyConfig.message).replace(/\n/g, '<br>');
+
+        const formArea = document.getElementById('tyFormArea');
+        const skipArea = document.getElementById('tySkipArea');
+        const submitBtn = document.getElementById('btnTySubmit');
+
+        if (tyConfig.isFormEnabled && tyConfig.formFields && tyConfig.formFields.length > 0) {
+            let formHtml = '<div class="ty-form">';
+            formHtml += `<h3>${esc(tyConfig.formTitle || 'Formulário')}</h3>`;
+            if (tyConfig.formDescription) formHtml += `<p>${esc(tyConfig.formDescription)}</p>`;
+            tyConfig.formFields.forEach((f, i) => {
+                const req = f.required ? '<span style="color:#b91c1c;">*</span>' : '';
+                formHtml += `<div class="field"><label class="label is-small has-text-grey">${esc(f.label)} ${req}</label>`;
+                if (f.type === 'select') {
+                    formHtml += `<div class="control"><div class="select is-fullwidth is-small"><select id="tyField_${i}"><option value="">Selecione</option>`;
+                    (f.options || []).forEach(o => { formHtml += `<option value="${escA(o)}">${esc(o)}</option>`; });
+                    formHtml += '</select></div></div>';
+                } else if (f.type === 'textarea') {
+                    formHtml += `<div class="control"><textarea class="textarea is-small" id="tyField_${i}" rows="3" placeholder="${escA(f.placeholder || '')}"></textarea></div>`;
+                } else {
+                    formHtml += `<div class="control"><input class="input is-small" type="${f.type === 'email' ? 'email' : 'text'}" id="tyField_${i}" placeholder="${escA(f.placeholder || '')}"></div>`;
+                }
+                formHtml += '</div>';
+            });
+            formHtml += '</div>';
+            formArea.innerHTML = formHtml;
+            submitBtn.textContent = tyConfig.formButtonText || 'Enviar';
+            skipArea.style.display = '';
+        } else {
+            formArea.innerHTML = '';
+            submitBtn.textContent = 'Continuar';
+            skipArea.style.display = 'none';
+        }
+    }
+
+    async function tySubmit() {
+        const btn = document.getElementById('btnTySubmit');
+        btn.classList.add('is-loading'); btn.disabled = true;
+        try {
+            if (tyConfig.isFormEnabled && tyConfig.formFields && tyConfig.formFields.length > 0) {
+                const responses = [];
+                let valid = true;
+                tyConfig.formFields.forEach((f, i) => {
+                    const el = document.getElementById('tyField_' + i);
+                    const val = el ? el.value.trim() : '';
+                    if (f.required && !val) { valid = false; }
+                    responses.push({ label: f.label, value: val });
+                });
+                if (!valid) { showMessage('Preencha os campos obrigatórios.', 'error'); btn.classList.remove('is-loading'); btn.disabled = false; return; }
+                await fetch('/Certificate/SubmitForm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: currentEmail, responses }) });
+            }
             const name = document.getElementById('profileName').value.trim();
             const course = document.getElementById('profileCourse').value;
             const phase = document.getElementById('profilePhase').value;
             await doIssue(name, course, phase);
-        } catch { showMessage('Erro ao enviar feedback.', 'error'); btn.classList.remove('is-loading'); btn.disabled = false; }
+        } catch { showMessage('Erro ao enviar formulário.', 'error'); btn.classList.remove('is-loading'); btn.disabled = false; }
+    }
+
+    async function tySkip() {
+        const name = document.getElementById('profileName').value.trim();
+        const course = document.getElementById('profileCourse').value;
+        const phase = document.getElementById('profilePhase').value;
+        await doIssue(name, course, phase);
     }
 
     function goBack() { clearMessage(); showStep('Email'); }

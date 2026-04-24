@@ -220,3 +220,42 @@ public class FeedbackEntryDto
     public bool Skipped { get; set; }
     public DateTime CreatedAt { get; set; }
 }
+
+public class ThankYouConfigDto
+{
+    public string Message { get; set; } = string.Empty;
+    public bool IsFormEnabled { get; set; }
+    public string FormTitle { get; set; } = string.Empty;
+    public string FormDescription { get; set; } = string.Empty;
+    public string FormButtonText { get; set; } = "Enviar";
+    public List<FormFieldDto> FormFields { get; set; } = [];
+}
+
+public class FormFieldDto
+{
+    public string Label { get; set; } = string.Empty;
+    public string Type { get; set; } = "text";
+    public bool Required { get; set; }
+    public string Placeholder { get; set; } = string.Empty;
+    public List<string> Options { get; set; } = [];
+}
+
+public class SubmitFormDto
+{
+    public string Email { get; set; } = string.Empty;
+    public List<FormFieldResponseDto> Responses { get; set; } = [];
+}
+
+public class FormFieldResponseDto
+{
+    public string Label { get; set; } = string.Empty;
+    public string Value { get; set; } = string.Empty;
+}
+
+public class FormSubmissionDto
+{
+    public int Id { get; set; }
+    public string AttendeeEmail { get; set; } = string.Empty;
+    public List<FormFieldResponseDto> Responses { get; set; } = [];
+    public DateTime SubmittedAt { get; set; }
+}

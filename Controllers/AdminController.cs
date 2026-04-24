@@ -14,15 +14,17 @@ public class AdminController : Controller
     private readonly IVolunteerService _volunteerService;
     private readonly ICertificateService _certificateService;
     private readonly IFeedbackService _feedbackService;
+    private readonly IThankYouService _thankYouService;
     private readonly AppDbContext _db;
     private readonly EventSettings _settings;
 
-    public AdminController(IAdminService adminService, IVolunteerService volunteerService, ICertificateService certificateService, IFeedbackService feedbackService, AppDbContext db, IOptions<EventSettings> settings)
+    public AdminController(IAdminService adminService, IVolunteerService volunteerService, ICertificateService certificateService, IFeedbackService feedbackService, IThankYouService thankYouService, AppDbContext db, IOptions<EventSettings> settings)
     {
         _adminService = adminService;
         _volunteerService = volunteerService;
         _certificateService = certificateService;
         _feedbackService = feedbackService;
+        _thankYouService = thankYouService;
         _db = db;
         _settings = settings.Value;
     }
@@ -274,6 +276,61 @@ public class AdminController : Controller
         var certs = await _certificateService.GetAllIssuedCertificatesAsync();
         ViewBag.Certificates = certs;
         return View();
+    }
+
+    public async Task<IActionResult> ThankYouConfig()
+    {
+        if (!IsAdminLoggedIn) return RedirectToAction(nameof(Index));
+        var config = await _thankYouService.GetConfigAsync();
+        ViewBag.ThankYouConfig = config;
+        return View();
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> UpdateThankYouConfig([FromBody] ThankYouConfigDto dto)
+    {
+        if (!IsAdminLoggedIn) return Json(new { success = false, message = "Não autenticado." });
+        var result = await _thankYouService.UpdateConfigAsync(dto);
+        return Json(new { success = true, config = result });
+    }
+
+    public async Task<IActionResult> FormSubmissions()
+    {
+        if (!IsAdminLoggedIn) return RedirectToAction(nameof(Index));
+        var submissions = await _thankYouService.GetSubmissionsAsync();
+        var tyConfig = await _thankYouService.GetConfigAsync();
+        ViewBag.Submissions = submissions;
+        ViewBag.FormFields = tyConfig.FormFields;
+        return View();
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetFormSubmissions()
+    {
+        if (!IsAdminLoggedIn) return Json(new { success = false });
+        var submissions = await _thankYouService.GetSubmissionsAsync();
+        return Json(new { success = true, submissions });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> ExportFormSubmissionsCsv()
+    {
+        if (!IsAdminLoggedIn) return RedirectToAction(nameof(Index));
+        var submissions = await _thankYouService.GetSubmissionsAsync();
+        var config = await _thankYouService.GetConfigAsync();
+        var fieldLabels = config.FormFields.Select(f => f.Label).ToList();
+        var header = "Email,Data_Envio," + string.Join(",", fieldLabels.Select(l => l.Replace(",", ";")));
+        var rows = submissions.Select(s =>
+        {
+            var responses = string.Join(",", fieldLabels.Select(l =>
+            {
+                var resp = s.Responses.FirstOrDefault(r => r.Label == l);
+                return $"\"{(resp?.Value ?? "").Replace("\"", "\"\"")}\"";
+            }));
+            return $"{s.AttendeeEmail},{s.SubmittedAt:yyyy-MM-dd HH:mm:ss},{responses}";
+        });
+        var csv = header + "\n" + string.Join("\n", rows);
+        return File(System.Text.Encoding.UTF8.GetBytes(csv), "text/csv", "inscricoes_formulario.csv");
     }
 
     public async Task<IActionResult> RetroactiveRequests()

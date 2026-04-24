@@ -1,0 +1,225 @@
+@using System.Text.Json
+@{
+    ViewData["Title"] = "Mensagem de Agradecimento";
+    Layout = null;
+    var config = ViewBag.ThankYouConfig as Sasc26.Models.ThankYouConfigDto ?? new Sasc26.Models.ThankYouConfigDto();
+    var fieldsJson = JsonSerializer.Serialize(config.FormFields, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - SASC 26</title>
+    <link rel="stylesheet" href="~/css/bulmaswatch.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background: #f5f5f5; min-height: 100vh; }
+        .nav-bar { background: #113D76; padding: 16px 24px; display: flex; align-items: center; gap: 16px; }
+        .nav-logo { display: flex; align-items: center; gap: 12px; flex: 1; }
+        .nav-logo img { height: 32px; }
+        .nav-logo h1 { font-size: 1rem; font-weight: 700; color: #fff; margin: 0; }
+        .nav-links { display: flex; gap: 16px; align-items: center; }
+        .nav-links a { font-size: 0.8rem; color: #2EBDEF; }
+        .nav-links a:hover { color: #fff; }
+        .nav-links a.nav-logout { color: rgba(255,255,255,0.6); }
+        .nav-links a.nav-logout:hover { color: #fff; }
+        .container-area { max-width: 800px; margin: 0 auto; padding: 24px 16px; }
+        .panel-card { background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); padding: 24px; margin-bottom: 20px; }
+        .panel-card h2 { font-size: 0.95rem; font-weight: 700; color: #1a1a1a; margin: 0 0 16px; }
+        .input:focus, .select select:focus, .textarea:focus { border-color: #2EBDEF; box-shadow: 0 0 0 3px rgba(46,189,239,0.15); }
+        .button.is-brand { background-color: #fff; color: #113D76; }
+        .button.is-brand:hover { background-color: #f0f0f0; color: #113D76; }
+        .msg-success { background: #ecfdf5; color: #047857; padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; margin-bottom: 12px; }
+        .msg-error { background: #fef2f2; color: #b91c1c; padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; margin-bottom: 12px; }
+        .field-row { display: flex; gap: 8px; align-items: flex-end; margin-bottom: 12px; padding: 12px; background: #f8fafc; border: 1px solid #e8ecf1; border-radius: 10px; }
+        .field-row .field { margin-bottom: 0 !important; }
+        .field-row .field.label-field { flex: 2; }
+        .field-row .field.type-field { flex: 1; }
+        .field-row .field.actions-field { flex: 0; display: flex; align-items: center; gap: 8px; }
+        .toggle-row { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+        .toggle-row label { font-size: 0.85rem; font-weight: 600; color: #333; cursor: pointer; }
+        .field-checkbox { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+        .field-checkbox label { font-size: 0.78rem; color: #666; }
+        .options-list { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+        .options-list .tag { display: flex; align-items: center; gap: 4px; }
+        .hint { font-size: 0.75rem; color: #888; margin-top: 6px; }
+    </style>
+</head>
+<body>
+    <div class="nav-bar">
+        <div class="nav-logo">
+            <img src="~/dasc.svg" alt="DASC">
+            <h1>Agradecimento</h1>
+        </div>
+        <div class="nav-links">
+            <a href="/Admin/Dashboard">&#8592; Dashboard</a>
+            <a href="/Admin/FormSubmissions">Inscrições</a>
+            <a href="/Admin/CertificateConfig">Certificado</a>
+            <a href="/Admin/Logout" class="nav-logout">Sair</a>
+        </div>
+    </div>
+
+    <div class="container-area">
+        <div class="panel-card">
+            <h2>Mensagem de Agradecimento</h2>
+            <div id="msgArea"></div>
+            <div class="field">
+                <label class="label is-small">Mensagem</label>
+                <div class="control">
+                    <textarea class="textarea" id="tyMessage" rows="4" placeholder="Obrigado por participar da SASC 26!">@config.Message</textarea>
+                </div>
+                <p class="hint">Essa mensagem será exibida após a avaliação das palestras, antes do certificado. Use quebras de linha para organizar o texto.</p>
+            </div>
+        </div>
+
+        <div class="panel-card">
+            <h2>Formulário Opcional</h2>
+            <p class="hint" style="margin-top:0;margin-bottom:16px;">Ative para exibir um formulário na tela de agradecimento (ex.: inscrição para clube do livro).</p>
+            <div class="toggle-row">
+                <input type="checkbox" id="formEnabled" @(config.IsFormEnabled ? "checked" : "")>
+                <label for="formEnabled">Ativar formulário</label>
+            </div>
+
+            <div id="formConfig" style="display:@(config.IsFormEnabled ? "block" : "none");">
+                <div class="field">
+                    <label class="label is-small">Título do formulário</label>
+                    <div class="control">
+                        <input class="input" type="text" id="formTitle" value="@config.FormTitle" placeholder="Ex.: Inscreva-se no Clube do Livro">
+                    </div>
+                </div>
+                <div class="field" style="margin-top:12px;">
+                    <label class="label is-small">Descrição</label>
+                    <div class="control">
+                        <input class="input" type="text" id="formDescription" value="@config.FormDescription" placeholder="Ex.: Preencha para participar do nosso clube do livro!">
+                    </div>
+                </div>
+                <div class="field" style="margin-top:12px;">
+                    <label class="label is-small">Texto do botão</label>
+                    <div class="control">
+                        <input class="input" type="text" id="formButtonText" value="@config.FormButtonText" placeholder="Enviar">
+                    </div>
+                </div>
+
+                <div style="margin-top:20px;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                        <label class="label is-small" style="margin:0;">Campos do formulário</label>
+                        <button class="button is-brand is-small" onclick="addField()">+ Adicionar campo</button>
+                    </div>
+                    <div id="fieldsContainer"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel-card" style="text-align:center;">
+            <button class="button is-brand" onclick="saveAll()">Salvar configurações</button>
+        </div>
+    </div>
+
+    <script>
+        let formFields = @Html.Raw(fieldsJson);
+
+        document.getElementById('formEnabled').addEventListener('change', function() {
+            document.getElementById('formConfig').style.display = this.checked ? 'block' : 'none';
+        });
+
+        function showMsg(t, type) { document.getElementById('msgArea').innerHTML = `<div class="msg-${type}">${t}</div>`; }
+
+        function renderFields() {
+            const container = document.getElementById('fieldsContainer');
+            if (formFields.length === 0) {
+                container.innerHTML = '<p class="hint" style="text-align:center;">Nenhum campo adicionado.</p>';
+                return;
+            }
+            container.innerHTML = formFields.map((f, i) => `
+                <div class="field-row">
+                    <div class="field label-field">
+                        <label class="label is-small">Rótulo</label>
+                        <input class="input is-small" type="text" value="${escAttr(f.label)}" onchange="formFields[${i}].label=this.value" placeholder="Nome do campo">
+                    </div>
+                    <div class="field type-field">
+                        <label class="label is-small">Tipo</label>
+                        <div class="select is-small is-fullwidth">
+                            <select onchange="formFields[${i}].type=this.value;renderFields()">
+                                <option value="text" ${f.type==='text'?'selected':''}>Texto</option>
+                                <option value="email" ${f.type==='email'?'selected':''}>E-mail</option>
+                                <option value="textarea" ${f.type==='textarea'?'selected':''}>Texto longo</option>
+                                <option value="select" ${f.type==='select'?'selected':''}>Seleção</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div style="display:flex;flex-direction:column;justify-content:center;gap:4px;">
+                        <div class="field-checkbox">
+                            <input type="checkbox" id="req_${i}" ${f.required?'checked':''} onchange="formFields[${i}].required=this.checked">
+                            <label for="req_${i}">Obrigatório</label>
+                        </div>
+                        ${f.type === 'select' ? `
+                        <div>
+                            <input class="input is-small" type="text" placeholder="Opção" id="optInput_${i}" style="width:120px;" onkeydown="if(event.key==='Enter'){addOption(${i});event.preventDefault();}">
+                            <button class="button is-small" onclick="addOption(${i})">+</button>
+                            <div class="options-list" id="optList_${i}">
+                                ${(f.options||[]).map((o,oi) => `<span class="tag is-light">${escHtml(o)}<button class="delete is-small" onclick="removeOption(${i},${oi})"></button></span>`).join('')}
+                            </div>
+                        </div>` : `
+                        <div class="field" style="width:120px;">
+                            <input class="input is-small" type="text" value="${escAttr(f.placeholder||'')}" onchange="formFields[${i}].placeholder=this.value" placeholder="Placeholder">
+                        </div>`}
+                    </div>
+                    <button class="button is-danger-light is-small" onclick="removeField(${i})">Remover</button>
+                </div>
+            `).join('');
+        }
+
+        function addField() {
+            formFields.push({ label: '', type: 'text', required: false, placeholder: '', options: [] });
+            renderFields();
+        }
+
+        function removeField(index) {
+            formFields.splice(index, 1);
+            renderFields();
+        }
+
+        function addOption(fieldIndex) {
+            const input = document.getElementById('optInput_' + fieldIndex);
+            const val = input.value.trim();
+            if (!val) return;
+            if (!formFields[fieldIndex].options) formFields[fieldIndex].options = [];
+            formFields[fieldIndex].options.push(val);
+            input.value = '';
+            renderFields();
+        }
+
+        function removeOption(fieldIndex, optIndex) {
+            formFields[fieldIndex].options.splice(optIndex, 1);
+            renderFields();
+        }
+
+        function escAttr(s) { return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+        function escHtml(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+
+        async function saveAll() {
+            const message = document.getElementById('tyMessage').value;
+            const isFormEnabled = document.getElementById('formEnabled').checked;
+            const formTitle = document.getElementById('formTitle').value;
+            const formDescription = document.getElementById('formDescription').value;
+            const formButtonText = document.getElementById('formButtonText').value;
+
+            try {
+                const res = await fetch('/Admin/UpdateThankYouConfig', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message, isFormEnabled, formTitle, formDescription, formButtonText, formFields })
+                });
+                const data = await res.json();
+                if (data.success) showMsg('Configurações salvas com sucesso!', 'success');
+                else showMsg('Erro ao salvar.', 'error');
+            } catch { showMsg('Erro de conexão.', 'error'); }
+        }
+
+        renderFields();
+    </script>
+</body>
+</html>

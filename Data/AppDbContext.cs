@@ -20,6 +20,8 @@ public class AppDbContext : DbContext
     public DbSet<MagicCheckInSession> MagicCheckInSessions => Set<MagicCheckInSession>();
     public DbSet<Banner> Banners => Set<Banner>();
     public DbSet<LectureFeedback> LectureFeedbacks => Set<LectureFeedback>();
+    public DbSet<ThankYouConfig> ThankYouConfigs => Set<ThankYouConfig>();
+    public DbSet<FormSubmission> FormSubmissions => Set<FormSubmission>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -159,6 +161,23 @@ public class AppDbContext : DbContext
                   .HasForeignKey(e => e.LectureId)
                   .OnDelete(DeleteBehavior.Cascade);
             entity.HasIndex(e => new { e.LectureId, e.AttendeeEmail }).IsUnique();
+        });
+
+        modelBuilder.Entity<ThankYouConfig>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Message).IsRequired();
+            entity.Property(e => e.FormTitle).HasMaxLength(200);
+            entity.Property(e => e.FormDescription).HasMaxLength(1000);
+            entity.Property(e => e.FormButtonText).HasMaxLength(100);
+            entity.Property(e => e.FormFields).IsRequired();
+        });
+
+        modelBuilder.Entity<FormSubmission>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.AttendeeEmail).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.FormData).IsRequired();
         });
     }
 }

@@ -10,12 +10,14 @@ public class CertificateController : Controller
 {
     private readonly ICertificateService _certificateService;
     private readonly IFeedbackService _feedbackService;
+    private readonly IThankYouService _thankYouService;
     private readonly AppDbContext _db;
 
-    public CertificateController(ICertificateService certificateService, IFeedbackService feedbackService, AppDbContext db)
+    public CertificateController(ICertificateService certificateService, IFeedbackService feedbackService, IThankYouService thankYouService, AppDbContext db)
     {
         _certificateService = certificateService;
         _feedbackService = feedbackService;
+        _thankYouService = thankYouService;
         _db = db;
     }
 
@@ -96,5 +98,21 @@ public class CertificateController : Controller
         if (config?.BackgroundImage is null || config.BackgroundImage.Length == 0)
             return NotFound();
         return File(config.BackgroundImage, config.BackgroundImageContentType ?? "image/png");
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetThankYouConfig()
+    {
+        var config = await _thankYouService.GetConfigAsync();
+        return Json(new { success = true, config });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> SubmitForm([FromBody] SubmitFormDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.Email))
+            return Json(new { success = false, message = "Informe o e-mail." });
+        await _thankYouService.SubmitFormAsync(dto);
+        return Json(new { success = true });
     }
 }
