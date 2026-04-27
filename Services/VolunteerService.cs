@@ -58,17 +58,22 @@ public class VolunteerService : IVolunteerService
 
     private readonly AppDbContext _db;
     private readonly EventSettings _settings;
+    private readonly IEventContext _eventContext;
     private readonly ILogger<VolunteerService> _logger;
 
     public VolunteerService(
         AppDbContext db,
         IOptions<EventSettings> settings,
+        IEventContext eventContext,
         ILogger<VolunteerService> logger)
     {
         _db = db;
         _settings = settings.Value;
+        _eventContext = eventContext;
         _logger = logger;
     }
+
+    private int EventId => _eventContext.CurrentEventId;
 
     public async Task<VolunteerLookupResult> LookupVolunteerAsync(string email)
     {
@@ -83,7 +88,7 @@ public class VolunteerService : IVolunteerService
             };
         }
 
-        var existing = await _db.Volunteers.FirstOrDefaultAsync(v => v.Email == email);
+        var existing = await _db.Volunteers.FirstOrDefaultAsync(v => v.EventId == EventId && v.Email == email);
         if (existing is not null)
         {
             return new VolunteerLookupResult
@@ -115,7 +120,7 @@ public class VolunteerService : IVolunteerService
             };
         }
 
-        var existing = await _db.Volunteers.FirstOrDefaultAsync(v => v.Email == email);
+        var existing = await _db.Volunteers.FirstOrDefaultAsync(v => v.EventId == EventId && v.Email == email);
         if (existing is not null)
         {
             return new VolunteerRegisterResult
@@ -131,6 +136,7 @@ public class VolunteerService : IVolunteerService
         {
             Id = Guid.NewGuid(),
             Email = email,
+            EventId = EventId,
             Name = dto.Name.Trim(),
             Course = dto.Course,
             Shift = dto.Shift,
@@ -148,7 +154,7 @@ public class VolunteerService : IVolunteerService
     public async Task<VolunteerCheckInResult> CheckInAsync(string email)
     {
         email = email.Trim().ToLowerInvariant();
-        var volunteer = await _db.Volunteers.FirstOrDefaultAsync(v => v.Email == email);
+        var volunteer = await _db.Volunteers.FirstOrDefaultAsync(v => v.EventId == EventId && v.Email == email);
         if (volunteer is null)
             return new VolunteerCheckInResult { Success = false, Message = "Voluntário não encontrado." };
 
@@ -157,7 +163,7 @@ public class VolunteerService : IVolunteerService
             return new VolunteerCheckInResult { Success = false, Message = "Não há horário ativo no momento." };
 
         var alreadyCheckedIn = await _db.VolunteerCheckIns
-            .AnyAsync(c => c.VolunteerId == volunteer.Id && c.TimeSlotId == activeSlot.Id);
+            .AnyAsync(c => c.EventId == EventId && c.VolunteerId == volunteer.Id && c.TimeSlotId == activeSlot.Id);
         if (alreadyCheckedIn)
             return new VolunteerCheckInResult { Success = false, Message = "Você já registrou presença neste horário." };
 
@@ -166,6 +172,7 @@ public class VolunteerService : IVolunteerService
         {
             Id = Guid.NewGuid(),
             VolunteerId = volunteer.Id,
+            EventId = EventId,
             TimeSlotId = activeSlot.Id,
             CreatedAt = now
         });
@@ -179,7 +186,7 @@ public class VolunteerService : IVolunteerService
     public async Task<VolunteerDashboardDto> GetDashboardAsync(string email)
     {
         email = email.Trim().ToLowerInvariant();
-        var volunteer = await _db.Volunteers.FirstOrDefaultAsync(v => v.Email == email);
+        var volunteer = await _db.Volunteers.FirstOrDefaultAsync(v => v.EventId == EventId && v.Email == email);
         if (volunteer is null)
             return null!;
 
@@ -196,11 +203,11 @@ public class VolunteerService : IVolunteerService
                 Shift = activeSlot.Shift
             };
             alreadyCheckedIn = await _db.VolunteerCheckIns
-                .AnyAsync(c => c.VolunteerId == volunteer.Id && c.TimeSlotId == activeSlot.Id);
+                .AnyAsync(c => c.EventId == EventId && c.VolunteerId == volunteer.Id && c.TimeSlotId == activeSlot.Id);
         }
 
         var checkIns = await _db.VolunteerCheckIns
-            .Where(c => c.VolunteerId == volunteer.Id)
+            .Where(c => c.EventId == EventId && c.VolunteerId == volunteer.Id)
             .Include(c => c.TimeSlot)
             .OrderByDescending(c => c.CreatedAt)
             .Select(c => new VolunteerCheckInEntryDto
@@ -227,6 +234,7 @@ public class VolunteerService : IVolunteerService
         return await _db.Volunteers
             .Include(v => v.CheckIns)
             .ThenInclude(c => c.TimeSlot)
+            .Where(v => v.EventId == EventId)
             .OrderBy(v => v.Name)
             .Select(v => new VolunteerDetailDto
             {
@@ -254,7 +262,7 @@ public class VolunteerService : IVolunteerService
         var volunteer = await _db.Volunteers
             .Include(v => v.CheckIns)
             .ThenInclude(c => c.TimeSlot)
-            .FirstOrDefaultAsync(v => v.Id == volunteerId);
+            .FirstOrDefaultAsync(v => v.EventId == EventId && v.Id == volunteerId);
 
         if (volunteer is null) return null;
 
@@ -280,16 +288,16 @@ public class VolunteerService : IVolunteerService
 
     public async Task<VolunteerCheckInResult> AdminAddCheckInAsync(Guid volunteerId, int timeSlotId)
     {
-        var volunteer = await _db.Volunteers.FindAsync(volunteerId);
+        var volunteer = await _db.Volunteers.FirstOrDefaultAsync(v => v.EventId == EventId && v.Id == volunteerId);
         if (volunteer is null)
             return new VolunteerCheckInResult { Success = false, Message = "Voluntário não encontrado." };
 
-        var timeSlot = await _db.TimeSlots.FindAsync(timeSlotId);
+        var timeSlot = await _db.TimeSlots.FirstOrDefaultAsync(t => t.EventId == EventId && t.Id == timeSlotId);
         if (timeSlot is null)
             return new VolunteerCheckInResult { Success = false, Message = "Horário não encontrado." };
 
         var already = await _db.VolunteerCheckIns
-            .AnyAsync(c => c.VolunteerId == volunteerId && c.TimeSlotId == timeSlotId);
+            .AnyAsync(c => c.EventId == EventId && c.VolunteerId == volunteerId && c.TimeSlotId == timeSlotId);
         if (already)
             return new VolunteerCheckInResult { Success = false, Message = "Check-in já existe para este horário." };
 
@@ -298,6 +306,7 @@ public class VolunteerService : IVolunteerService
         {
             Id = Guid.NewGuid(),
             VolunteerId = volunteerId,
+            EventId = EventId,
             TimeSlotId = timeSlotId,
             CreatedAt = now
         });
@@ -308,7 +317,7 @@ public class VolunteerService : IVolunteerService
 
     public async Task<bool> AdminRemoveCheckInAsync(Guid checkInId)
     {
-        var checkIn = await _db.VolunteerCheckIns.FindAsync(checkInId);
+        var checkIn = await _db.VolunteerCheckIns.FirstOrDefaultAsync(c => c.EventId == EventId && c.Id == checkInId);
         if (checkIn is null) return false;
         _db.VolunteerCheckIns.Remove(checkIn);
         await _db.SaveChangesAsync();
@@ -318,7 +327,7 @@ public class VolunteerService : IVolunteerService
     private async Task<TimeSlot?> GetActiveTimeSlotAsync()
     {
         var now = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, BrasiliaTz);
-        return await _db.TimeSlots.FirstOrDefaultAsync(s => now >= s.StartTime && now <= s.EndTime);
+        return await _db.TimeSlots.FirstOrDefaultAsync(s => s.EventId == EventId && now >= s.StartTime && now <= s.EndTime);
     }
 
     private static TimeZoneInfo GetBrasiliaTimeZone()

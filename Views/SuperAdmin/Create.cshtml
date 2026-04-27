@@ -1,0 +1,116 @@
+@model Sasc26.Models.Event
+@{
+    ViewData["Title"] = "Novo Evento";
+}
+
+<div class="container mt-5">
+    <h1 class="title">Novo Evento</h1>
+
+    <form asp-action="Create" method="post">
+        <div class="field">
+            <label class="label">Slug (identificador único na URL)</label>
+            <div class="control">
+                <input asp-for="Slug" class="input" placeholder="ex: sasc27" required />
+            </div>
+            <p class="help">Será usado na URL: /{slug}/admin</p>
+        </div>
+
+        <div class="field">
+            <label class="label">Nome</label>
+            <div class="control">
+                <input asp-for="Name" class="input" placeholder="SASC 27" required />
+            </div>
+        </div>
+
+        <div class="field">
+            <label class="label">Subtítulo</label>
+            <div class="control">
+                <input asp-for="Subtitle" class="input" placeholder="Semana Acadêmica..." />
+            </div>
+        </div>
+
+        <div class="field">
+            <label class="label">Domínio de E-mail Permitido</label>
+            <div class="control">
+                <input asp-for="AllowedEmailDomain" class="input" placeholder="furb.br" />
+            </div>
+        </div>
+
+        <div class="field">
+            <label class="label">URL do Instagram</label>
+            <div class="control">
+                <input asp-for="InstagramUrl" class="input" placeholder="https://instagram.com/..." />
+            </div>
+        </div>
+
+        <div class="field">
+            <label class="label">URL de Pré-venda de Camisetas</label>
+            <div class="control">
+                <input asp-for="TshirtPresaleUrl" class="input" />
+            </div>
+        </div>
+
+        <div class="field">
+            <label class="label">E-mails de Admin (JSON array)</label>
+            <div class="control">
+                <input asp-for="AdminEmailsJson" class="input" placeholder='["admin@furb.br"]' />
+            </div>
+        </div>
+
+        <div class="field">
+            <label class="label">Botões Pós-Check-in (JSON array)</label>
+            <div class="control">
+                <input asp-for="PostCheckinButtonsJson" class="input" placeholder="[]" />
+            </div>
+        </div>
+
+        <h3 class="title is-5 mt-4">Cores do Tema</h3>
+
+        <div class="columns">
+            <div class="column">
+                <div class="field">
+                    <label class="label">Cor Primária</label>
+                    <div class="control">
+                        <input asp-for="PrimaryColor" class="input" type="color" value="#113D76" />
+                    </div>
+                </div>
+            </div>
+            <div class="column">
+                <div class="field">
+                    <label class="label">Cor de Destaque</label>
+                    <div class="control">
+                        <input asp-for="AccentColor" class="input" type="color" value="#1a1a1a" />
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="columns">
+            <div class="column">
+                <div class="field">
+                    <label class="label">Cor de Fundo</label>
+                    <div class="control">
+                        <input asp-for="BackgroundColor" class="input" type="color" value="#ffffff" />
+                    </div>
+                </div>
+            </div>
+            <div class="column">
+                <div class="field">
+                    <label class="label">Cor do Texto</label>
+                    <div class="control">
+                        <input asp-for="TextColor" class="input" type="color" value="#1a1a1a" />
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="field is-grouped">
+            <div class="control">
+                <button type="submit" class="button is-primary">Criar Evento</button>
+            </div>
+            <div class="control">
+                <a asp-action="Index" class="button is-light">Cancelar</a>
+            </div>
+        </div>
+    </form>
+</div>

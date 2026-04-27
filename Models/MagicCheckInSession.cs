@@ -9,4 +9,6 @@ public class MagicCheckInSession
     public DateTime CreatedAt { get; set; }
     public DateTime ExpiresAt { get; set; }
     public bool IsActive { get; set; } = true;
+    public int EventId { get; set; }
+    public Event Event { get; set; } = null!;
 }

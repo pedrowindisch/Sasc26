@@ -67,19 +67,24 @@ public class CertificateService : ICertificateService
     private static readonly TimeZoneInfo BrasiliaTz = GetBrasiliaTimeZone();
 
     private readonly AppDbContext _db;
+    private readonly IEventContext _eventContext;
     private readonly ILogger<CertificateService> _logger;
 
-    public CertificateService(AppDbContext db, ILogger<CertificateService> logger)
+    public CertificateService(AppDbContext db, IEventContext eventContext, ILogger<CertificateService> logger)
     {
         _db = db;
+        _eventContext = eventContext;
         _logger = logger;
     }
+
+    private int EventId => _eventContext.CurrentEventId;
+    private string EventName => _eventContext.CurrentEvent.Name;
 
     public async Task<CertificateLookupResult> LookupProfileAsync(string email)
     {
         email = email.Trim().ToLowerInvariant();
 
-        var volunteer = await _db.Volunteers.FirstOrDefaultAsync(v => v.Email == email);
+        var volunteer = await _db.Volunteers.FirstOrDefaultAsync(v => v.EventId == EventId && v.Email == email);
         if (volunteer is not null)
         {
             return new CertificateLookupResult
@@ -92,7 +97,7 @@ public class CertificateService : ICertificateService
             };
         }
 
-        var attendee = await _db.Attendees.FirstOrDefaultAsync(a => a.Email == email);
+        var attendee = await _db.Attendees.FirstOrDefaultAsync(a => a.EventId == EventId && a.Email == email);
         if (attendee is not null && !string.IsNullOrWhiteSpace(attendee.FullName))
         {
             return new CertificateLookupResult
@@ -126,7 +131,7 @@ public class CertificateService : ICertificateService
         var validationCode = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
         var now = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, BrasiliaTz);
 
-        var existing = await _db.IssuedCertificates.FirstOrDefaultAsync(c => c.Email == email);
+        var existing = await _db.IssuedCertificates.FirstOrDefaultAsync(c => c.EventId == EventId && c.Email == email);
         if (existing is not null)
         {
             existing.Name = dto.Name.Trim();
@@ -142,6 +147,7 @@ public class CertificateService : ICertificateService
             {
                 ValidationCode = validationCode,
                 Email = email,
+                EventId = EventId,
                 Name = dto.Name.Trim(),
                 Course = dto.Course,
                 Phase = dto.Phase,
@@ -156,19 +162,20 @@ public class CertificateService : ICertificateService
 
     public async Task<CertificateDisplayResult> GetCertificateAsync(string validationCode)
     {
-        var cert = await _db.IssuedCertificates.FirstOrDefaultAsync(c => c.ValidationCode == validationCode);
+        var cert = await _db.IssuedCertificates.FirstOrDefaultAsync(c => c.EventId == EventId && c.ValidationCode == validationCode);
         if (cert is null)
             return new CertificateDisplayResult { Success = false, Message = "Certificado não encontrado." };
 
-        var config = await _db.CertificateConfigs.FirstOrDefaultAsync();
-        var template = config?.TemplateMessage ?? "Certificamos que {{nome}}, participou da SASC 26 com carga horária de {{horas}} horas.";
+        var config = await _db.CertificateConfigs.FirstOrDefaultAsync(c => c.EventId == EventId);
+        var template = config?.TemplateMessage ?? "Certificamos que {{nome}}, participou da {{evento}} com carga horária de {{horas}} horas.";
 
         var rendered = template
             .Replace("{{nome}}", cert.Name)
             .Replace("{{email}}", cert.Email)
             .Replace("{{curso}}", cert.Course)
             .Replace("{{fase}}", cert.Phase)
-            .Replace("{{horas}}", cert.TotalHours.ToString("0"));
+            .Replace("{{horas}}", cert.TotalHours.ToString("0"))
+            .Replace("{{evento}}", EventName);
 
         return new CertificateDisplayResult
         {
@@ -192,7 +199,7 @@ public class CertificateService : ICertificateService
         email = email.Trim().ToLowerInvariant();
         var code = validationCode.Trim().ToUpperInvariant();
 
-        var cert = await _db.IssuedCertificates.FirstOrDefaultAsync(c => c.Email == email && c.ValidationCode == code);
+        var cert = await _db.IssuedCertificates.FirstOrDefaultAsync(c => c.EventId == EventId && c.Email == email && c.ValidationCode == code);
         if (cert is null)
             return new CertificateValidateResult { Success = false, Message = "Certificado não encontrado ou dados incorretos." };
 
@@ -209,7 +216,7 @@ public class CertificateService : ICertificateService
 
     public async Task<CertificateConfigDto> GetConfigAsync()
     {
-        var config = await _db.CertificateConfigs.FirstOrDefaultAsync();
+        var config = await _db.CertificateConfigs.FirstOrDefaultAsync(c => c.EventId == EventId);
         return new CertificateConfigDto
         {
             TemplateMessage = config?.TemplateMessage ?? string.Empty,
@@ -222,10 +229,10 @@ public class CertificateService : ICertificateService
 
     public async Task<CertificateConfigDto> UpdateConfigAsync(CertificateConfigDto dto)
     {
-        var config = await _db.CertificateConfigs.FirstOrDefaultAsync();
+        var config = await _db.CertificateConfigs.FirstOrDefaultAsync(c => c.EventId == EventId);
         if (config is null)
         {
-            config = new CertificateConfig { TemplateMessage = dto.TemplateMessage };
+            config = new CertificateConfig { EventId = EventId, TemplateMessage = dto.TemplateMessage };
             _db.CertificateConfigs.Add(config);
         }
         else
@@ -243,10 +250,10 @@ public class CertificateService : ICertificateService
 
     public async Task UpdateBackgroundImageAsync(byte[] imageData, string contentType)
     {
-        var config = await _db.CertificateConfigs.FirstOrDefaultAsync();
+        var config = await _db.CertificateConfigs.FirstOrDefaultAsync(c => c.EventId == EventId);
         if (config is null)
         {
-            config = new CertificateConfig();
+            config = new CertificateConfig { EventId = EventId };
             _db.CertificateConfigs.Add(config);
         }
         config.BackgroundImage = imageData;
@@ -256,7 +263,7 @@ public class CertificateService : ICertificateService
 
     public async Task RemoveBackgroundImageAsync()
     {
-        var config = await _db.CertificateConfigs.FirstOrDefaultAsync();
+        var config = await _db.CertificateConfigs.FirstOrDefaultAsync(c => c.EventId == EventId);
         if (config is not null)
         {
             config.BackgroundImage = null;
@@ -268,6 +275,7 @@ public class CertificateService : ICertificateService
     public async Task<List<IssuedCertificateDto>> GetAllIssuedCertificatesAsync()
     {
         return await _db.IssuedCertificates
+            .Where(c => c.EventId == EventId)
             .OrderByDescending(c => c.IssuedAt)
             .Select(c => new IssuedCertificateDto
             {
@@ -285,7 +293,7 @@ public class CertificateService : ICertificateService
     private async Task<decimal> CalculateSpectatorHoursAsync(string email)
     {
         return await _db.CheckIns
-            .Where(c => c.AttendeeEmail == email && c.Status == CheckInStatus.Verified && c.Lecture != null)
+            .Where(c => c.EventId == EventId && c.AttendeeEmail == email && c.Status == CheckInStatus.Verified && c.Lecture != null)
             .Include(c => c.Lecture)
             .ThenInclude(l => l!.TimeSlot)
             .SumAsync(c => (decimal?)c.Lecture!.TimeSlot.CreditHours) ?? 0;
@@ -293,11 +301,11 @@ public class CertificateService : ICertificateService
 
     private async Task<decimal> CalculateVolunteerHoursAsync(string email)
     {
-        var volunteer = await _db.Volunteers.FirstOrDefaultAsync(v => v.Email == email);
+        var volunteer = await _db.Volunteers.FirstOrDefaultAsync(v => v.EventId == EventId && v.Email == email);
         if (volunteer is null) return 0;
 
         return await _db.VolunteerCheckIns
-            .Where(c => c.VolunteerId == volunteer.Id)
+            .Where(c => c.EventId == EventId && c.VolunteerId == volunteer.Id)
             .Include(c => c.TimeSlot)
             .SumAsync(c => (decimal?)c.TimeSlot.CreditHours * 2) ?? 0;
     }

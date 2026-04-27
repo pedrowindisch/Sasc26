@@ -14,18 +14,22 @@ public interface IFeedbackService
 public class FeedbackService : IFeedbackService
 {
     private readonly AppDbContext _db;
+    private readonly IEventContext _eventContext;
 
-    public FeedbackService(AppDbContext db)
+    public FeedbackService(AppDbContext db, IEventContext eventContext)
     {
         _db = db;
+        _eventContext = eventContext;
     }
+
+    private int EventId => _eventContext.CurrentEventId;
 
     public async Task<FeedbackStatusResult> GetFeedbackStatusAsync(string email)
     {
         email = email.Trim().ToLowerInvariant();
 
         var checkedInLectureIds = await _db.CheckIns
-            .Where(c => c.AttendeeEmail == email && c.Status == CheckInStatus.Verified && c.LectureId != null)
+            .Where(c => c.EventId == EventId && c.AttendeeEmail == email && c.Status == CheckInStatus.Verified && c.LectureId != null)
             .Select(c => c.LectureId!.Value)
             .Distinct()
             .ToListAsync();
@@ -41,7 +45,7 @@ public class FeedbackService : IFeedbackService
         }
 
         var alreadyFeedbackLectureIds = await _db.LectureFeedbacks
-            .Where(f => f.AttendeeEmail == email)
+            .Where(f => f.EventId == EventId && f.AttendeeEmail == email)
             .Select(f => f.LectureId)
             .ToListAsync();
 
@@ -58,7 +62,7 @@ public class FeedbackService : IFeedbackService
         }
 
         var lectures = await _db.Lectures
-            .Where(l => pendingLectureIds.Contains(l.Id))
+            .Where(l => l.EventId == EventId && pendingLectureIds.Contains(l.Id))
             .Select(l => new LectureForFeedbackDto
             {
                 LectureId = l.Id,
@@ -82,13 +86,14 @@ public class FeedbackService : IFeedbackService
         foreach (var fb in dto.Feedbacks)
         {
             var existing = await _db.LectureFeedbacks
-                .FirstOrDefaultAsync(f => f.AttendeeEmail == email && f.LectureId == fb.LectureId);
+                .FirstOrDefaultAsync(f => f.EventId == EventId && f.AttendeeEmail == email && f.LectureId == fb.LectureId);
             if (existing is not null)
                 continue;
 
             _db.LectureFeedbacks.Add(new LectureFeedback
             {
                 LectureId = fb.LectureId,
+                EventId = EventId,
                 AttendeeEmail = email,
                 Rating = fb.Skipped ? 0 : fb.Rating,
                 Comment = fb.Comment?.Trim() ?? string.Empty,
@@ -103,8 +108,8 @@ public class FeedbackService : IFeedbackService
 
     public async Task<List<LectureFeedbackSummaryDto>> GetLectureFeedbackSummariesAsync()
     {
-        var lectures = await _db.Lectures.ToListAsync();
-        var feedbacks = await _db.LectureFeedbacks.ToListAsync();
+        var lectures = await _db.Lectures.Where(l => l.EventId == EventId).ToListAsync();
+        var feedbacks = await _db.LectureFeedbacks.Where(f => f.EventId == EventId).ToListAsync();
 
         var result = new List<LectureFeedbackSummaryDto>();
 

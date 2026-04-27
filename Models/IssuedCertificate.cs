@@ -9,4 +9,6 @@ public class IssuedCertificate
     public string Phase { get; set; } = string.Empty;
     public decimal TotalHours { get; set; }
     public DateTime IssuedAt { get; set; }
+    public int EventId { get; set; }
+    public Event Event { get; set; } = null!;
 }

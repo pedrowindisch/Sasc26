@@ -11,6 +11,8 @@ public class RetroactiveCheckIn
     public string Justification { get; set; } = string.Empty;
     public DateTime RequestedAt { get; set; }
     public DateTime? ResolvedAt { get; set; }
+    public int EventId { get; set; }
+    public Event Event { get; set; } = null!;
 }
 
 public enum RetroactiveCheckInStatus

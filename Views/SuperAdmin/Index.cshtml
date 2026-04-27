@@ -1,0 +1,55 @@
+@model List<Sasc26.Models.Event>
+@{
+    ViewData["Title"] = "Gerenciar Eventos";
+}
+
+<div class="container mt-5">
+    <div class="level">
+        <div class="level-left">
+            <h1 class="title">Gerenciar Eventos</h1>
+        </div>
+        <div class="level-right">
+            <a asp-action="Create" class="button is-primary">Novo Evento</a>
+        </div>
+    </div>
+
+    @if (!Model.Any())
+    {
+        <div class="notification is-info">Nenhum evento cadastrado.</div>
+    }
+    else
+    {
+        <table class="table is-fullwidth is-striped">
+            <thead>
+                <tr>
+                    <th>Slug</th>
+                    <th>Nome</th>
+                    <th>Subtítulo</th>
+                    <th>Domínio de E-mail</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var ev in Model)
+                {
+                    <tr>
+                        <td><code>@ev.Slug</code></td>
+                        <td>@ev.Name</td>
+                        <td>@ev.Subtitle</td>
+                        <td>@@@ev.AllowedEmailDomain</td>
+                        <td>
+                            <a asp-action="Edit" asp-route-id="@ev.Id" class="button is-small is-info">Editar</a>
+                            <form asp-action="Delete" asp-route-id="@ev.Id" method="post" style="display:inline" onsubmit="return confirm('Excluir evento @ev.Name? Todos os dados relacionados serão perdidos.');">
+                                <button type="submit" class="button is-small is-danger">Excluir</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+
+    <div class="mt-4">
+        <a href="/" class="button is-light">Voltar ao Início</a>
+    </div>
+</div>

@@ -12,31 +12,37 @@ public class AttendanceService : IAttendanceService
     private readonly AppDbContext _db;
     private readonly IEmailService _emailService;
     private readonly EventSettings _settings;
+    private readonly IEventContext _eventContext;
     private readonly ILogger<AttendanceService> _logger;
 
     public AttendanceService(
         AppDbContext db,
         IEmailService emailService,
         IOptions<EventSettings> settings,
+        IEventContext eventContext,
         ILogger<AttendanceService> logger)
     {
         _db = db;
         _emailService = emailService;
         _settings = settings.Value;
+        _eventContext = eventContext;
         _logger = logger;
     }
+
+    private int EventId => _eventContext.CurrentEventId;
+    private string EventName => _eventContext.CurrentEvent.Name;
 
     public async Task<TimeSlot?> GetActiveTimeSlotAsync()
     {
         var now = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, BrasiliaTz);
         _logger.LogDebug("Current Brasília time: {Time}", now);
-        return await _db.TimeSlots.FirstOrDefaultAsync(s => now >= s.StartTime && now <= s.EndTime);
+        return await _db.TimeSlots.FirstOrDefaultAsync(s => s.EventId == EventId && now >= s.StartTime && now <= s.EndTime);
     }
 
     public async Task<AttendeeProfileDto?> GetProfileAsync(string email)
     {
         email = email.Trim().ToLowerInvariant();
-        var attendee = await _db.Attendees.FindAsync(email);
+        var attendee = await _db.Attendees.FirstOrDefaultAsync(a => a.EventId == EventId && a.Email == email);
         if (attendee is null) return null;
 
         return new AttendeeProfileDto
@@ -74,7 +80,7 @@ public class AttendanceService : IAttendanceService
         }
 
         var alreadyVerified = await _db.CheckIns
-            .AnyAsync(c => c.AttendeeEmail == email &&
+            .AnyAsync(c => c.EventId == EventId && c.AttendeeEmail == email &&
                            c.Lecture != null &&
                            c.Lecture.TimeSlotId == timeSlot.Id &&
                            c.Status == CheckInStatus.Verified);
@@ -88,7 +94,7 @@ public class AttendanceService : IAttendanceService
         }
 
         var pendingCount = await _db.CheckIns
-            .CountAsync(c => c.AttendeeEmail == email && c.Status == CheckInStatus.Pending);
+            .CountAsync(c => c.EventId == EventId && c.AttendeeEmail == email && c.Status == CheckInStatus.Pending);
         if (pendingCount >= _settings.MaxOtpAttemptsPerSession)
         {
             return new RequestOtpResult
@@ -98,12 +104,13 @@ public class AttendanceService : IAttendanceService
             };
         }
 
-        var existingAttendee = await _db.Attendees.FindAsync(email);
+        var existingAttendee = await _db.Attendees.FirstOrDefaultAsync(a => a.EventId == EventId && a.Email == email);
         if (existingAttendee is null)
         {
             _db.Attendees.Add(new Attendee
             {
                 Email = email,
+                EventId = EventId,
                 FullName = string.Empty,
                 Course = string.Empty,
                 Shift = string.Empty,
@@ -118,6 +125,7 @@ public class AttendanceService : IAttendanceService
         {
             Id = Guid.NewGuid(),
             AttendeeEmail = email,
+            EventId = EventId,
             OtpCode = otpCode,
             Status = CheckInStatus.Pending,
             CreatedAt = now,
@@ -128,7 +136,7 @@ public class AttendanceService : IAttendanceService
 
         try
         {
-            await _emailService.SendOtpEmailAsync(email, otpCode, "SASC 26");
+            await _emailService.SendOtpEmailAsync(email, otpCode, EventName);
         }
         catch (Exception ex)
         {
@@ -159,6 +167,7 @@ public class AttendanceService : IAttendanceService
         {
             checkIn = await _db.CheckIns
                 .FirstOrDefaultAsync(c =>
+                    c.EventId == EventId &&
                     c.AttendeeEmail == email &&
                     c.Status == CheckInStatus.Pending);
         }
@@ -167,6 +176,7 @@ public class AttendanceService : IAttendanceService
             var code = dto.Code.Trim();
             checkIn = await _db.CheckIns
                 .FirstOrDefaultAsync(c =>
+                    c.EventId == EventId &&
                     c.AttendeeEmail == email &&
                     c.OtpCode == code &&
                     c.Status == CheckInStatus.Pending);
@@ -181,7 +191,7 @@ public class AttendanceService : IAttendanceService
         if (checkIn is null)
             return new VerifyOtpResult { Success = false, Message = "Nenhuma solicitação pendente." };
 
-        var existingAttendee = await _db.Attendees.FindAsync(email);
+        var existingAttendee = await _db.Attendees.FirstOrDefaultAsync(a => a.EventId == EventId && a.Email == email);
         if (existingAttendee is not null)
         {
             existingAttendee.FullName = dto.FullName.Trim();
@@ -194,6 +204,7 @@ public class AttendanceService : IAttendanceService
             _db.Attendees.Add(new Attendee
             {
                 Email = email,
+                EventId = EventId,
                 FullName = dto.FullName.Trim(),
                 Course = dto.Course,
                 Shift = dto.Shift,
@@ -214,7 +225,7 @@ public class AttendanceService : IAttendanceService
         if (timeSlot is null) return [];
 
         return await _db.Lectures
-            .Where(l => l.TimeSlotId == timeSlot.Id)
+            .Where(l => l.EventId == EventId && l.TimeSlotId == timeSlot.Id)
             .Select(l => new LectureDto
             {
                 Id = l.Id,
@@ -229,6 +240,7 @@ public class AttendanceService : IAttendanceService
         return await _db.Lectures
             .Include(l => l.TimeSlot)
             .Include(l => l.PreRegistrations)
+            .Where(l => l.EventId == EventId)
             .OrderBy(l => l.TimeSlot.StartTime)
             .ThenBy(l => l.Title)
             .Select(l => new LectureWithPreRegDto
@@ -257,7 +269,7 @@ public class AttendanceService : IAttendanceService
             return new PreRegisterResult { Success = false, Message = "Selecione pelo menos uma palestra." };
 
         var pending = await _db.PreRegistrations
-            .Where(p => p.AttendeeEmail == email && !p.IsVerified)
+            .Where(p => p.EventId == EventId && p.AttendeeEmail == email && !p.IsVerified)
             .ToListAsync();
         if (pending.Count > 0)
         {
@@ -273,24 +285,26 @@ public class AttendanceService : IAttendanceService
 
         foreach (var lectureId in lectureIds.Distinct())
         {
-            var lecture = await _db.Lectures.FindAsync(lectureId);
+            var lecture = await _db.Lectures.FirstOrDefaultAsync(l => l.EventId == EventId && l.Id == lectureId);
             if (lecture is null || !lecture.IsPreRegistrationEnabled) continue;
 
             if (usedTimeSlots.Contains(lecture.TimeSlotId)) continue;
             usedTimeSlots.Add(lecture.TimeSlotId);
 
             var existingInSlot = await _db.PreRegistrations
-                .FirstOrDefaultAsync(p => p.Lecture.TimeSlotId == lecture.TimeSlotId && p.AttendeeEmail == email && p.IsVerified);
+                .Include(p => p.Lecture)
+                .FirstOrDefaultAsync(p => p.EventId == EventId && p.Lecture.TimeSlotId == lecture.TimeSlotId && p.AttendeeEmail == email && p.IsVerified);
             if (existingInSlot is not null)
                 _db.PreRegistrations.Remove(existingInSlot);
 
             var sameLecture = await _db.PreRegistrations
-                .AnyAsync(p => p.LectureId == lectureId && p.AttendeeEmail == email && p.IsVerified);
+                .AnyAsync(p => p.EventId == EventId && p.LectureId == lectureId && p.AttendeeEmail == email && p.IsVerified);
             if (sameLecture) continue;
 
             _db.PreRegistrations.Add(new PreRegistration
             {
                 LectureId = lectureId,
+                EventId = EventId,
                 AttendeeEmail = email,
                 RegisteredAt = now,
                 OtpCode = otpCode,
@@ -307,7 +321,7 @@ public class AttendanceService : IAttendanceService
 
         try
         {
-            await _emailService.SendOtpEmailAsync(email, otpCode, "Inscrição SASC 26");
+            await _emailService.SendOtpEmailAsync(email, otpCode, $"Inscrição {EventName}");
         }
         catch (Exception ex)
         {
@@ -328,7 +342,7 @@ public class AttendanceService : IAttendanceService
         var now = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, BrasiliaTz);
 
         var pending = await _db.PreRegistrations
-            .Where(p => p.AttendeeEmail == email && !p.IsVerified && p.OtpCode == codeTrimmed)
+            .Where(p => p.EventId == EventId && p.AttendeeEmail == email && !p.IsVerified && p.OtpCode == codeTrimmed)
             .ToListAsync();
 
         if (pending.Count == 0)
@@ -353,7 +367,7 @@ public class AttendanceService : IAttendanceService
     {
         email = email.Trim().ToLowerInvariant();
         return await _db.PreRegistrations
-            .Where(p => p.AttendeeEmail == email && p.IsVerified)
+            .Where(p => p.EventId == EventId && p.AttendeeEmail == email && p.IsVerified)
             .Select(p => p.LectureId)
             .ToHashSetAsync();
     }
@@ -362,11 +376,11 @@ public class AttendanceService : IAttendanceService
     {
         var email = dto.Email.Trim().ToLowerInvariant();
 
-        var lecture = await _db.Lectures.FindAsync(dto.LectureId);
+        var lecture = await _db.Lectures.FirstOrDefaultAsync(l => l.EventId == EventId && l.Id == dto.LectureId);
         if (lecture is null)
             return new SubmitCheckInResult { Success = false, Message = "Palestra não encontrada." };
 
-        var timeSlot = await _db.TimeSlots.FindAsync(lecture.TimeSlotId);
+        var timeSlot = await _db.TimeSlots.FirstOrDefaultAsync(t => t.EventId == EventId && t.Id == lecture.TimeSlotId);
         if (timeSlot is null)
             return new SubmitCheckInResult { Success = false, Message = "Horário não encontrado." };
 
@@ -375,7 +389,7 @@ public class AttendanceService : IAttendanceService
             return new SubmitCheckInResult { Success = false, Message = "Esta palestra não está acontecendo agora." };
 
         var alreadyVerified = await _db.CheckIns
-            .AnyAsync(c => c.AttendeeEmail == email &&
+            .AnyAsync(c => c.EventId == EventId && c.AttendeeEmail == email &&
                            c.Lecture != null &&
                            c.Lecture.TimeSlotId == timeSlot.Id &&
                            c.Status == CheckInStatus.Verified);
@@ -394,7 +408,7 @@ public class AttendanceService : IAttendanceService
         }
 
         var otpCheckIn = await _db.CheckIns
-            .FirstOrDefaultAsync(c => c.AttendeeEmail == email && c.Status == CheckInStatus.OtpVerified);
+            .FirstOrDefaultAsync(c => c.EventId == EventId && c.AttendeeEmail == email && c.Status == CheckInStatus.OtpVerified);
 
         if (otpCheckIn is not null)
         {
@@ -408,6 +422,7 @@ public class AttendanceService : IAttendanceService
             {
                 Id = Guid.NewGuid(),
                 AttendeeEmail = email,
+                EventId = EventId,
                 LectureId = lecture.Id,
                 OtpCode = "DIRECT",
                 Status = CheckInStatus.Verified,
@@ -435,7 +450,7 @@ public class AttendanceService : IAttendanceService
 
         return await _db.Lectures
             .Include(l => l.TimeSlot)
-            .Where(l => l.TimeSlot.StartTime.Date == yesterday)
+            .Where(l => l.EventId == EventId && l.TimeSlot.StartTime.Date == yesterday)
             .OrderBy(l => l.TimeSlot.StartTime)
             .ThenBy(l => l.Title)
             .Select(l => new RetroactiveLectureDto
@@ -468,7 +483,7 @@ public class AttendanceService : IAttendanceService
         if (string.IsNullOrWhiteSpace(dto.Course) || string.IsNullOrWhiteSpace(dto.Shift) || dto.Phase < 1)
             return new RetroactiveRequestResult { Success = false, Message = "Preencha todos os campos do cadastro." };
 
-        var lecture = await _db.Lectures.Include(l => l.TimeSlot).FirstOrDefaultAsync(l => l.Id == dto.LectureId);
+        var lecture = await _db.Lectures.Include(l => l.TimeSlot).FirstOrDefaultAsync(l => l.EventId == EventId && l.Id == dto.LectureId);
         if (lecture is null)
             return new RetroactiveRequestResult { Success = false, Message = "Palestra não encontrada." };
 
@@ -479,7 +494,7 @@ public class AttendanceService : IAttendanceService
             return new RetroactiveRequestResult { Success = false, Message = "Só é possível solicitar presença retroativa para palestras de ontem." };
 
         var alreadyVerified = await _db.CheckIns
-            .AnyAsync(c => c.AttendeeEmail == email &&
+            .AnyAsync(c => c.EventId == EventId && c.AttendeeEmail == email &&
                            c.Lecture != null &&
                            c.Lecture.TimeSlotId == lecture.TimeSlotId &&
                            c.Status == CheckInStatus.Verified);
@@ -487,11 +502,11 @@ public class AttendanceService : IAttendanceService
             return new RetroactiveRequestResult { Success = false, Message = "Sua presença nesta palestra já foi registrada." };
 
         var alreadyRequested = await _db.RetroactiveCheckIns
-            .AnyAsync(r => r.AttendeeEmail == email && r.LectureId == dto.LectureId && r.Status == RetroactiveCheckInStatus.Pending);
+            .AnyAsync(r => r.EventId == EventId && r.AttendeeEmail == email && r.LectureId == dto.LectureId && r.Status == RetroactiveCheckInStatus.Pending);
         if (alreadyRequested)
             return new RetroactiveRequestResult { Success = false, Message = "Você já possui uma solicitação pendente para esta palestra." };
 
-        var existingAttendee = await _db.Attendees.FindAsync(email);
+        var existingAttendee = await _db.Attendees.FirstOrDefaultAsync(a => a.EventId == EventId && a.Email == email);
         if (existingAttendee is not null)
         {
             existingAttendee.FullName = dto.FullName.Trim();
@@ -504,6 +519,7 @@ public class AttendanceService : IAttendanceService
             _db.Attendees.Add(new Attendee
             {
                 Email = email,
+                EventId = EventId,
                 FullName = dto.FullName.Trim(),
                 Course = dto.Course,
                 Shift = dto.Shift,
@@ -515,6 +531,7 @@ public class AttendanceService : IAttendanceService
         {
             Id = Guid.NewGuid(),
             AttendeeEmail = email,
+            EventId = EventId,
             LectureId = dto.LectureId,
             Status = RetroactiveCheckInStatus.Pending,
             Justification = dto.Justification?.Trim() ?? string.Empty,
@@ -537,11 +554,11 @@ public class AttendanceService : IAttendanceService
         var email = dto.Email.Trim().ToLowerInvariant();
 
         var session = await _db.MagicCheckInSessions
-            .FirstOrDefaultAsync(s => s.Token == dto.Token && s.LectureId == dto.LectureId && s.IsActive && s.ExpiresAt > DateTime.UtcNow);
+            .FirstOrDefaultAsync(s => s.EventId == EventId && s.Token == dto.Token && s.LectureId == dto.LectureId && s.IsActive && s.ExpiresAt > DateTime.UtcNow);
         if (session is null)
             return new ServiceResult { Success = false, Message = "Token inválido ou expirado." };
 
-        var existingAttendee = await _db.Attendees.FindAsync(email);
+        var existingAttendee = await _db.Attendees.FirstOrDefaultAsync(a => a.EventId == EventId && a.Email == email);
         if (existingAttendee is not null)
         {
             existingAttendee.FullName = dto.FullName.Trim();
@@ -554,6 +571,7 @@ public class AttendanceService : IAttendanceService
             _db.Attendees.Add(new Attendee
             {
                 Email = email,
+                EventId = EventId,
                 FullName = dto.FullName.Trim(),
                 Course = dto.Course,
                 Shift = dto.Shift,
@@ -562,7 +580,7 @@ public class AttendanceService : IAttendanceService
         }
 
         var alreadyCheckedIn = await _db.CheckIns
-            .AnyAsync(c => c.AttendeeEmail == email && c.LectureId == dto.LectureId && c.Status == CheckInStatus.Verified);
+            .AnyAsync(c => c.EventId == EventId && c.AttendeeEmail == email && c.LectureId == dto.LectureId && c.Status == CheckInStatus.Verified);
         if (alreadyCheckedIn)
             return new ServiceResult { Success = false, Message = "Você já realizou check-in nesta palestra." };
 
@@ -571,6 +589,7 @@ public class AttendanceService : IAttendanceService
         {
             Id = Guid.NewGuid(),
             AttendeeEmail = email,
+            EventId = EventId,
             LectureId = dto.LectureId,
             OtpCode = "MAGIC",
             Status = CheckInStatus.Verified,

@@ -11,6 +11,7 @@ builder.Services.AddControllersWithViews();
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddDistributedMemoryCache();
 builder.Services.AddSession(options =>
 {
@@ -35,6 +36,9 @@ builder.Services.AddSingleton<IEmailService>(sp =>
     return new SesEmailService(awsSettings, sesLogger);
 });
 
+// Register IEventContext as scoped - resolves the current event from route/session
+builder.Services.AddScoped<IEventContext, EventContext>();
+
 builder.Services.AddScoped<IAttendanceService, AttendanceService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<IVolunteerService, VolunteerService>();
@@ -57,7 +61,15 @@ app.UseRouting();
 app.UseSession();
 app.UseAuthorization();
 app.MapStaticAssets();
-app.MapControllerRoute("default", "{controller=Home}/{action=Index}/{id?}").WithStaticAssets();
+
+// Route with event slug: /{slug}/controller/action
+app.MapControllerRoute("event", "{eventSlug}/{controller=Home}/{action=Index}/{id?}")
+    .WithStaticAssets();
+
+// Default route (for backward compatibility)
+app.MapControllerRoute("default", "{controller=Home}/{action=Index}/{id?}")
+    .WithStaticAssets();
+
 app.Run();
 
 static async Task SeedDatabaseAsync(WebApplication app)
@@ -69,6 +81,34 @@ static async Task SeedDatabaseAsync(WebApplication app)
 
     await db.Database.MigrateAsync();
 
+    // Seed default event if none exists
+    if (!await db.Events.AnyAsync())
+    {
+        var defaultEvent = new Event
+        {
+            Slug = "sasc26",
+            Name = "SASC 26",
+            Subtitle = "Semana Acadêmica de Sistemas de Computação",
+            AllowedEmailDomain = eventSettings.AllowedEmailDomain,
+            InstagramUrl = eventSettings.InstagramUrl,
+            TshirtPresaleUrl = eventSettings.TshirtPresaleUrl,
+            AdminEmailsJson = System.Text.Json.JsonSerializer.Serialize(eventSettings.AdminEmails),
+            PostCheckinButtonsJson = "[]",
+            PrimaryColor = "#113D76",
+            AccentColor = "#1a1a1a",
+            BackgroundColor = "#ffffff",
+            TextColor = "#1a1a1a"
+        };
+        db.Events.Add(defaultEvent);
+        await db.SaveChangesAsync();
+        logger.LogInformation("Seeded default event: {Slug}", defaultEvent.Slug);
+    }
+
+    // Get the default event
+    var ev = await db.Events.FirstOrDefaultAsync(e => e.Slug == "sasc26")
+             ?? await db.Events.FirstAsync();
+
+    // Seed time slots for the default event
     if (!await db.TimeSlots.AnyAsync())
     {
         foreach (var ts in eventSettings.TimeSlots)
@@ -78,46 +118,40 @@ static async Task SeedDatabaseAsync(WebApplication app)
                 StartTime = ts.StartTime,
                 EndTime = ts.EndTime,
                 Shift = ts.Shift,
-                CreditHours = ts.CreditHours > 0 ? ts.CreditHours : 2
+                CreditHours = ts.CreditHours > 0 ? ts.CreditHours : 2,
+                EventId = ev.Id
             });
         }
 
         await db.SaveChangesAsync();
-        logger.LogInformation("Seeded {Count} time slots", eventSettings.TimeSlots.Count);
+        logger.LogInformation("Seeded {Count} time slots for event {Slug}", eventSettings.TimeSlots.Count, ev.Slug);
     }
 
+    // Seed certificate config for the default event
     if (!await db.CertificateConfigs.AnyAsync())
     {
         db.CertificateConfigs.Add(new CertificateConfig
         {
+            EventId = ev.Id,
             TitleColor = "#113D76",
             BodyColor = "#1a1a1a",
             BorderColor = "#113D76"
         });
         await db.SaveChangesAsync();
-        logger.LogInformation("Seeded default certificate config");
-    }
-    else
-    {
-        var config = await db.CertificateConfigs.FirstOrDefaultAsync();
-        if (config is not null && string.IsNullOrEmpty(config.TitleColor))
-        {
-            config.TitleColor = "#113D76";
-            config.BodyColor = "#1a1a1a";
-            config.BorderColor = "#113D76";
-            await db.SaveChangesAsync();
-        }
+        logger.LogInformation("Seeded default certificate config for event {Slug}", ev.Slug);
     }
 
+    // Seed thank you config for the default event
     if (!await db.ThankYouConfigs.AnyAsync())
     {
         db.ThankYouConfigs.Add(new ThankYouConfig
         {
-            Message = "Obrigado por participar da SASC 26!",
+            EventId = ev.Id,
+            Message = $"Obrigado por participar da {ev.Name}!",
             IsFormEnabled = false,
             FormFields = "[]"
         });
         await db.SaveChangesAsync();
-        logger.LogInformation("Seeded default thank you config");
+        logger.LogInformation("Seeded default thank you config for event {Slug}", ev.Slug);
     }
 }

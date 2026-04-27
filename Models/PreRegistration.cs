@@ -10,4 +10,6 @@ public class PreRegistration
     public string OtpCode { get; set; } = string.Empty;
     public DateTime ExpiresAt { get; set; }
     public bool IsVerified { get; set; }
+    public int EventId { get; set; }
+    public Event Event { get; set; } = null!;
 }

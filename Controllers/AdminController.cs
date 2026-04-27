@@ -9,31 +9,34 @@ namespace Sasc26.Controllers;
 
 public class AdminController : Controller
 {
-    private const string AdminSessionKey = "AdminEmail";
     private readonly IAdminService _adminService;
     private readonly IVolunteerService _volunteerService;
     private readonly ICertificateService _certificateService;
     private readonly IFeedbackService _feedbackService;
     private readonly IThankYouService _thankYouService;
+    private readonly IEventContext _eventContext;
     private readonly AppDbContext _db;
     private readonly EventSettings _settings;
 
-    public AdminController(IAdminService adminService, IVolunteerService volunteerService, ICertificateService certificateService, IFeedbackService feedbackService, IThankYouService thankYouService, AppDbContext db, IOptions<EventSettings> settings)
+    public AdminController(IAdminService adminService, IVolunteerService volunteerService, ICertificateService certificateService, IFeedbackService feedbackService, IThankYouService thankYouService, IEventContext eventContext, AppDbContext db, IOptions<EventSettings> settings)
     {
         _adminService = adminService;
         _volunteerService = volunteerService;
         _certificateService = certificateService;
         _feedbackService = feedbackService;
         _thankYouService = thankYouService;
+        _eventContext = eventContext;
         _db = db;
         _settings = settings.Value;
     }
 
+    private string AdminSessionKey => $"AdminEmail_{_eventContext.EventSlug}";
     private bool IsAdminLoggedIn => !string.IsNullOrEmpty(HttpContext.Session.GetString(AdminSessionKey));
 
     public IActionResult Index()
     {
         if (IsAdminLoggedIn) return RedirectToAction(nameof(Dashboard));
+        ViewBag.Event = _eventContext.CurrentEvent;
         return View();
     }
 
@@ -63,6 +66,7 @@ public class AdminController : Controller
         ViewBag.TimeSlots = await _adminService.GetAllTimeSlotsAsync();
         ViewBag.Lectures = await _adminService.GetAllLecturesAsync();
         ViewBag.PreRegCounts = await _adminService.GetPreRegistrationCountsAsync();
+        ViewBag.Event = _eventContext.CurrentEvent;
         return View();
     }
 
@@ -264,7 +268,7 @@ public class AdminController : Controller
     [HttpGet]
     public async Task<IActionResult> GetCertificateBackground()
     {
-        var config = await _db.CertificateConfigs.FirstOrDefaultAsync();
+        var config = await _db.CertificateConfigs.FirstOrDefaultAsync(c => c.EventId == _eventContext.CurrentEventId);
         if (config?.BackgroundImage is null || config.BackgroundImage.Length == 0)
             return NotFound();
         return File(config.BackgroundImage, config.BackgroundImageContentType ?? "image/png");
@@ -369,7 +373,7 @@ public class AdminController : Controller
     public async Task<IActionResult> GetBanner()
     {
         if (!IsAdminLoggedIn) return Json(new { success = false });
-        var banner = await _db.Banners.FirstOrDefaultAsync();
+        var banner = await _db.Banners.FirstOrDefaultAsync(b => b.EventId == _eventContext.CurrentEventId);
         return Json(new { success = true, banner });
     }
 
@@ -377,10 +381,11 @@ public class AdminController : Controller
     public async Task<IActionResult> UpdateBanner([FromBody] UpdateBannerDto dto)
     {
         if (!IsAdminLoggedIn) return Json(new { success = false, message = "Não autenticado." });
-        var banner = await _db.Banners.FirstOrDefaultAsync();
+        var eventId = _eventContext.CurrentEventId;
+        var banner = await _db.Banners.FirstOrDefaultAsync(b => b.EventId == eventId);
         if (banner is null)
         {
-            banner = new Banner { Id = 1 };
+            banner = new Banner { EventId = eventId };
             _db.Banners.Add(banner);
         }
         banner.Title = dto.Title?.Trim() ?? string.Empty;
@@ -397,7 +402,7 @@ public class AdminController : Controller
     public async Task<IActionResult> DeactivateBanner()
     {
         if (!IsAdminLoggedIn) return Json(new { success = false, message = "Não autenticado." });
-        var banner = await _db.Banners.FirstOrDefaultAsync();
+        var banner = await _db.Banners.FirstOrDefaultAsync(b => b.EventId == _eventContext.CurrentEventId);
         if (banner is not null)
         {
             banner.IsActive = false;
@@ -411,7 +416,7 @@ public class AdminController : Controller
     {
         var lecture = await _db.Lectures
             .Include(l => l.TimeSlot)
-            .FirstOrDefaultAsync(l => l.Id == lectureId);
+            .FirstOrDefaultAsync(l => l.EventId == _eventContext.CurrentEventId && l.Id == lectureId);
         if (lecture is null) return RedirectToAction("Index", "Home");
         return View(lecture);
     }
@@ -420,11 +425,11 @@ public class AdminController : Controller
     public async Task<IActionResult> MagicCheckInBroadcast(int lectureId)
     {
         if (!IsAdminLoggedIn) return RedirectToAction(nameof(Index));
-        var lecture = await _db.Lectures.FindAsync(lectureId);
+        var lecture = await _db.Lectures.FirstOrDefaultAsync(l => l.EventId == _eventContext.CurrentEventId && l.Id == lectureId);
         if (lecture is null) return RedirectToAction(nameof(Dashboard));
 
         var old = await _db.MagicCheckInSessions
-            .Where(s => s.LectureId == lectureId && s.IsActive)
+            .Where(s => s.EventId == _eventContext.CurrentEventId && s.LectureId == lectureId && s.IsActive)
             .ToListAsync();
         old.ForEach(s => s.IsActive = false);
 
@@ -432,6 +437,7 @@ public class AdminController : Controller
         {
             Id = Guid.NewGuid(),
             LectureId = lectureId,
+            EventId = _eventContext.CurrentEventId,
             Token = GenerateMagicToken(),
             CreatedAt = DateTime.UtcNow,
             ExpiresAt = DateTime.UtcNow.AddMinutes(10),
@@ -442,7 +448,7 @@ public class AdminController : Controller
 
         ViewBag.Lecture = lecture;
         ViewBag.Token = session.Token;
-        ViewBag.Payload = $"SASC:{lectureId}:{session.Token}";
+        ViewBag.Payload = $"{_eventContext.CurrentEvent.Name}:{lectureId}:{session.Token}";
         return View();
     }
 

@@ -12,25 +12,27 @@ public class HomeController : Controller
 {
     private readonly ILogger<HomeController> _logger;
     private readonly IAttendanceService _attendanceService;
-    private readonly EventSettings _eventSettings;
+    private readonly IEventContext _eventContext;
     private readonly AppDbContext _db;
 
-    public HomeController(ILogger<HomeController> logger, IAttendanceService attendanceService, IOptions<EventSettings> eventSettings, AppDbContext db)
+    public HomeController(ILogger<HomeController> logger, IAttendanceService attendanceService, IEventContext eventContext, AppDbContext db)
     {
         _logger = logger;
         _attendanceService = attendanceService;
-        _eventSettings = eventSettings.Value;
+        _eventContext = eventContext;
         _db = db;
     }
 
     public async Task<IActionResult> Index()
     {
+        var ev = _eventContext.CurrentEvent;
         var timeSlot = await _attendanceService.GetActiveTimeSlotAsync();
         ViewBag.ActiveTimeSlot = timeSlot;
         ViewBag.HasActiveTimeSlot = timeSlot is not null;
-        ViewBag.InstagramUrl = _eventSettings.InstagramUrl;
-        ViewBag.TshirtPresaleUrl = _eventSettings.TshirtPresaleUrl;
-        var banner = await _db.Banners.FirstOrDefaultAsync(b => b.IsActive);
+        ViewBag.InstagramUrl = ev.InstagramUrl;
+        ViewBag.TshirtPresaleUrl = ev.TshirtPresaleUrl;
+        ViewBag.Event = ev;
+        var banner = await _db.Banners.FirstOrDefaultAsync(b => b.EventId == ev.Id && b.IsActive);
         ViewBag.Banner = banner;
         return View();
     }
@@ -59,6 +61,7 @@ public class HomeController : Controller
     public async Task<IActionResult> Schedule()
     {
         var lectures = await _attendanceService.GetAllLecturesAsync();
+        ViewBag.Event = _eventContext.CurrentEvent;
         return View(lectures);
     }
 
@@ -144,8 +147,9 @@ public class HomeController : Controller
     }
 
     [HttpGet]
-    public async Task<IActionResult> RetroactiveCheckIn()
+    public IActionResult RetroactiveCheckIn()
     {
+        ViewBag.Event = _eventContext.CurrentEvent;
         return View();
     }
 
@@ -164,7 +168,11 @@ public class HomeController : Controller
     }
 
     [HttpGet]
-    public IActionResult MagicCheckIn() => View();
+    public IActionResult MagicCheckIn()
+    {
+        ViewBag.Event = _eventContext.CurrentEvent;
+        return View();
+    }
 
     [HttpPost]
     public async Task<IActionResult> MagicCheckIn([FromBody] MagicCheckInDto dto)

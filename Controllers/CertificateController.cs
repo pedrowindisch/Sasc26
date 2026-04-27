@@ -11,18 +11,21 @@ public class CertificateController : Controller
     private readonly ICertificateService _certificateService;
     private readonly IFeedbackService _feedbackService;
     private readonly IThankYouService _thankYouService;
+    private readonly IEventContext _eventContext;
     private readonly AppDbContext _db;
 
-    public CertificateController(ICertificateService certificateService, IFeedbackService feedbackService, IThankYouService thankYouService, AppDbContext db)
+    public CertificateController(ICertificateService certificateService, IFeedbackService feedbackService, IThankYouService thankYouService, IEventContext eventContext, AppDbContext db)
     {
         _certificateService = certificateService;
         _feedbackService = feedbackService;
         _thankYouService = thankYouService;
+        _eventContext = eventContext;
         _db = db;
     }
 
     public IActionResult Index()
     {
+        ViewBag.Event = _eventContext.CurrentEvent;
         return View();
     }
 
@@ -68,6 +71,7 @@ public class CertificateController : Controller
 
     public IActionResult Validate()
     {
+        ViewBag.Event = _eventContext.CurrentEvent;
         return View();
     }
 
@@ -94,7 +98,7 @@ public class CertificateController : Controller
     [HttpGet]
     public async Task<IActionResult> BackgroundImage()
     {
-        var config = await _db.CertificateConfigs.FirstOrDefaultAsync();
+        var config = await _db.CertificateConfigs.FirstOrDefaultAsync(c => c.EventId == _eventContext.CurrentEventId);
         if (config?.BackgroundImage is null || config.BackgroundImage.Length == 0)
             return NotFound();
         return File(config.BackgroundImage, config.BackgroundImageContentType ?? "image/png");
