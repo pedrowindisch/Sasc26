@@ -285,10 +285,6 @@ public class CertificateService : ICertificateService
 
     public async Task<byte[]> ExportAllCertificatesZipAsync()
     {
-        var certs = await _db.IssuedCertificates
-            .OrderByDescending(c => c.IssuedAt)
-            .ToListAsync();
-
         var config = await _db.CertificateConfigs.FirstOrDefaultAsync();
         var template = config?.TemplateMessage ?? "Certificamos que {{nome}}, participou da SASC 26 com carga horária de {{horas}} horas.";
         var titleColor = config?.TitleColor ?? "#113D76";
@@ -302,6 +298,77 @@ public class CertificateService : ICertificateService
             backgroundImageDataUri = $"data:{contentType};base64,{Convert.ToBase64String(config.BackgroundImage)}";
         }
 
+        // 1. Already-issued certificates
+        var existingCerts = await _db.IssuedCertificates.ToListAsync();
+        var existingEmails = existingCerts.Select(c => c.Email).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        // 2. Spectators with verified check-ins who don't have a certificate yet
+        var spectatorCandidates = await _db.Attendees
+            .Where(a => a.CheckIns.Any(c => c.Status == CheckInStatus.Verified))
+            .ToListAsync();
+
+        // 3. Volunteers with check-ins who don't have a certificate yet
+        var volunteerCandidates = await _db.Volunteers
+            .Where(v => v.CheckIns.Any())
+            .ToListAsync();
+
+        var now = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, BrasiliaTz);
+        var newCerts = new List<IssuedCertificate>();
+
+        foreach (var attendee in spectatorCandidates)
+        {
+            if (existingEmails.Contains(attendee.Email)) continue;
+
+            var spectatorHours = await CalculateSpectatorHoursAsync(attendee.Email);
+            var volunteerHours = await CalculateVolunteerHoursAsync(attendee.Email);
+            var totalHours = spectatorHours + volunteerHours;
+            if (totalHours <= 0) continue;
+
+            newCerts.Add(new IssuedCertificate
+            {
+                ValidationCode = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant(),
+                Email = attendee.Email,
+                Name = attendee.FullName,
+                Course = attendee.Course,
+                Phase = attendee.Phase.ToString(),
+                TotalHours = totalHours,
+                IssuedAt = now
+            });
+        }
+
+        foreach (var volunteer in volunteerCandidates)
+        {
+            if (existingEmails.Contains(volunteer.Email)) continue;
+
+            var spectatorHours = await CalculateSpectatorHoursAsync(volunteer.Email);
+            var volunteerHours = await CalculateVolunteerHoursAsync(volunteer.Email);
+            var totalHours = spectatorHours + volunteerHours;
+            if (totalHours <= 0) continue;
+
+            newCerts.Add(new IssuedCertificate
+            {
+                ValidationCode = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant(),
+                Email = volunteer.Email,
+                Name = volunteer.Name,
+                Course = volunteer.Course,
+                Phase = volunteer.Semester.ToString(),
+                TotalHours = totalHours,
+                IssuedAt = now
+            });
+        }
+
+        // 4. Persist new certificates to the database so validation codes work on the website
+        if (newCerts.Count > 0)
+        {
+            _db.IssuedCertificates.AddRange(newCerts);
+            await _db.SaveChangesAsync();
+        }
+
+        // 5. Combine all certificates
+        var allCerts = existingCerts.Concat(newCerts)
+            .OrderByDescending(c => c.IssuedAt)
+            .ToList();
+
         using var ms = new MemoryStream();
         using (var archive = new System.IO.Compression.ZipArchive(ms, System.IO.Compression.ZipArchiveMode.Create, true))
         {
@@ -310,7 +377,7 @@ public class CertificateService : ICertificateService
             using (var csvWriter = new StreamWriter(csvEntry.Open()))
             {
                 await csvWriter.WriteLineAsync("Nome,Email,Curso,Fase,TotalHoras,CodigoValidacao,DataEmissao");
-                foreach (var cert in certs)
+                foreach (var cert in allCerts)
                 {
                     var name = EscapeCsv(cert.Name);
                     var email = EscapeCsv(cert.Email);
@@ -321,10 +388,9 @@ public class CertificateService : ICertificateService
             }
 
             // Generate certificate HTML files in parallel
-            var certsList = certs.ToList();
             var lockObj = new object();
 
-            await Parallel.ForEachAsync(certsList, async (cert, ct) =>
+            await Parallel.ForEachAsync(allCerts, async (cert, ct) =>
             {
                 var rendered = template
                     .Replace("{{nome}}", cert.Name)
