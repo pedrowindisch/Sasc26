@@ -371,7 +371,12 @@ public class CertificateService : ICertificateService
             });
         }
 
-        // 4. Persist new certificates to the database so validation codes work on the website.
+        // 4. Deduplicate by email (same person may appear in both spectator and volunteer lists)
+        newCerts = newCerts.GroupBy(c => c.Email, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .ToList();
+
+        // 5. Persist new certificates to the database so validation codes work on the website.
         //    Use upsert logic to avoid unique constraint violations on Email.
         foreach (var newCert in newCerts)
         {
