@@ -41,6 +41,7 @@ builder.Services.AddScoped<IVolunteerService, VolunteerService>();
 builder.Services.AddScoped<ICertificateService, CertificateService>();
 builder.Services.AddScoped<IFeedbackService, FeedbackService>();
 builder.Services.AddScoped<IThankYouService, ThankYouService>();
+builder.Services.AddSingleton<ExportJobManager>();
 
 var app = builder.Build();
 

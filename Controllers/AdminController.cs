@@ -15,16 +15,18 @@ public class AdminController : Controller
     private readonly ICertificateService _certificateService;
     private readonly IFeedbackService _feedbackService;
     private readonly IThankYouService _thankYouService;
+    private readonly ExportJobManager _exportJobManager;
     private readonly AppDbContext _db;
     private readonly EventSettings _settings;
 
-    public AdminController(IAdminService adminService, IVolunteerService volunteerService, ICertificateService certificateService, IFeedbackService feedbackService, IThankYouService thankYouService, AppDbContext db, IOptions<EventSettings> settings)
+    public AdminController(IAdminService adminService, IVolunteerService volunteerService, ICertificateService certificateService, IFeedbackService feedbackService, IThankYouService thankYouService, ExportJobManager exportJobManager, AppDbContext db, IOptions<EventSettings> settings)
     {
         _adminService = adminService;
         _volunteerService = volunteerService;
         _certificateService = certificateService;
         _feedbackService = feedbackService;
         _thankYouService = thankYouService;
+        _exportJobManager = exportJobManager;
         _db = db;
         _settings = settings.Value;
     }
@@ -284,6 +286,32 @@ public class AdminController : Controller
         if (!IsAdminLoggedIn) return RedirectToAction(nameof(Index));
         var zipBytes = await _certificateService.ExportAllCertificatesZipAsync();
         return File(zipBytes, "application/zip", "certificados_sasc26.zip");
+    }
+
+    [HttpPost]
+    public IActionResult StartExport()
+    {
+        if (!IsAdminLoggedIn) return Json(new { success = false, message = "Não autenticado." });
+        var jobId = _exportJobManager.StartExport();
+        return Json(new { success = true, jobId });
+    }
+
+    [HttpGet]
+    public IActionResult ExportStatus(string jobId)
+    {
+        if (!IsAdminLoggedIn) return Json(new { success = false });
+        var job = _exportJobManager.GetStatus(jobId);
+        if (job is null) return Json(new { success = false, message = "Job não encontrado." });
+        return Json(new { success = true, status = job.Status, errorMessage = job.ErrorMessage });
+    }
+
+    [HttpGet]
+    public IActionResult DownloadExport(string jobId)
+    {
+        if (!IsAdminLoggedIn) return RedirectToAction(nameof(Index));
+        var bytes = _exportJobManager.ConsumeFile(jobId);
+        if (bytes is null) return NotFound();
+        return File(bytes, "application/zip", "certificados_sasc26.zip");
     }
 
     public async Task<IActionResult> ThankYouConfig()

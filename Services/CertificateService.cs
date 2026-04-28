@@ -17,6 +17,7 @@ public interface ICertificateService
     Task RemoveBackgroundImageAsync();
     Task<List<IssuedCertificateDto>> GetAllIssuedCertificatesAsync();
     Task<byte[]> ExportAllCertificatesZipAsync();
+    Task ExportAllCertificatesToFileAsync(string filePath);
 }
 
 public class CertificateLookupResult
@@ -285,6 +286,19 @@ public class CertificateService : ICertificateService
 
     public async Task<byte[]> ExportAllCertificatesZipAsync()
     {
+        using var ms = new MemoryStream();
+        await WriteExportZipToStreamAsync(ms);
+        return ms.ToArray();
+    }
+
+    public async Task ExportAllCertificatesToFileAsync(string filePath)
+    {
+        using var fs = new FileStream(filePath, FileMode.Create, FileAccess.Write);
+        await WriteExportZipToStreamAsync(fs);
+    }
+
+    private async Task WriteExportZipToStreamAsync(Stream destination)
+    {
         var config = await _db.CertificateConfigs.FirstOrDefaultAsync();
         var template = config?.TemplateMessage ?? "Certificamos que {{nome}}, participou da SASC 26 com carga horária de {{horas}} horas.";
         var titleColor = config?.TitleColor ?? "#113D76";
@@ -357,20 +371,33 @@ public class CertificateService : ICertificateService
             });
         }
 
-        // 4. Persist new certificates to the database so validation codes work on the website
-        if (newCerts.Count > 0)
+        // 4. Persist new certificates to the database so validation codes work on the website.
+        //    Use upsert logic to avoid unique constraint violations on Email.
+        foreach (var newCert in newCerts)
         {
-            _db.IssuedCertificates.AddRange(newCerts);
-            await _db.SaveChangesAsync();
+            var existing = await _db.IssuedCertificates.FirstOrDefaultAsync(c => c.Email == newCert.Email);
+            if (existing is not null)
+            {
+                existing.Name = newCert.Name;
+                existing.Course = newCert.Course;
+                existing.Phase = newCert.Phase;
+                existing.TotalHours = newCert.TotalHours;
+                existing.IssuedAt = newCert.IssuedAt;
+                // Keep the existing validation code so it remains valid on the website
+            }
+            else
+            {
+                _db.IssuedCertificates.Add(newCert);
+            }
         }
+        await _db.SaveChangesAsync();
 
         // 5. Combine all certificates
         var allCerts = existingCerts.Concat(newCerts)
             .OrderByDescending(c => c.IssuedAt)
             .ToList();
 
-        using var ms = new MemoryStream();
-        using (var archive = new System.IO.Compression.ZipArchive(ms, System.IO.Compression.ZipArchiveMode.Create, true))
+        using (var archive = new System.IO.Compression.ZipArchive(destination, System.IO.Compression.ZipArchiveMode.Create, true))
         {
             // CSV summary entry
             var csvEntry = archive.CreateEntry("certificados_resumo.csv");
@@ -412,8 +439,6 @@ public class CertificateService : ICertificateService
                 }
             });
         }
-
-        return ms.ToArray();
     }
 
     private static string BuildCertificateHtml(IssuedCertificate cert, string renderedText, string titleColor, string bodyColor, string borderColor, string? backgroundImageDataUri)
