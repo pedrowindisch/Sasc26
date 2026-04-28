@@ -278,6 +278,14 @@ public class AdminController : Controller
         return View();
     }
 
+    [HttpGet]
+    public async Task<IActionResult> ExportAllCertificates()
+    {
+        if (!IsAdminLoggedIn) return RedirectToAction(nameof(Index));
+        var zipBytes = await _certificateService.ExportAllCertificatesZipAsync();
+        return File(zipBytes, "application/zip", "certificados_sasc26.zip");
+    }
+
     public async Task<IActionResult> ThankYouConfig()
     {
         if (!IsAdminLoggedIn) return RedirectToAction(nameof(Index));

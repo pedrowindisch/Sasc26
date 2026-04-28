@@ -16,6 +16,7 @@ public interface ICertificateService
     Task UpdateBackgroundImageAsync(byte[] imageData, string contentType);
     Task RemoveBackgroundImageAsync();
     Task<List<IssuedCertificateDto>> GetAllIssuedCertificatesAsync();
+    Task<byte[]> ExportAllCertificatesZipAsync();
 }
 
 public class CertificateLookupResult
@@ -280,6 +281,163 @@ public class CertificateService : ICertificateService
                 IssuedAt = c.IssuedAt
             })
             .ToListAsync();
+    }
+
+    public async Task<byte[]> ExportAllCertificatesZipAsync()
+    {
+        var certs = await _db.IssuedCertificates
+            .OrderByDescending(c => c.IssuedAt)
+            .ToListAsync();
+
+        var config = await _db.CertificateConfigs.FirstOrDefaultAsync();
+        var template = config?.TemplateMessage ?? "Certificamos que {{nome}}, participou da SASC 26 com carga horária de {{horas}} horas.";
+        var titleColor = config?.TitleColor ?? "#113D76";
+        var bodyColor = config?.BodyColor ?? "#1a1a1a";
+        var borderColor = config?.BorderColor ?? "#113D76";
+        var hasBg = config?.BackgroundImage != null && config.BackgroundImage.Length > 0;
+        string? backgroundImageDataUri = null;
+        if (hasBg && config!.BackgroundImage is not null)
+        {
+            var contentType = string.IsNullOrEmpty(config.BackgroundImageContentType) ? "image/png" : config.BackgroundImageContentType;
+            backgroundImageDataUri = $"data:{contentType};base64,{Convert.ToBase64String(config.BackgroundImage)}";
+        }
+
+        using var ms = new MemoryStream();
+        using (var archive = new System.IO.Compression.ZipArchive(ms, System.IO.Compression.ZipArchiveMode.Create, true))
+        {
+            // CSV summary entry
+            var csvEntry = archive.CreateEntry("certificados_resumo.csv");
+            using (var csvWriter = new StreamWriter(csvEntry.Open()))
+            {
+                await csvWriter.WriteLineAsync("Nome,Email,Curso,Fase,TotalHoras,CodigoValidacao,DataEmissao");
+                foreach (var cert in certs)
+                {
+                    var name = EscapeCsv(cert.Name);
+                    var email = EscapeCsv(cert.Email);
+                    var course = EscapeCsv(cert.Course);
+                    var phase = EscapeCsv(cert.Phase);
+                    await csvWriter.WriteLineAsync($"{name},{email},{course},{phase},{cert.TotalHours},{cert.ValidationCode},{cert.IssuedAt:yyyy-MM-dd HH:mm:ss}");
+                }
+            }
+
+            // Generate certificate HTML files in parallel
+            var certsList = certs.ToList();
+            var lockObj = new object();
+
+            await Parallel.ForEachAsync(certsList, async (cert, ct) =>
+            {
+                var rendered = template
+                    .Replace("{{nome}}", cert.Name)
+                    .Replace("{{email}}", cert.Email)
+                    .Replace("{{curso}}", cert.Course)
+                    .Replace("{{fase}}", cert.Phase)
+                    .Replace("{{horas}}", cert.TotalHours.ToString("0"));
+
+                var html = BuildCertificateHtml(cert, rendered, titleColor, bodyColor, borderColor, backgroundImageDataUri);
+
+                var safeName = SanitizeFileName(cert.Name);
+                var fileName = $"{safeName}_{cert.ValidationCode}.html";
+
+                lock (lockObj)
+                {
+                    var entry = archive.CreateEntry(fileName);
+                    using var writer = new StreamWriter(entry.Open());
+                    writer.Write(html);
+                }
+            });
+        }
+
+        return ms.ToArray();
+    }
+
+    private static string BuildCertificateHtml(IssuedCertificate cert, string renderedText, string titleColor, string bodyColor, string borderColor, string? backgroundImageDataUri)
+    {
+        var bgStyle = !string.IsNullOrEmpty(backgroundImageDataUri) ? $" style=\"background-image: url('{backgroundImageDataUri}');\"" : "";
+        var issuedAt = cert.IssuedAt.ToString("dd/MM/yyyy HH:mm");
+
+        return $@"<!DOCTYPE html>
+<html lang=""pt-BR"">
+<head>
+    <meta charset=""utf-8"" />
+    <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"" />
+    <title>Certificado - SASC 26</title>
+    <link rel=""preconnect"" href=""https://fonts.googleapis.com"">
+    <link rel=""preconnect"" href=""https://fonts.gstatic.com"" crossorigin>
+    <link href=""https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@400;600;700&display=swap"" rel=""stylesheet"">
+    <style>
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{ font-family: 'Inter', sans-serif; background: #fff; color: {bodyColor}; }}
+        @@media print {{
+            body {{ background: #fff; }}
+            .cert-page {{ box-shadow: none !important; margin: 0 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }}
+        }}
+        .cert-page {{
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 60px 50px;
+            border: 3px solid {borderColor};
+            border-radius: 4px;
+            position: relative;
+            min-height: 500px;
+            background-size: cover;
+            background-position: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+            color-adjust: exact;
+        }}
+        .cert-page::before, .cert-page::after {{
+            content: '';
+            position: absolute;
+            width: 40px; height: 40px;
+            border: 2px solid {borderColor};
+        }}
+        .cert-page::before {{ top: 10px; left: 10px; border-right: none; border-bottom: none; }}
+        .cert-page::after {{ bottom: 10px; right: 10px; border-left: none; border-top: none; }}
+        .cert-header {{ text-align: center; padding-bottom: 30px; border-bottom: 1px solid #ddd; margin-bottom: 30px; }}
+        .cert-header h1 {{ font-family: 'Playfair Display', serif; font-size: 2rem; color: {titleColor}; margin-bottom: 4px; }}
+        .cert-header p {{ font-size: 0.8rem; color: #888; text-transform: uppercase; letter-spacing: 0.1em; }}
+        .cert-body {{ text-align: center; padding: 20px 0; line-height: 1.8; font-size: 1rem; }}
+        .cert-body .cert-text {{ font-size: 1rem; line-height: 1.9; }}
+        .cert-body .cert-name {{ font-family: 'Playfair Display', serif; font-size: 1.5rem; font-weight: 700; color: {titleColor}; margin: 10px 0; }}
+        .cert-hours {{ font-size: 1.3rem; font-weight: 700; color: {titleColor}; margin: 10px 0; }}
+        .cert-footer {{ margin-top: 40px; text-align: center; font-size: 0.7rem; color: #aaa; }}
+        .cert-footer .val-code {{ font-family: monospace; font-size: 0.75rem; color: #888; margin-top: 6px; }}
+    </style>
+</head>
+<body>
+    <div class=""cert-page""{bgStyle}>
+        <div class=""cert-header"">
+            <h1>SASC 26</h1>
+            <p>Semana Acadêmica de Sistemas e Computação</p>
+        </div>
+        <div class=""cert-body"">
+            <div class=""cert-text"">{renderedText.Replace("\n", "<br>")}</div>
+            <div class=""cert-hours"">{cert.TotalHours} hora(s)</div>
+        </div>
+        <div class=""cert-footer"">
+            <div>Código de validação: <span class=""val-code"">{cert.ValidationCode}</span></div>
+            <div style=""margin-top:2px;"">Emitido em: {issuedAt}</div>
+        </div>
+    </div>
+</body>
+</html>";
+    }
+
+    private static string EscapeCsv(string value)
+    {
+        if (string.IsNullOrEmpty(value)) return "";
+        if (value.Contains(',') || value.Contains('"') || value.Contains('\n'))
+            return $"\"{value.Replace("\"", "\"\"")}\"";
+        return value;
+    }
+
+    private static string SanitizeFileName(string name)
+    {
+        if (string.IsNullOrEmpty(name)) return "certificado";
+        var invalid = Path.GetInvalidFileNameChars();
+        var sanitized = new string(name.Where(c => !invalid.Contains(c)).ToArray()).Trim();
+        return string.IsNullOrWhiteSpace(sanitized) ? "certificado" : sanitized.Replace(" ", "_");
     }
 
     private async Task<decimal> CalculateSpectatorHoursAsync(string email)
