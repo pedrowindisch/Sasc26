@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Sasc26.Data;
 using Sasc26.Models;
 using Sasc26.Services;
 
@@ -8,10 +10,14 @@ public class VolunteerController : Controller
 {
     private const string VolunteerSessionKey = "VolunteerEmail";
     private readonly IVolunteerService _volunteerService;
+    private readonly IEventContext _eventContext;
+    private readonly AppDbContext _db;
 
-    public VolunteerController(IVolunteerService volunteerService)
+    public VolunteerController(IVolunteerService volunteerService, IEventContext eventContext, AppDbContext db)
     {
         _volunteerService = volunteerService;
+        _eventContext = eventContext;
+        _db = db;
     }
 
     private bool IsVolunteerLoggedIn => !string.IsNullOrEmpty(HttpContext.Session.GetString(VolunteerSessionKey));

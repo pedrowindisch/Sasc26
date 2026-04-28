@@ -1,5 +1,12 @@
 @{
     ViewData["Title"] = "Programação";
+    var ev = ViewBag.Event as Sasc26.Models.Event;
+    var primaryColor = ev?.PrimaryColor ?? "#113D76";
+    var accentColor = ev?.AccentColor ?? "#2EBDEF";
+    var backgroundColor = ev?.BackgroundColor ?? "#f5f5f5";
+    var eventName = ev?.Name ?? "SASC 26";
+    var eventSubtitle = ev?.Subtitle ?? "";
+    var eventSlug = ev?.Slug ?? "";
 }
 
 @section Styles {
@@ -8,8 +15,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="~/css/bulmaswatch.min.css">
     <style>
-        body { font-family: 'Inter', sans-serif; background: #f5f5f5; min-height: 100vh; display: flex; flex-direction: column; }
-        .page-header { background: #113D76; padding: 24px 20px; text-align: center; }
+        body { font-family: 'Inter', sans-serif; background: @backgroundColor; min-height: 100vh; display: flex; flex-direction: column; }
+        .page-header { background: @primaryColor; padding: 24px 20px; text-align: center; }
         .page-header img.logo { width: 44px; height: 44px; margin-bottom: 8px; }
         .page-header h1 { font-size: 1.1rem; font-weight: 700; color: #fff; margin: 0; }
         .page-header p { font-size: 0.7rem; color: rgba(255,255,255,0.5); margin: 4px 0 0; text-transform: uppercase; letter-spacing: 0.05em; }
@@ -19,14 +26,14 @@
 
         .day-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 18px; }
         .day-tab { padding: 8px 14px; border-radius: 100px; font-size: 0.78rem; font-weight: 600; background: #fff; color: #666; border: 1.5px solid #e0e0e0; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
-        .day-tab:hover { border-color: #2EBDEF; color: #113D76; }
-        .day-tab.active { background: #113D76; color: #fff; border-color: #113D76; }
+        .day-tab:hover { border-color: @accentColor; color: @primaryColor; }
+        .day-tab.active { background: @primaryColor; color: #fff; border-color: @primaryColor; }
         .day-tab .tab-count { display: inline-block; background: rgba(0,0,0,0.15); border-radius: 100px; padding: 0 6px; font-size: 0.65rem; margin-left: 4px; }
         .day-tab.active .tab-count { background: rgba(255,255,255,0.25); }
 
         .lecture-card { background: #fff; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); padding: 16px 20px; margin-bottom: 12px; cursor: pointer; transition: border-color 0.2s; border: 2px solid transparent; }
-        .lecture-card:hover { border-color: #2EBDEF; }
-        .lecture-card.selected { border-color: #113D76; background: #f8faff; }
+        .lecture-card:hover { border-color: @accentColor; }
+        .lecture-card.selected { border-color: @primaryColor; background: #f8faff; }
         .lecture-card.disabled { opacity: 0.6; cursor: default; pointer-events: none; }
         .lecture-card .l-title { font-size: 0.9rem; font-weight: 700; color: #1a1a1a; margin-bottom: 2px; }
         .lecture-card .l-speaker { font-size: 0.8rem; color: #666; }
@@ -37,12 +44,12 @@
         .pre-reg-badge.registered { background: #eff6ff; color: #1d4ed8; }
 
         .check-icon { float: right; width: 22px; height: 22px; border-radius: 50%; border: 2px solid #ddd; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; color: transparent; transition: all 0.2s; margin-top: 2px; }
-        .lecture-card.selected .check-icon { border-color: #113D76; background: #113D76; color: #fff; }
+        .lecture-card.selected .check-icon { border-color: @primaryColor; background: @primaryColor; color: #fff; }
         .lecture-card.disabled .check-icon { border-color: transparent; background: transparent; color: transparent; }
 
-        .input:focus { border-color: #2EBDEF; box-shadow: 0 0 0 3px rgba(46,189,239,0.15); }
-        .button.is-brand { background-color: #113D76; color: #fff; }
-        .button.is-brand:hover { background-color: #0d2d5a; color: #fff; }
+        .input:focus { border-color: @accentColor; box-shadow: 0 0 0 3px rgba(46,189,239,0.15); }
+        .button.is-brand { background-color: @primaryColor; color: #fff; }
+        .button.is-brand:hover { background-color: @primaryColor; opacity: 0.85; color: #fff; }
         .button.is-brand:disabled { background-color: #bbb; color: #fff; }
 
         .otp-input { letter-spacing: 6px; font-size: 1.25rem; font-weight: 600; text-align: center; }
@@ -58,16 +65,16 @@
         .nav-links a { font-size: 0.8rem; color: #aaa; }
         .nav-links a:hover { color: #555; }
         .submit-bar { position: sticky; bottom: 0; background: #fff; padding: 14px 0; border-top: 1px solid #eee; margin-top: 8px; z-index: 10; }
-        .shift-divider { margin: 20px 0 10px; padding-bottom: 6px; border-bottom: 2px solid #113D76; display: flex; align-items: baseline; gap: 8px; }
-        .shift-divider .shift-label { font-size: 0.78rem; font-weight: 700; color: #113D76; text-transform: uppercase; letter-spacing: 0.03em; }
+        .shift-divider { margin: 20px 0 10px; padding-bottom: 6px; border-bottom: 2px solid @primaryColor; display: flex; align-items: baseline; gap: 8px; }
+        .shift-divider .shift-label { font-size: 0.78rem; font-weight: 700; color: @primaryColor; text-transform: uppercase; letter-spacing: 0.03em; }
         .shift-divider .shift-hint { font-size: 0.65rem; color: #999; font-weight: 400; }
     </style>
 }
 
 <div class="page-header">
     <img class="logo" src="~/dasc.svg" alt="DASC">
-    <h1>SASC 26 - Programação</h1>
-    <p>Semana Acadêmica de Sistemas e Computação</p>
+    <h1>@eventName - Programação</h1>
+    <p>@eventSubtitle</p>
 </div>
 
 <div class="container-area">
@@ -81,7 +88,7 @@
         <div class="field" style="margin-top:14px;">
             <div class="control"><button class="button is-brand is-fullwidth" id="btnContinue" onclick="loadScheduleWithEmail()">Ver programação</button></div>
         </div>
-        <div class="nav-links"><a href="/">&#8592; Registrar presença</a></div>
+        <div class="nav-links"><a href="/@eventSlug">&#8592; Registrar presença</a></div>
     </div>
 
     <div class="step-section" id="stepSchedule">
@@ -117,6 +124,7 @@
 
 @section Scripts {
 <script>
+    const baseUrl = '/@eventSlug';
     let currentEmail = '';
     let selectedIds = {};
     let allLectures = [];
@@ -136,7 +144,7 @@
         const btn = document.getElementById('btnContinue');
         btn.classList.add('is-loading'); btn.disabled = true;
         try {
-            const res = await fetch(`/Home/GetSchedule?email=${encodeURIComponent(email)}`);
+            const res = await fetch(baseUrl + `/Home/GetSchedule?email=${encodeURIComponent(email)}`);
             const data = await res.json();
             if (!data.success) { showMessage('Erro ao carregar.', 'error'); return; }
             allLectures = data.lectures || [];
@@ -254,7 +262,7 @@
         const btn = document.getElementById('btnSubmit');
         btn.classList.add('is-loading'); btn.disabled = true;
         try {
-            const res = await fetch('/Home/PreRegister', {
+            const res = await fetch(baseUrl + '/Home/PreRegister', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email: currentEmail, lectureIds: ids })
@@ -283,7 +291,7 @@
         btn.classList.add('is-loading'); btn.disabled = true;
         document.getElementById('otpMsg').innerHTML = '';
         try {
-            const res = await fetch('/Home/VerifyPreRegistration', {
+            const res = await fetch(baseUrl + '/Home/VerifyPreRegistration', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email: currentEmail, code })

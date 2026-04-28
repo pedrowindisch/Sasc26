@@ -1,13 +1,28 @@
+@{
+    var ev = ViewBag.Event as Sasc26.Models.Event;
+    var primaryColor = ev?.PrimaryColor ?? "#113D76";
+    var accentColor = ev?.AccentColor ?? "#2EBDEF";
+    var backgroundColor = ev?.BackgroundColor ?? "#f5f5f5";
+    var textColor = ev?.TextColor ?? "#1a1a1a";
+    var eventName = ev?.Name ?? "SASC 26";
+    var eventSlug = ev?.Slug ?? "";
+}
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - SASC 26</title>
+    <title>@ViewData["Title"] - @eventName</title>
     <link rel="stylesheet" href="~/css/bulmaswatch.min.css">
-
+    <style>
+        :root {
+            --event-primary: @primaryColor;
+            --event-accent: @accentColor;
+            --event-bg: @backgroundColor;
+            --event-text: @textColor;
+        }
+    </style>
     @await RenderSectionAsync("Styles", required: false)
-
 </head>
 <body>
     @RenderBody()

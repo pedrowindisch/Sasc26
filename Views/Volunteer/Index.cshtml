@@ -1,5 +1,11 @@
 @{
     ViewData["Title"] = "Portal do Voluntário";
+    var ev = ViewBag.Event as Sasc26.Models.Event;
+    var primaryColor = ev?.PrimaryColor ?? "#113D76";
+    var accentColor = ev?.AccentColor ?? "#2EBDEF";
+    var backgroundColor = ev?.BackgroundColor ?? "#f5f5f5";
+    var eventName = ev?.Name ?? "SASC 26";
+    var eventSlug = ev?.Slug ?? "";
 }
 
 @section Styles {
@@ -8,14 +14,14 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="~/css/bulmaswatch.min.css">
     <style>
-        body { font-family: 'Inter', sans-serif; background: #f5f5f5; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+        body { font-family: 'Inter', sans-serif; background: @backgroundColor; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
         .card-wrapper { width: 100%; max-width: 440px; padding: 0 16px; }
         .event-card { background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); overflow: hidden; }
-        .event-header { background: #113D76; padding: 28px 24px 20px; text-align: center; }
+        .event-header { background: @primaryColor; padding: 28px 24px 20px; text-align: center; }
         .event-header img.logo { width: 56px; height: 56px; margin-bottom: 12px; }
         .event-header h1 { font-size: 1.25rem; font-weight: 700; color: #fff; margin: 0; }
         .event-header p { font-size: 0.75rem; color: rgba(255,255,255,0.6); margin: 4px 0 0; text-transform: uppercase; letter-spacing: 0.05em; }
-        .volunteer-tag { display: inline-block; margin-top: 12px; padding: 4px 14px; border-radius: 100px; font-size: 0.75rem; font-weight: 600; background: rgba(46,189,239,0.2); color: #2EBDEF; }
+        .volunteer-tag { display: inline-block; margin-top: 12px; padding: 4px 14px; border-radius: 100px; font-size: 0.75rem; font-weight: 600; background: rgba(46,189,239,0.2); color: @accentColor; }
         .event-body { padding: 8px 24px 28px; }
         .otp-input { letter-spacing: 6px; font-size: 1.25rem; font-weight: 600; text-align: center; }
         .step-section { display: none; padding-top: 16px; }
@@ -28,11 +34,11 @@
         .field + .field { margin-top: 12px; }
         .section-divider { border: none; border-top: 1px solid #eee; margin: 20px 0; }
         .section-label { font-size: 0.7rem; font-weight: 600; color: #bbb; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 12px; }
-        .button.is-brand { background-color: #fff; color: #113D76; }
-        .button.is-brand:hover { background-color: #f0f0f0; color: #113D76; }
-        .button.is-outlined-brand { background-color: transparent; color: #113D76; border: 1px solid #113D76; }
-        .button.is-outlined-brand:hover { background-color: #113D76; color: #fff; }
-        .input:focus, .select select:focus { border-color: #2EBDEF; box-shadow: 0 0 0 3px rgba(46,189,239,0.15); }
+        .button.is-brand { background-color: #fff; color: @primaryColor; }
+        .button.is-brand:hover { background-color: #f0f0f0; color: @primaryColor; }
+        .button.is-outlined-brand { background-color: transparent; color: @primaryColor; border: 1px solid @primaryColor; }
+        .button.is-outlined-brand:hover { background-color: @primaryColor; color: #fff; }
+        .input:focus, .select select:focus { border-color: @accentColor; box-shadow: 0 0 0 3px rgba(46,189,239,0.15); }
         .empty-state { text-align: center; padding: 24px 0; color: #bbb; font-size: 0.9rem; }
         .active-slot { background: #ecfdf5; border: 2px solid #047857; border-radius: 10px; padding: 14px 16px; text-align: center; margin-bottom: 14px; }
         .active-slot .slot-time { font-size: 1.1rem; font-weight: 700; color: #047857; }
@@ -41,7 +47,7 @@
         .checkin-item .ci-label { font-size: 0.85rem; font-weight: 500; color: #1a1a1a; }
         .checkin-item .ci-time { font-size: 0.72rem; color: #888; }
         .checkin-item .ci-badge { display: inline-block; padding: 2px 10px; border-radius: 100px; font-size: 0.7rem; font-weight: 600; background: #ecfdf5; color: #059669; }
-        .volunteer-name { font-size: 1rem; font-weight: 700; color: #113D76; }
+        .volunteer-name { font-size: 1rem; font-weight: 700; color: @primaryColor; }
         .volunteer-email { font-size: 0.75rem; color: #888; }
         .dash-header { display: flex; align-items: center; justify-content: space-between; padding-top: 12px; }
         .logout-btn { font-size: 0.75rem; color: #aaa; cursor: pointer; background: none; border: 1px solid #ddd; border-radius: 6px; padding: 4px 10px; }
@@ -53,7 +59,7 @@
     <div class="event-card">
         <div class="event-header">
             <img class="logo" src="~/dasc.svg" alt="DASC">
-            <h1>Voluntário SASC 26</h1>
+            <h1>Voluntário @eventName</h1>
             <p>Portal do Voluntário</p>
             <span class="volunteer-tag">Staff</span>
         </div>
@@ -71,9 +77,9 @@
                     <div class="control"><button class="button is-brand is-fullwidth" id="btnContinue" onclick="lookupEmail()">Continuar</button></div>
                 </div>
                 <div class="has-text-centered" style="margin-top:12px;">
-                    <a href="/" class="back-link">Registrar presença de aluno</a>
+                    <a href="/@eventSlug" class="back-link">Registrar presença de aluno</a>
                     <span style="color:#ddd;margin:0 6px;">|</span>
-                    <a href="/Admin" class="back-link">Área de administração</a>
+                    <a href="/@eventSlug/Admin" class="back-link">Área de administração</a>
                 </div>
             </div>
 
@@ -105,7 +111,7 @@
                 <div id="dashHistoryArea"></div>
 
                 <div class="has-text-centered" style="margin-top:16px;">
-                    <a href="/" class="back-link">Registrar presença de aluno</a>
+                    <a href="/@eventSlug" class="back-link">Registrar presença de aluno</a>
                 </div>
             </div>
         </div>
@@ -114,6 +120,7 @@
 
 @section Scripts {
 <script>
+    const baseUrl = '/@eventSlug';
     let currentEmail = '';
 
     function showMessage(t, type) { document.getElementById('messageArea').innerHTML = `<div class="msg-${type}">${t}</div>`; }
@@ -129,14 +136,14 @@
         const btn = document.getElementById('btnContinue');
         btn.classList.add('is-loading'); btn.disabled = true;
         try {
-            const res = await fetch('/Volunteer/Lookup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
+            const res = await fetch(baseUrl + '/Volunteer/Lookup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
             const data = await res.json();
             if (!data.success) { showMessage(data.message, 'error'); }
             else {
                 currentEmail = email;
                 if (data.exists) {
                     // Already registered, set session and go to dashboard
-                    const sessRes = await fetch('/Volunteer/SetSession', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
+                    const sessRes = await fetch(baseUrl + '/Volunteer/SetSession', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
                     await loadDashboard();
                 } else {
                     // New volunteer, show profile form
@@ -164,7 +171,7 @@
         const btn = document.getElementById('btnRegister');
         btn.classList.add('is-loading'); btn.disabled = true;
         try {
-            const res = await fetch('/Volunteer/Register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: currentEmail, name, course, shift, semester }) });
+            const res = await fetch(baseUrl + '/Volunteer/Register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: currentEmail, name, course, shift, semester }) });
             const data = await res.json();
             if (data.success) { await loadDashboard(); }
             else { showMessage(data.message, 'error'); }
@@ -176,7 +183,7 @@
     async function loadDashboard() {
         clearMessage();
         try {
-            const res = await fetch('/Volunteer/GetDashboard');
+            const res = await fetch(baseUrl + '/Volunteer/GetDashboard');
             const data = await res.json();
             if (!data.success) { showMessage(data.message || 'Erro ao carregar.', 'error'); return; }
             renderDashboard(data);
@@ -230,7 +237,7 @@
         btn.classList.add('is-loading'); btn.disabled = true;
         clearMessage();
         try {
-            const res = await fetch('/Volunteer/CheckIn', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+            const res = await fetch(baseUrl + '/Volunteer/CheckIn', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
             const data = await res.json();
             if (data.success) { await loadDashboard(); }
             else { showMessage(data.message, 'error'); btn.classList.remove('is-loading'); btn.disabled = false; }
@@ -238,7 +245,7 @@
     }
 
     async function volunteerLogout() {
-        await fetch('/Volunteer/Logout', { method: 'POST' });
+        await fetch(baseUrl + '/Volunteer/Logout', { method: 'POST' });
         currentEmail = '';
         ['emailInput', 'volunteerName'].forEach(id => document.getElementById(id).value = '');
         ['volunteerCourse', 'volunteerShift', 'volunteerSemester'].forEach(id => document.getElementById(id).value = '');

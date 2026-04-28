@@ -25,6 +25,18 @@ public class HomeController : Controller
 
     public async Task<IActionResult> Index()
     {
+        // If no event slug in route, redirect to the first active event
+        var slug = HttpContext.Request.RouteValues["eventSlug"] as string;
+        if (string.IsNullOrEmpty(slug))
+        {
+            var firstEvent = await _db.Events.Where(e => e.IsActive).OrderBy(e => e.Id).FirstOrDefaultAsync();
+            if (firstEvent is not null)
+            {
+                return Redirect($"/{firstEvent.Slug}");
+            }
+            return NotFound("No events configured.");
+        }
+
         var ev = _eventContext.CurrentEvent;
         var timeSlot = await _attendanceService.GetActiveTimeSlotAsync();
         ViewBag.ActiveTimeSlot = timeSlot;
@@ -149,6 +161,14 @@ public class HomeController : Controller
     [HttpGet]
     public IActionResult RetroactiveCheckIn()
     {
+        var slug = EventHelper.GetEventSlug(HttpContext);
+        if (string.IsNullOrEmpty(slug))
+        {
+            var firstEvent = _db.Events.Where(e => e.IsActive).OrderBy(e => e.Id).FirstOrDefault();
+            if (firstEvent is not null)
+                return Redirect($"/{firstEvent.Slug}/Home/RetroactiveCheckIn");
+            return NotFound("No events configured.");
+        }
         ViewBag.Event = _eventContext.CurrentEvent;
         return View();
     }

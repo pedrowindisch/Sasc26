@@ -11,111 +11,7 @@ namespace Sasc26.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<int>(
-                name: "EventId",
-                table: "Volunteers",
-                type: "INTEGER",
-                nullable: false,
-                defaultValue: 0);
-
-            migrationBuilder.AddColumn<int>(
-                name: "EventId",
-                table: "VolunteerCheckIns",
-                type: "INTEGER",
-                nullable: false,
-                defaultValue: 0);
-
-            migrationBuilder.AddColumn<int>(
-                name: "EventId",
-                table: "TimeSlots",
-                type: "INTEGER",
-                nullable: false,
-                defaultValue: 0);
-
-            migrationBuilder.AddColumn<int>(
-                name: "EventId",
-                table: "ThankYouConfigs",
-                type: "INTEGER",
-                nullable: false,
-                defaultValue: 0);
-
-            migrationBuilder.AddColumn<int>(
-                name: "EventId",
-                table: "RetroactiveCheckIns",
-                type: "INTEGER",
-                nullable: false,
-                defaultValue: 0);
-
-            migrationBuilder.AddColumn<int>(
-                name: "EventId",
-                table: "PreRegistrations",
-                type: "INTEGER",
-                nullable: false,
-                defaultValue: 0);
-
-            migrationBuilder.AddColumn<int>(
-                name: "EventId",
-                table: "MagicCheckInSessions",
-                type: "INTEGER",
-                nullable: false,
-                defaultValue: 0);
-
-            migrationBuilder.AddColumn<int>(
-                name: "EventId",
-                table: "Lectures",
-                type: "INTEGER",
-                nullable: false,
-                defaultValue: 0);
-
-            migrationBuilder.AddColumn<int>(
-                name: "EventId",
-                table: "LectureFeedbacks",
-                type: "INTEGER",
-                nullable: false,
-                defaultValue: 0);
-
-            migrationBuilder.AddColumn<int>(
-                name: "EventId",
-                table: "IssuedCertificates",
-                type: "INTEGER",
-                nullable: false,
-                defaultValue: 0);
-
-            migrationBuilder.AddColumn<int>(
-                name: "EventId",
-                table: "FormSubmissions",
-                type: "INTEGER",
-                nullable: false,
-                defaultValue: 0);
-
-            migrationBuilder.AddColumn<int>(
-                name: "EventId",
-                table: "CheckIns",
-                type: "INTEGER",
-                nullable: false,
-                defaultValue: 0);
-
-            migrationBuilder.AddColumn<int>(
-                name: "EventId",
-                table: "CertificateConfigs",
-                type: "INTEGER",
-                nullable: false,
-                defaultValue: 0);
-
-            migrationBuilder.AddColumn<int>(
-                name: "EventId",
-                table: "Banners",
-                type: "INTEGER",
-                nullable: false,
-                defaultValue: 0);
-
-            migrationBuilder.AddColumn<int>(
-                name: "EventId",
-                table: "Attendees",
-                type: "INTEGER",
-                nullable: false,
-                defaultValue: 0);
-
+            // First, create the Events table so we can reference it in foreign keys
             migrationBuilder.CreateTable(
                 name: "Events",
                 columns: table => new
@@ -144,6 +40,124 @@ namespace Sasc26.Migrations
                 {
                     table.PrimaryKey("PK_Events", x => x.Id);
                 });
+
+            // Seed a default event with Id=1 so existing rows with EventId=0 can reference it
+            // We'll update existing rows to EventId=1 after adding the column
+            migrationBuilder.InsertData(
+                table: "Events",
+                columns: new[] { "Id", "Slug", "Name", "Subtitle", "AllowedEmailDomain", "InstagramUrl", "TshirtPresaleUrl", "AdminEmailsJson", "IsActive", "CreatedAt", "PrimaryColor", "AccentColor", "BackgroundColor", "TextColor", "LogoContentType", "PostCheckinButtonsJson", "AdminEmails" },
+                values: new object[] { 1, "default", "Default Event", "", "furb.br", "", "", "[]", true, DateTime.UtcNow, "#113D76", "#2EBDEF", "#f5f5f5", "#1a1a1a", "", "[]", "[]" });
+
+            // Temporarily disable foreign key checks while adding columns
+            migrationBuilder.Sql("PRAGMA foreign_keys = OFF;");
+
+            migrationBuilder.AddColumn<int>(
+                name: "EventId",
+                table: "Volunteers",
+                type: "INTEGER",
+                nullable: false,
+                defaultValue: 1);
+
+            migrationBuilder.AddColumn<int>(
+                name: "EventId",
+                table: "VolunteerCheckIns",
+                type: "INTEGER",
+                nullable: false,
+                defaultValue: 1);
+
+            migrationBuilder.AddColumn<int>(
+                name: "EventId",
+                table: "TimeSlots",
+                type: "INTEGER",
+                nullable: false,
+                defaultValue: 1);
+
+            migrationBuilder.AddColumn<int>(
+                name: "EventId",
+                table: "ThankYouConfigs",
+                type: "INTEGER",
+                nullable: false,
+                defaultValue: 1);
+
+            migrationBuilder.AddColumn<int>(
+                name: "EventId",
+                table: "RetroactiveCheckIns",
+                type: "INTEGER",
+                nullable: false,
+                defaultValue: 1);
+
+            migrationBuilder.AddColumn<int>(
+                name: "EventId",
+                table: "PreRegistrations",
+                type: "INTEGER",
+                nullable: false,
+                defaultValue: 1);
+
+            migrationBuilder.AddColumn<int>(
+                name: "EventId",
+                table: "MagicCheckInSessions",
+                type: "INTEGER",
+                nullable: false,
+                defaultValue: 1);
+
+            migrationBuilder.AddColumn<int>(
+                name: "EventId",
+                table: "Lectures",
+                type: "INTEGER",
+                nullable: false,
+                defaultValue: 1);
+
+            migrationBuilder.AddColumn<int>(
+                name: "EventId",
+                table: "LectureFeedbacks",
+                type: "INTEGER",
+                nullable: false,
+                defaultValue: 1);
+
+            migrationBuilder.AddColumn<int>(
+                name: "EventId",
+                table: "IssuedCertificates",
+                type: "INTEGER",
+                nullable: false,
+                defaultValue: 1);
+
+            migrationBuilder.AddColumn<int>(
+                name: "EventId",
+                table: "FormSubmissions",
+                type: "INTEGER",
+                nullable: false,
+                defaultValue: 1);
+
+            migrationBuilder.AddColumn<int>(
+                name: "EventId",
+                table: "CheckIns",
+                type: "INTEGER",
+                nullable: false,
+                defaultValue: 1);
+
+            migrationBuilder.AddColumn<int>(
+                name: "EventId",
+                table: "CertificateConfigs",
+                type: "INTEGER",
+                nullable: false,
+                defaultValue: 1);
+
+            migrationBuilder.AddColumn<int>(
+                name: "EventId",
+                table: "Banners",
+                type: "INTEGER",
+                nullable: false,
+                defaultValue: 1);
+
+            migrationBuilder.AddColumn<int>(
+                name: "EventId",
+                table: "Attendees",
+                type: "INTEGER",
+                nullable: false,
+                defaultValue: 1);
+
+            // Re-enable foreign key checks
+            migrationBuilder.Sql("PRAGMA foreign_keys = ON;");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Volunteers_EventId",
@@ -229,6 +243,10 @@ namespace Sasc26.Migrations
                 table: "Events",
                 column: "Slug",
                 unique: true);
+
+            // Temporarily disable foreign keys again before adding FK constraints
+            // to avoid issues with existing data referencing the default event
+            migrationBuilder.Sql("PRAGMA foreign_keys = OFF;");
 
             migrationBuilder.AddForeignKey(
                 name: "FK_Attendees_Events_EventId",
@@ -349,6 +367,8 @@ namespace Sasc26.Migrations
                 principalTable: "Events",
                 principalColumn: "Id",
                 onDelete: ReferentialAction.Restrict);
+
+            migrationBuilder.Sql("PRAGMA foreign_keys = ON;");
         }
 
         /// <inheritdoc />

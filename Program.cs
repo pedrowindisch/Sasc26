@@ -62,11 +62,17 @@ app.UseSession();
 app.UseAuthorization();
 app.MapStaticAssets();
 
+// SuperAdmin route - must come before the event slug route to avoid
+// matching "SuperAdmin" as an event slug
+app.MapControllerRoute("superadmin", "SuperAdmin/{action=Index}/{id?}",
+    defaults: new { controller = "SuperAdmin" })
+    .WithStaticAssets();
+
 // Route with event slug: /{slug}/controller/action
 app.MapControllerRoute("event", "{eventSlug}/{controller=Home}/{action=Index}/{id?}")
     .WithStaticAssets();
 
-// Default route (for backward compatibility)
+// Default route - redirects to the first active event's homepage
 app.MapControllerRoute("default", "{controller=Home}/{action=Index}/{id?}")
     .WithStaticAssets();
 

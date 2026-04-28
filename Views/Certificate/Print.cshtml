@@ -1,6 +1,8 @@
 @{
     Layout = null;
     var cert = ViewBag.Certificate as Sasc26.Services.CertificateDisplayResult;
+    var ev = ViewBag.Event as Sasc26.Models.Event;
+    var eventSlug = ev?.Slug ?? "";
     var titleColor = cert?.TitleColor ?? "#113D76";
     var bodyColor = cert?.BodyColor ?? "#1a1a1a";
     var borderColor = cert?.BorderColor ?? "#113D76";
@@ -68,10 +70,10 @@
 <body>
     <div class="no-print">
         <button class="button is-brand" onclick="window.print()">Imprimir certificado</button><br>
-        <a href="/Certificate" class="back-link">Voltar</a>
+        <a href="/@eventSlug/Certificate" class="back-link">Voltar</a>
     </div>
 
-    <div class="cert-page" @if(hasBg) { <text>style="background-image: url('/Certificate/BackgroundImage');"</text> }>
+    <div class="cert-page" @if(hasBg) { <text>style="background-image: url('/@eventSlug/Certificate/BackgroundImage');"</text> }>
         <div class="cert-header">
             <h1>SASC 26</h1>
             <p>Semana Acadêmica de Sistemas e Computação</p>
@@ -84,7 +86,7 @@
 
         <div class="cert-footer">
             <div>Código de validação: <span class="val-code">@cert?.ValidationCode</span></div>
-            <div style="margin-top:4px;">Valide em: @Context.Request.Scheme://@Context.Request.Host/Certificate/Validate</div>
+            <div style="margin-top:4px;">Valide em: @Context.Request.Scheme://@Context.Request.Host/@eventSlug/Certificate/Validate</div>
             <div style="margin-top:2px;">Emitido em: @cert?.IssuedAt.ToString("dd/MM/yyyy HH:mm")</div>
         </div>
     </div>

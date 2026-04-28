@@ -1,9 +1,17 @@
 @{
     ViewData["Title"] = "Registrar Presença";
+    var ev = ViewBag.Event as Sasc26.Models.Event;
     var hasActiveTimeSlot = (bool)ViewBag.HasActiveTimeSlot;
     var instagramUrl = ViewBag.InstagramUrl as string ?? "https://instagram.com/dascfurb";
     var tshirtPresaleUrl = ViewBag.TshirtPresaleUrl as string ?? "";
     var banner = ViewBag.Banner as Sasc26.Models.Banner;
+    var primaryColor = ev?.PrimaryColor ?? "#113D76";
+    var accentColor = ev?.AccentColor ?? "#2EBDEF";
+    var backgroundColor = ev?.BackgroundColor ?? "#f5f5f5";
+    var textColor = ev?.TextColor ?? "#1a1a1a";
+    var eventName = ev?.Name ?? "SASC 26";
+    var eventSubtitle = ev?.Subtitle ?? "";
+    var eventSlug = ev?.Slug ?? "";
 }
 
 @section Styles {
@@ -12,15 +20,15 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="~/css/bulmaswatch.min.css">
     <style>
-        body { font-family: 'Inter', sans-serif; background: #f5f5f5; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+        body { font-family: 'Inter', sans-serif; background: @backgroundColor; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
         .card-wrapper { width: 100%; max-width: 440px; padding: 0 16px; }
         .event-card { background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); overflow: hidden; }
-        .event-header { background: #113D76; padding: 28px 24px 20px; text-align: center; }
+        .event-header { background: @primaryColor; padding: 28px 24px 20px; text-align: center; }
         .event-header img.logo { width: 56px; height: 56px; margin-bottom: 12px; }
         .event-header h1 { font-size: 1.25rem; font-weight: 700; color: #fff; margin: 0; }
         .event-header p { font-size: 0.75rem; color: rgba(255,255,255,0.6); margin: 4px 0 0; text-transform: uppercase; letter-spacing: 0.05em; }
         .session-tag { display: inline-block; margin-top: 12px; padding: 4px 14px; border-radius: 100px; font-size: 0.75rem; font-weight: 600; }
-        .session-tag.active { background: rgba(46,189,239,0.2); color: #2EBDEF; }
+        .session-tag.active { background: rgba(46,189,239,0.2); color: @accentColor; }
         .session-tag.inactive { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.5); }
         .event-body { padding: 8px 24px 28px; }
         .otp-input { letter-spacing: 6px; font-size: 1.25rem; font-weight: 600; text-align: center; }
@@ -35,26 +43,26 @@
         .field + .field { margin-top: 12px; }
         .section-divider { border: none; border-top: 1px solid #eee; margin: 20px 0; }
         .section-label { font-size: 0.7rem; font-weight: 600; color: #bbb; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 12px; }
-        .button.is-brand { background-color: #113D76; color: #fff; border-color: #0b274d; }
-        .button.is-brand:hover { background-color: #0e3160; color: #fff; }
-        .button.is-outlined-brand { background-color: transparent; color: #113D76; border: 1px solid #113D76; }
-        .button.is-outlined-brand:hover { background-color: #113D76; color: #fff; }
-        .button.is-secondary { background-color: #fff; color: #113D76; }
-        .button.is-secondary:hover { background-color: #f0f0f0; color: #113D76; }
-        .input:focus, .select select:focus { border-color: #2EBDEF; box-shadow: 0 0 0 3px rgba(46,189,239,0.15); }
+        .button.is-brand { background-color: @primaryColor; color: #fff; border-color: @primaryColor; }
+        .button.is-brand:hover { background-color: @primaryColor; opacity: 0.85; color: #fff; }
+        .button.is-outlined-brand { background-color: transparent; color: @primaryColor; border: 1px solid @primaryColor; }
+        .button.is-outlined-brand:hover { background-color: @primaryColor; color: #fff; }
+        .button.is-secondary { background-color: #fff; color: @primaryColor; }
+        .button.is-secondary:hover { background-color: #f0f0f0; color: @primaryColor; }
+        .input:focus, .select select:focus { border-color: @accentColor; box-shadow: 0 0 0 3px rgba(46,189,239,0.15); }
         .success-actions { margin-top: 16px; }
         .success-actions .button { margin-bottom: 8px; }
         .lecture-option { border: 2px solid #e0e0e0; border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; cursor: pointer; transition: border-color 0.2s; display: block; }
-        .lecture-option:hover { border-color: #2EBDEF; }
-        .lecture-option.selected { border-color: #113D76; background: #f8faff; }
+        .lecture-option:hover { border-color: @accentColor; }
+        .lecture-option.selected { border-color: @primaryColor; background: #f8faff; }
         .lecture-option input[type="radio"] { display: none; }
-        .lecture-option .l-title { font-weight: 600; font-size: 0.9rem; color: #1a1a1a; }
+        .lecture-option .l-title { font-weight: 600; font-size: 0.9rem; color: @textColor; }
         .lecture-option .l-speaker { font-size: 0.8rem; color: #888; margin-top: 2px; }
         .kw-input { text-align: center; font-weight: 500; }
         .empty-state { text-align: center; padding: 24px 0; color: #bbb; font-size: 0.9rem; }
         .words { display: flex !important; flex-direction: row; gap: 0.5rem !important; }
         .banner-alert { background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); padding: 20px 24px; margin-bottom: 16px; }
-        .banner-alert .banner-title { font-size: 0.9rem; font-weight: 700; color: #113D76; margin-bottom: 6px; }
+        .banner-alert .banner-title { font-size: 0.9rem; font-weight: 700; color: @primaryColor; margin-bottom: 6px; }
         .banner-alert .banner-desc { font-size: 0.82rem; color: #666; margin-bottom: 12px; line-height: 1.5; }
     </style>
 }
@@ -77,8 +85,8 @@
     <div class="event-card">
         <div class="event-header">
             <img class="logo" src="~/dasc.svg" alt="DASC">
-            <h1>SASC 26</h1>
-            <p>Semana Acadêmica de Sistemas e Computação</p>
+            <h1>@eventName</h1>
+            <p>@eventSubtitle</p>
             @if (hasActiveTimeSlot)
             {
                 <span class="session-tag active">Palestras abertas</span>
@@ -101,12 +109,12 @@
                     <div class="control"><button class="button is-brand is-fullwidth" id="btnSendOtp" onclick="requestOtp()">Enviar código</button></div>
                 </div>
                 <div class="field" style="margin-top:10px;">
-                    <div class="control"><button onclick="location.href='/Home/RetroactiveCheckIn'" class="button is-secondary is-fullwidth">Esqueceu de validar suas AACCs?</button></div>
+                    <div class="control"><button onclick="location.href='/@eventSlug/Home/RetroactiveCheckIn'" class="button is-secondary is-fullwidth">Esqueceu de validar suas AACCs?</button></div>
                 </div>
                 <div class="has-text-centered" style="margin-top:12px;">
-                    <a href="/Volunteer" class="back-link">Sou voluntário</a>
+                    <a href="/@eventSlug/Volunteer" class="back-link">Sou voluntário</a>
                     <span style="color:#ddd;margin:0 6px;">|</span>
-                    <a href="/Admin" class="back-link">Administração</a>
+                    <a href="/@eventSlug/Admin" class="back-link">Administração</a>
                 </div>
             </div>
 
@@ -176,7 +184,7 @@
 
     async function loadProfile(email) {
         try {
-            const res = await fetch(`/Home/GetProfile?email=${encodeURIComponent(email)}`);
+            const res = await fetch(baseUrl + `/Home/GetProfile?email=${encodeURIComponent(email)}`);
             const data = await res.json();
             if (data && data.found) {
                 document.getElementById('fullNameInput').value = data.fullName || '';
@@ -187,6 +195,8 @@
         } catch {}
     }
 
+    const baseUrl = '/@eventSlug';
+
     async function requestOtp() {
         const email = document.getElementById('emailInput').value.trim();
         if (!email) { showMessage('Informe seu e-mail.', 'error'); return; }
@@ -194,7 +204,7 @@
         const btn = document.getElementById('btnSendOtp');
         btn.classList.add('is-loading'); btn.disabled = true;
         try {
-            const res = await fetch('/Home/RequestOtp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
+            const res = await fetch(baseUrl + '/Home/RequestOtp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
             const data = await res.json();
             if (data.success) {
                 currentEmail = email;
@@ -231,7 +241,7 @@
         const btn = document.getElementById('btnVerify');
         btn.classList.add('is-loading'); btn.disabled = true;
         try {
-            const res = await fetch('/Home/VerifyOtp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: currentEmail, code, sesFallback, fullName, course, shift, phase }) });
+            const res = await fetch(baseUrl + '/Home/VerifyOtp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: currentEmail, code, sesFallback, fullName, course, shift, phase }) });
             const data = await res.json();
             if (data.success) { clearMessage(); await loadLectures(); }
             else { showMessage(data.message, 'error'); }
@@ -241,7 +251,7 @@
 
     async function loadLectures() {
         try {
-            const res = await fetch('/Home/GetActiveLectures');
+            const res = await fetch(baseUrl + '/Home/GetActiveLectures');
             const data = await res.json();
             const lectures = data.lectures || [];
             const list = document.getElementById('lectureList');
@@ -276,7 +286,7 @@
         const btn = document.getElementById('btnSubmit');
         btn.classList.add('is-loading'); btn.disabled = true;
         try {
-            const res = await fetch('/Home/SubmitCheckIn', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: currentEmail, lectureId: selectedLectureId, keyword1: kw1, keyword2: kw2, keyword3: kw3 }) });
+            const res = await fetch(baseUrl + '/Home/SubmitCheckIn', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: currentEmail, lectureId: selectedLectureId, keyword1: kw1, keyword2: kw2, keyword3: kw3 }) });
             const data = await res.json();
             if (data.success) { clearMessage(); document.getElementById('successMessage').textContent = data.message; showStep('Success'); }
             else { showMessage(data.message, 'error'); }

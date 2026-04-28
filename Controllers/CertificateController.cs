@@ -25,6 +25,14 @@ public class CertificateController : Controller
 
     public IActionResult Index()
     {
+        var slug = EventHelper.GetEventSlug(HttpContext);
+        if (string.IsNullOrEmpty(slug))
+        {
+            var firstEvent = _db.Events.Where(e => e.IsActive).OrderBy(e => e.Id).FirstOrDefault();
+            if (firstEvent is not null)
+                return Redirect($"/{firstEvent.Slug}/Certificate");
+            return NotFound("No events configured.");
+        }
         ViewBag.Event = _eventContext.CurrentEvent;
         return View();
     }

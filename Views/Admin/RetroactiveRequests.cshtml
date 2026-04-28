@@ -1,5 +1,11 @@
 @{
     Layout = null;
+    var ev = ViewBag.Event as Sasc26.Models.Event;
+    var primaryColor = ev?.PrimaryColor ?? "#113D76";
+    var accentColor = ev?.AccentColor ?? "#2EBDEF";
+    var backgroundColor = ev?.BackgroundColor ?? "#f5f5f5";
+    var eventName = ev?.Name ?? "SASC 26";
+    var eventSlug = ev?.Slug ?? "";
     var requests = ViewBag.Requests as List<Sasc26.Services.RetroactiveRequestEntryDto> ?? new();
 }
 <!DOCTYPE html>
@@ -13,21 +19,21 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', sans-serif; background: #f5f5f5; min-height: 100vh; }
-        .nav-bar { background: #113D76; padding: 16px 24px; display: flex; align-items: center; gap: 16px; }
+        body { font-family: 'Inter', sans-serif; background: @backgroundColor; min-height: 100vh; }
+        .nav-bar { background: @primaryColor; padding: 16px 24px; display: flex; align-items: center; gap: 16px; }
         .nav-logo { display: flex; align-items: center; gap: 12px; flex: 1; }
         .nav-logo img { height: 32px; }
         .nav-logo h1 { font-size: 1rem; font-weight: 700; color: #fff; margin: 0; }
         .nav-links { display: flex; gap: 16px; align-items: center; }
-        .nav-links a { font-size: 0.8rem; color: #2EBDEF; }
+        .nav-links a { font-size: 0.8rem; color: @accentColor; }
         .nav-links a:hover { color: #fff; }
         .container-area { max-width: 1200px; margin: 0 auto; padding: 24px 16px; }
         .panel-card { background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); padding: 24px; margin-bottom: 20px; }
         .panel-card h2 { font-size: 0.95rem; font-weight: 700; color: #1a1a1a; margin: 0 0 16px; }
         .msg-error { background: #fef2f2; color: #b91c1c; padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; margin-bottom: 12px; }
         .msg-success { background: #ecfdf5; color: #047857; padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; margin-bottom: 12px; }
-        .button.is-brand { background-color: #fff; color: #113D76; }
-        .button.is-brand:hover { background-color: #f0f0f0; color: #113D76; }
+        .button.is-brand { background-color: #fff; color: @primaryColor; }
+        .button.is-brand:hover { background-color: #f0f0f0; color: @primaryColor; }
         .button.is-success-light { background: #fff; color: #059669; border: 1px solid #059669; }
         .button.is-success-light:hover { background: #059669; color: #fff; }
         .button.is-danger-light { background: #fff; color: #dc2626; border: 1px solid #dc2626; }
@@ -46,8 +52,8 @@
             <h1>Solicitações Retroativas</h1>
         </div>
         <div class="nav-links">
-            <a href="/Admin/Dashboard">Painel</a>
-            <a href="/Admin/Logout" style="color:rgba(255,255,255,0.6);">Sair</a>
+            <a href="/@eventSlug/Admin/Dashboard">Painel</a>
+            <a href="/@eventSlug/Admin/Logout" style="color:rgba(255,255,255,0.6);">Sair</a>
         </div>
     </div>
 
@@ -61,16 +67,17 @@
         </div>
 
         <div style="text-align:center;margin-top:16px;">
-            <a href="/Admin/Dashboard" style="font-size:0.8rem;color:#aaa;">&larr; Voltar ao painel</a>
+            <a href="/@eventSlug/Admin/Dashboard" style="font-size:0.8rem;color:#aaa;">&larr; Voltar ao painel</a>
         </div>
     </div>
 
     <script>
+        const baseUrl = '/@eventSlug';
         function showMsg(t, type) { /* not needed here but kept for consistency */ }
 
         async function approveRequest(id) {
             if (!confirm('Aprovar esta solicitação e registrar a presença?')) return;
-            const res = await fetch('/Admin/ApproveRetroactiveRequest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ requestId: id }) });
+            const res = await fetch(baseUrl + '/Admin/ApproveRetroactiveRequest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ requestId: id }) });
             const data = await res.json();
             if (data.success) { alert(data.message); loadRequests(); }
             else alert(data.message || 'Erro ao aprovar.');
@@ -78,7 +85,7 @@
 
         async function rejectRequest(id) {
             if (!confirm('Rejeitar esta solicitação?')) return;
-            const res = await fetch('/Admin/RejectRetroactiveRequest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ requestId: id }) });
+            const res = await fetch(baseUrl + '/Admin/RejectRetroactiveRequest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ requestId: id }) });
             const data = await res.json();
             if (data.success) { alert(data.message); loadRequests(); }
             else alert(data.message || 'Erro ao rejeitar.');
@@ -88,7 +95,7 @@
 
         async function loadRequests() {
             try {
-                const res = await fetch('/Admin/GetPendingRetroactiveRequests');
+                const res = await fetch(baseUrl + '/Admin/GetPendingRetroactiveRequests');
                 const data = await res.json();
                 const container = document.getElementById('requestsTable');
                 if (!data.success || !data.requests || data.requests.length === 0) {

@@ -21,12 +21,7 @@ public class EventContext : IEventContext
         get
         {
             var slug = _httpContextAccessor.HttpContext?.Request.RouteValues["eventSlug"] as string;
-            if (string.IsNullOrEmpty(slug))
-            {
-                // Fallback: load default event
-                slug = _db.Events.Where(e => e.IsActive).OrderBy(e => e.Id).Select(e => e.Slug).FirstOrDefault() ?? "sasc26";
-            }
-            return slug;
+            return slug ?? string.Empty;
         }
     }
 
@@ -40,9 +35,17 @@ public class EventContext : IEventContext
                 return _cachedEvent;
 
             var slug = EventSlug;
-            _cachedEvent = _db.Events.AsNoTracking().FirstOrDefault(e => e.Slug == slug && e.IsActive)
-                         ?? _db.Events.AsNoTracking().OrderBy(e => e.Id).First()
-                         ?? throw new InvalidOperationException("No event configured.");
+            if (string.IsNullOrEmpty(slug))
+            {
+                // No event slug in route - this shouldn't happen for event-scoped pages
+                throw new InvalidOperationException("No event slug specified in the URL.");
+            }
+
+            _cachedEvent = _db.Events.AsNoTracking().FirstOrDefault(e => e.Slug == slug && e.IsActive);
+            if (_cachedEvent is null)
+            {
+                throw new KeyNotFoundException($"Event with slug '{slug}' was not found or is not active.");
+            }
             return _cachedEvent;
         }
     }

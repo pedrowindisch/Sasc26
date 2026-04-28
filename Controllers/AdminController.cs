@@ -35,6 +35,14 @@ public class AdminController : Controller
 
     public IActionResult Index()
     {
+        var slug = EventHelper.GetEventSlug(HttpContext);
+        if (string.IsNullOrEmpty(slug))
+        {
+            var firstEvent = _db.Events.Where(e => e.IsActive).OrderBy(e => e.Id).FirstOrDefault();
+            if (firstEvent is not null)
+                return Redirect($"/{firstEvent.Slug}/Admin");
+            return NotFound("No events configured.");
+        }
         if (IsAdminLoggedIn) return RedirectToAction(nameof(Dashboard));
         ViewBag.Event = _eventContext.CurrentEvent;
         return View();
