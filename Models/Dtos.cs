@@ -48,6 +48,11 @@ public class PreRegisterDto
     public List<int> LectureIds { get; set; } = [];
 }
 
+public class EventWidePreRegDto
+{
+    public string Email { get; set; } = string.Empty;
+}
+
 public class VerifyPreRegDto
 {
     public string Email { get; set; } = string.Empty;
@@ -253,6 +258,36 @@ public class FormFieldResponseDto
 }
 
 public class FormSubmissionDto
+{
+    public int Id { get; set; }
+    public string AttendeeEmail { get; set; } = string.Empty;
+    public List<FormFieldResponseDto> Responses { get; set; } = [];
+    public DateTime SubmittedAt { get; set; }
+}
+
+public class PreRegistrationConfigDto
+{
+    public string Message { get; set; } = string.Empty;
+    public bool IsFormEnabled { get; set; }
+    public string FormTitle { get; set; } = string.Empty;
+    public string FormDescription { get; set; } = string.Empty;
+    public string FormButtonText { get; set; } = "Concluir inscrição";
+    public List<FormFieldDto> FormFields { get; set; } = [];
+}
+
+public class SubmitPreRegistrationDto
+{
+    public string Email { get; set; } = string.Empty;
+    public List<int> LectureIds { get; set; } = [];
+    public bool IsEventWide { get; set; }
+    public string FullName { get; set; } = string.Empty;
+    public string Course { get; set; } = string.Empty;
+    public string Shift { get; set; } = string.Empty;
+    public int Phase { get; set; }
+    public List<FormFieldResponseDto> FormResponses { get; set; } = [];
+}
+
+public class PreRegistrationFormSubmissionDto
 {
     public int Id { get; set; }
     public string AttendeeEmail { get; set; } = string.Empty;

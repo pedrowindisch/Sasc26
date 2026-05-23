@@ -12,13 +12,15 @@ public class HomeController : Controller
 {
     private readonly ILogger<HomeController> _logger;
     private readonly IAttendanceService _attendanceService;
+    private readonly IPreRegistrationConfigService _preRegConfigService;
     private readonly IEventContext _eventContext;
     private readonly AppDbContext _db;
 
-    public HomeController(ILogger<HomeController> logger, IAttendanceService attendanceService, IEventContext eventContext, AppDbContext db)
+    public HomeController(ILogger<HomeController> logger, IAttendanceService attendanceService, IPreRegistrationConfigService preRegConfigService, IEventContext eventContext, AppDbContext db)
     {
         _logger = logger;
         _attendanceService = attendanceService;
+        _preRegConfigService = preRegConfigService;
         _eventContext = eventContext;
         _db = db;
     }
@@ -46,6 +48,37 @@ public class HomeController : Controller
         ViewBag.Event = ev;
         var banner = await _db.Banners.FirstOrDefaultAsync(b => b.EventId == ev.Id && b.IsActive);
         ViewBag.Banner = banner;
+
+        var hasOpenPreRegistration = ev.IsEventWidePreRegistration
+            || await _db.Lectures.AnyAsync(l => l.EventId == ev.Id && l.IsPreRegistrationEnabled);
+
+        var scheduleEnabled = false;
+        var scheduleDisabledReason = "";
+
+        if (!hasOpenPreRegistration)
+        {
+            scheduleDisabledReason = "Não há palestras com inscrições abertas no momento.";
+        }
+        else if (ev.PreRegistrationStart is null || ev.PreRegistrationEnd is null)
+        {
+            scheduleDisabledReason = "O período de pré-inscrição não foi definido.";
+        }
+        else
+        {
+            var now = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, BrasiliaTz);
+            if (now >= ev.PreRegistrationStart && now <= ev.PreRegistrationEnd)
+            {
+                scheduleEnabled = true;
+            }
+            else
+            {
+                scheduleDisabledReason = "Fora do período de pré-inscrição.";
+            }
+        }
+
+        ViewBag.ScheduleEnabled = scheduleEnabled;
+        ViewBag.ScheduleDisabledReason = scheduleDisabledReason;
+
         return View();
     }
 
@@ -81,14 +114,24 @@ public class HomeController : Controller
     public async Task<IActionResult> GetSchedule(string? email)
     {
         var lectures = await _attendanceService.GetAllLecturesAsync();
+        var isEventWide = lectures.FirstOrDefault()?.IsEventWide ?? false;
+        var hasEventWideRegistration = false;
+
         if (!string.IsNullOrWhiteSpace(email))
         {
             email = email.Trim().ToLowerInvariant();
-            var registeredIds = await _attendanceService.GetPreRegisteredLectureIdsAsync(email);
-            foreach (var l in lectures)
-                l.AlreadyRegistered = registeredIds.Contains(l.Id);
+            if (isEventWide)
+            {
+                hasEventWideRegistration = await _attendanceService.HasEventWideRegistrationAsync(email);
+            }
+            else
+            {
+                var registeredIds = await _attendanceService.GetPreRegisteredLectureIdsAsync(email);
+                foreach (var l in lectures)
+                    l.AlreadyRegistered = registeredIds.Contains(l.Id);
+            }
         }
-        return Json(new { success = true, lectures });
+        return Json(new { success = true, lectures, isEventWide, hasEventWideRegistration });
     }
 
     [HttpPost]
@@ -110,6 +153,65 @@ public class HomeController : Controller
         if (string.IsNullOrWhiteSpace(dto.Code))
             return Json(new { success = false, message = "Informe o código." });
         var result = await _attendanceService.VerifyPreRegistrationOtpAsync(dto.Email, dto.Code);
+        return Json(new { result.Success, result.Message });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> PreRegisterEvent([FromBody] EventWidePreRegDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.Email))
+            return Json(new { success = false, message = "Informe seu e-mail." });
+        var result = await _attendanceService.SubmitEventPreRegistrationAsync(dto.Email);
+        return Json(new { result.Success, result.Message });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> VerifyEventPreRegistration([FromBody] VerifyPreRegDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.Email))
+            return Json(new { success = false, message = "E-mail não informado." });
+        if (string.IsNullOrWhiteSpace(dto.Code))
+            return Json(new { success = false, message = "Informe o código." });
+        var result = await _attendanceService.VerifyEventPreRegistrationOtpAsync(dto.Email, dto.Code);
+        return Json(new { result.Success, result.Message });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetPreRegistrationConfig(string? email)
+    {
+        var config = await _preRegConfigService.GetConfigAsync();
+
+        object? profile = null;
+        if (!string.IsNullOrWhiteSpace(email))
+        {
+            var attendee = await _db.Attendees.FirstOrDefaultAsync(a => a.EventId == _eventContext.CurrentEventId && a.Email == email.Trim().ToLowerInvariant());
+            if (attendee is not null)
+            {
+                profile = new
+                {
+                    fullName = attendee.FullName,
+                    course = attendee.Course,
+                    shift = attendee.Shift,
+                    phase = attendee.Phase,
+                    found = true
+                };
+            }
+        }
+
+        return Json(new { success = true, config, profile });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> SubmitPreRegistration([FromBody] SubmitPreRegistrationDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.Email))
+            return Json(new { success = false, message = "Informe seu e-mail." });
+        if (string.IsNullOrWhiteSpace(dto.FullName))
+            return Json(new { success = false, message = "Informe seu nome completo." });
+        if (string.IsNullOrWhiteSpace(dto.Course) || string.IsNullOrWhiteSpace(dto.Shift) || dto.Phase < 1)
+            return Json(new { success = false, message = "Preencha todos os campos do cadastro." });
+
+        var result = await _attendanceService.SubmitPreRegistrationWithFormAsync(dto);
         return Json(new { result.Success, result.Message });
     }
 
@@ -204,6 +306,14 @@ public class HomeController : Controller
 
         var result = await _attendanceService.MagicCheckInAsync(dto);
         return Json(new { result.Success, result.Message });
+    }
+
+    private static TimeZoneInfo BrasiliaTz => GetBrasiliaTimeZone();
+
+    private static TimeZoneInfo GetBrasiliaTimeZone()
+    {
+        try { return TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo"); }
+        catch { return TimeZoneInfo.FindSystemTimeZoneById("E. South America Standard Time"); }
     }
 
     [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]

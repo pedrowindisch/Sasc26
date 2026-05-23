@@ -45,6 +45,7 @@ builder.Services.AddScoped<IVolunteerService, VolunteerService>();
 builder.Services.AddScoped<ICertificateService, CertificateService>();
 builder.Services.AddScoped<IFeedbackService, FeedbackService>();
 builder.Services.AddScoped<IThankYouService, ThankYouService>();
+builder.Services.AddScoped<IPreRegistrationConfigService, PreRegistrationConfigService>();
 
 var app = builder.Build();
 
@@ -159,5 +160,19 @@ static async Task SeedDatabaseAsync(WebApplication app)
         });
         await db.SaveChangesAsync();
         logger.LogInformation("Seeded default thank you config for event {Slug}", ev.Slug);
+    }
+
+    // Seed pre-registration config for the default event
+    if (!await db.PreRegistrationConfigs.AnyAsync())
+    {
+        db.PreRegistrationConfigs.Add(new PreRegistrationConfig
+        {
+            EventId = ev.Id,
+            Message = $"Pré-inscrição na {ev.Name} realizada com sucesso!",
+            IsFormEnabled = false,
+            FormFields = "[]"
+        });
+        await db.SaveChangesAsync();
+        logger.LogInformation("Seeded default pre-registration config for event {Slug}", ev.Slug);
     }
 }

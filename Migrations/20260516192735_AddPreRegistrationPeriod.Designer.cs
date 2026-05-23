@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Sasc26.Data;
 
@@ -10,9 +11,11 @@ using Sasc26.Data;
 namespace Sasc26.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260516192735_AddPreRegistrationPeriod")]
+    partial class AddPreRegistrationPeriod
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "9.0.4");
@@ -519,77 +522,6 @@ namespace Sasc26.Migrations
                     b.ToTable("PreRegistrations");
                 });
 
-            modelBuilder.Entity("Sasc26.Models.PreRegistrationConfig", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("EventId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("FormButtonText")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("FormDescription")
-                        .IsRequired()
-                        .HasMaxLength(1000)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("FormFields")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("FormTitle")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("TEXT");
-
-                    b.Property<bool>("IsFormEnabled")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("Message")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("EventId")
-                        .IsUnique();
-
-                    b.ToTable("PreRegistrationConfigs");
-                });
-
-            modelBuilder.Entity("Sasc26.Models.PreRegistrationFormSubmission", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("AttendeeEmail")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("EventId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("FormData")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("SubmittedAt")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("EventId");
-
-                    b.ToTable("PreRegistrationFormSubmissions");
-                });
-
             modelBuilder.Entity("Sasc26.Models.RetroactiveCheckIn", b =>
                 {
                     b.Property<Guid>("Id")
@@ -936,28 +868,6 @@ namespace Sasc26.Migrations
                     b.Navigation("Event");
 
                     b.Navigation("Lecture");
-                });
-
-            modelBuilder.Entity("Sasc26.Models.PreRegistrationConfig", b =>
-                {
-                    b.HasOne("Sasc26.Models.Event", "Event")
-                        .WithMany()
-                        .HasForeignKey("EventId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Event");
-                });
-
-            modelBuilder.Entity("Sasc26.Models.PreRegistrationFormSubmission", b =>
-                {
-                    b.HasOne("Sasc26.Models.Event", "Event")
-                        .WithMany()
-                        .HasForeignKey("EventId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Event");
                 });
 
             modelBuilder.Entity("Sasc26.Models.RetroactiveCheckIn", b =>

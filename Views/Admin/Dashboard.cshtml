@@ -10,6 +10,8 @@
     var timeSlots = ViewBag.TimeSlots as List<Sasc26.Models.TimeSlot> ?? new();
     var lectures = ViewBag.Lectures as List<Sasc26.Models.Lecture> ?? new();
     var preRegCounts = ViewBag.PreRegCounts as Dictionary<int, int> ?? new();
+    var isEventWide = ev?.IsEventWidePreRegistration ?? false;
+    var eventWideRegCount = ViewBag.EventWideRegCount as int? ?? 0;
 }
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -72,6 +74,7 @@
             <a href="/@eventSlug/Admin/Feedback">Avaliações</a>
             <a href="/@eventSlug/Admin/CertificateConfig">Certificados</a>
             <a href="/@eventSlug/Admin/ThankYouConfig">Agradecimento</a>
+            <a href="/@eventSlug/Admin/PreRegistrationConfig">Pré-Inscrição</a>
             <a href="/@eventSlug/Admin/Logout" class="nav-logout">Sair</a>
         </div>
     </div>
@@ -81,6 +84,29 @@
             <div class="stat-box"><div class="num" id="statTotal">-</div><div class="lbl">Check-ins</div></div>
             <div class="stat-box"><div class="num" id="statToday">-</div><div class="lbl">Hoje</div></div>
             <div class="stat-box"><div class="num" id="statFallback">-</div><div class="lbl">Fallback</div></div>
+        </div>
+
+        <!-- CONFIGURAÇÕES DO EVENTO -->
+        <div class="panel-card">
+            <h2>Configurações do Evento</h2>
+            <div id="evConfigMsg"></div>
+            <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+                <div>
+                    <span style="font-size:0.85rem;font-weight:600;color:#555;">Modo de pré-inscrição:</span>
+                    <span id="modeBadge" class="badge @(isEventWide ? "badge-ok" : "badge-off")" style="margin-left:8px;">
+                        @(isEventWide ? "Por evento" : "Por palestra")
+                    </span>
+                </div>
+                <button class="button is-small @(isEventWide ? "is-danger-light" : "is-brand")" onclick="toggleEventWideMode()">
+                    @(isEventWide ? "Mudar para por palestra" : "Mudar para por evento")
+                </button>
+                @if (isEventWide)
+                {
+                    <a href="/@eventSlug/Admin/EventPreRegistrations" class="button is-small is-outlined-brand">
+                        Ver inscrições (@eventWideRegCount)
+                    </a>
+                }
+            </div>
         </div>
 
         <!-- TIME SLOTS -->
@@ -144,12 +170,23 @@
                                 <span class="kw-badge">@l.Keyword3</span>
                             </td>
                             <td>
-                                <button class="button is-small @(l.IsPreRegistrationEnabled ? "is-brand" : "is-outlined-brand")" style="font-size:0.7rem;padding:2px 10px;" onclick="togglePreReg(@l.Id)">
-                                    @(l.IsPreRegistrationEnabled ? "Abertas" : "Fechadas")
-                                </button>
+                                @if (isEventWide)
+                                {
+                                    <span style="color:#bbb;font-size:0.75rem;">Por evento</span>
+                                }
+                                else
+                                {
+                                    <button class="button is-small @(l.IsPreRegistrationEnabled ? "is-brand" : "is-outlined-brand")" style="font-size:0.7rem;padding:2px 10px;" onclick="togglePreReg(@l.Id)">
+                                        @(l.IsPreRegistrationEnabled ? "Abertas" : "Fechadas")
+                                    </button>
+                                }
                             </td>
                             <td>
-                                @if (count > 0)
+                                @if (isEventWide)
+                                {
+                                    <span style="color:#bbb;">-</span>
+                                }
+                                else if (count > 0)
                                 {
                                     <a href="/@eventSlug/Admin/PreRegistrations?lectureId=@l.Id" style="font-weight:600;color:#113D76;">@count inscrito(s)</a>
                                 }
@@ -259,6 +296,15 @@
             </div>
         </div>
 
+        <!-- PRE-REGISTRATION -->
+        <div class="panel-card">
+            <h2>Pré-Inscrição</h2>
+            <div style="display:flex;gap:12px;">
+                <a href="/@eventSlug/Admin/PreRegistrationConfig" class="button is-brand">Configurar formulário</a>
+                <a href="/@eventSlug/Admin/PreRegFormSubmissions" class="button is-brand">Ver respostas</a>
+            </div>
+        </div>
+
         <!-- THANK YOU -->
         <div class="panel-card">
             <h2>Agradecimento &amp; Formulário</h2>
@@ -321,6 +367,22 @@
         async function togglePreReg(id) {
             await fetch(baseUrl + '/Admin/TogglePreRegistration', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lectureId: id }) });
             location.reload();
+        }
+
+        async function toggleEventWideMode() {
+            const res = await fetch(baseUrl + '/Admin/ToggleEventWidePreRegistration', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ force: false }) });
+            const data = await res.json();
+            if (data.success) { location.reload(); return; }
+            if (data.existingCount > 0) {
+                const ok = confirm(`Existem ${data.existingCount} pré-inscrições ativas. Alterar o modo excluirá todas elas. Deseja continuar?`);
+                if (!ok) return;
+                const res2 = await fetch(baseUrl + '/Admin/ToggleEventWidePreRegistration', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ force: true }) });
+                const data2 = await res2.json();
+                if (data2.success) location.reload();
+                else showMsg('evConfigMsg', data2.message, 'error');
+            } else {
+                showMsg('evConfigMsg', data.message || 'Erro.', 'error');
+            }
         }
 
         async function manualCheckIn() {

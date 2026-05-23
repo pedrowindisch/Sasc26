@@ -23,6 +23,9 @@ public class Event
     public byte[]? LogoImage { get; set; }
     public string LogoContentType { get; set; } = string.Empty;
     public string PostCheckinButtonsJson { get; set; } = "[]";
+    public bool IsEventWidePreRegistration { get; set; }
+    public DateTime? PreRegistrationStart { get; set; }
+    public DateTime? PreRegistrationEnd { get; set; }
 
     public List<string> AdminEmails
     {

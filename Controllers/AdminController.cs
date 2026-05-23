@@ -14,17 +14,19 @@ public class AdminController : Controller
     private readonly ICertificateService _certificateService;
     private readonly IFeedbackService _feedbackService;
     private readonly IThankYouService _thankYouService;
+    private readonly IPreRegistrationConfigService _preRegConfigService;
     private readonly IEventContext _eventContext;
     private readonly AppDbContext _db;
     private readonly EventSettings _settings;
 
-    public AdminController(IAdminService adminService, IVolunteerService volunteerService, ICertificateService certificateService, IFeedbackService feedbackService, IThankYouService thankYouService, IEventContext eventContext, AppDbContext db, IOptions<EventSettings> settings)
+    public AdminController(IAdminService adminService, IVolunteerService volunteerService, ICertificateService certificateService, IFeedbackService feedbackService, IThankYouService thankYouService, IPreRegistrationConfigService preRegConfigService, IEventContext eventContext, AppDbContext db, IOptions<EventSettings> settings)
     {
         _adminService = adminService;
         _volunteerService = volunteerService;
         _certificateService = certificateService;
         _feedbackService = feedbackService;
         _thankYouService = thankYouService;
+        _preRegConfigService = preRegConfigService;
         _eventContext = eventContext;
         _db = db;
         _settings = settings.Value;
@@ -75,6 +77,7 @@ public class AdminController : Controller
         ViewBag.Lectures = await _adminService.GetAllLecturesAsync();
         ViewBag.PreRegCounts = await _adminService.GetPreRegistrationCountsAsync();
         ViewBag.Event = _eventContext.CurrentEvent;
+        ViewBag.EventWideRegCount = await _adminService.GetEventWidePreRegistrationCountAsync();
         return View();
     }
 
@@ -169,6 +172,35 @@ public class AdminController : Controller
         return File(System.Text.Encoding.UTF8.GetBytes(csv), "text/csv", fileName);
     }
 
+    [HttpPost]
+    public async Task<IActionResult> ToggleEventWidePreRegistration([FromBody] ToggleEventWidePreRegDto dto)
+    {
+        if (!IsAdminLoggedIn) return Json(new { success = false, message = "Não autenticado." });
+        var result = await _adminService.ToggleEventWidePreRegistrationAsync(dto.Force);
+        return Json(new { result.Success, result.Message, result.ExistingCount });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> EventPreRegistrations()
+    {
+        if (!IsAdminLoggedIn) return RedirectToAction(nameof(Index));
+        var entries = await _adminService.GetEventWidePreRegistrationsAsync();
+        ViewBag.Entries = entries;
+        ViewBag.Event = _eventContext.CurrentEvent;
+        return View();
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> ExportEventPreRegistrationsCsv()
+    {
+        if (!IsAdminLoggedIn) return RedirectToAction(nameof(Index));
+        var entries = await _adminService.GetEventWidePreRegistrationsAsync();
+        var ev = _eventContext.CurrentEvent;
+        var csv = "Email,Data_Inscricao\n" + string.Join("\n", entries.Select(e => $"{e.AttendeeEmail},{e.RegisteredAt:yyyy-MM-dd HH:mm:ss}"));
+        var fileName = $"inscricoes_evento_{ev.Slug}.csv";
+        return File(System.Text.Encoding.UTF8.GetBytes(csv), "text/csv", fileName);
+    }
+
     public async Task<IActionResult> Feedback()
     {
         if (!IsAdminLoggedIn) return RedirectToAction(nameof(Index));
@@ -242,6 +274,7 @@ public class AdminController : Controller
         if (!IsAdminLoggedIn) return RedirectToAction(nameof(Index));
         var config = await _certificateService.GetConfigAsync();
         ViewBag.CertificateConfig = config;
+        ViewBag.Event = _eventContext.CurrentEvent;
         return View();
     }
 
@@ -295,6 +328,7 @@ public class AdminController : Controller
         if (!IsAdminLoggedIn) return RedirectToAction(nameof(Index));
         var config = await _thankYouService.GetConfigAsync();
         ViewBag.ThankYouConfig = config;
+        ViewBag.Event = _eventContext.CurrentEvent;
         return View();
     }
 
@@ -343,6 +377,62 @@ public class AdminController : Controller
         });
         var csv = header + "\n" + string.Join("\n", rows);
         return File(System.Text.Encoding.UTF8.GetBytes(csv), "text/csv", "inscricoes_formulario.csv");
+    }
+
+    public async Task<IActionResult> PreRegistrationConfig()
+    {
+        if (!IsAdminLoggedIn) return RedirectToAction(nameof(Index));
+        var config = await _preRegConfigService.GetConfigAsync();
+        ViewBag.PreRegConfig = config;
+        ViewBag.Event = _eventContext.CurrentEvent;
+        return View();
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> UpdatePreRegistrationConfig([FromBody] PreRegistrationConfigDto dto)
+    {
+        if (!IsAdminLoggedIn) return Json(new { success = false, message = "Não autenticado." });
+        var result = await _preRegConfigService.UpdateConfigAsync(dto);
+        return Json(new { success = true, config = result });
+    }
+
+    public async Task<IActionResult> PreRegFormSubmissions()
+    {
+        if (!IsAdminLoggedIn) return RedirectToAction(nameof(Index));
+        var submissions = await _preRegConfigService.GetSubmissionsAsync();
+        var config = await _preRegConfigService.GetConfigAsync();
+        ViewBag.Submissions = submissions;
+        ViewBag.FormFields = config.FormFields;
+        return View();
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetPreRegFormSubmissions()
+    {
+        if (!IsAdminLoggedIn) return Json(new { success = false });
+        var submissions = await _preRegConfigService.GetSubmissionsAsync();
+        return Json(new { success = true, submissions });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> ExportPreRegFormSubmissionsCsv()
+    {
+        if (!IsAdminLoggedIn) return RedirectToAction(nameof(Index));
+        var submissions = await _preRegConfigService.GetSubmissionsAsync();
+        var config = await _preRegConfigService.GetConfigAsync();
+        var fieldLabels = config.FormFields.Select(f => f.Label).ToList();
+        var header = "Email,Data_Envio," + string.Join(",", fieldLabels.Select(l => l.Replace(",", ";")));
+        var rows = submissions.Select(s =>
+        {
+            var responses = string.Join(",", fieldLabels.Select(l =>
+            {
+                var resp = s.Responses.FirstOrDefault(r => r.Label == l);
+                return $"\"{(resp?.Value ?? "").Replace("\"", "\"\"")}\"";
+            }));
+            return $"{s.AttendeeEmail},{s.SubmittedAt:yyyy-MM-dd HH:mm:ss},{responses}";
+        });
+        var csv = header + "\n" + string.Join("\n", rows);
+        return File(System.Text.Encoding.UTF8.GetBytes(csv), "text/csv", "inscricoes_pre_cadastro.csv");
     }
 
     public async Task<IActionResult> RetroactiveRequests()
@@ -478,6 +568,7 @@ public class CreateTimeSlotDto { public DateTime StartTime { get; set; } public 
 public class UpdateTimeSlotCreditHoursDto { public int TimeSlotId { get; set; } public int CreditHours { get; set; } }
 public class DeleteTimeSlotDto { public int TimeSlotId { get; set; } }
 public class TogglePreRegDto { public int LectureId { get; set; } }
+public class ToggleEventWidePreRegDto { public bool Force { get; set; } }
 public class ApproveRetroactiveDto { public Guid RequestId { get; set; } }
 public class RejectRetroactiveDto { public Guid RequestId { get; set; } }
 

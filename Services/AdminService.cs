@@ -20,8 +20,11 @@ public interface IAdminService
     Task<bool> UpdateTimeSlotCreditHoursAsync(int timeSlotId, int creditHours);
     Task<bool> DeleteTimeSlotAsync(int timeSlotId);
     Task TogglePreRegistrationAsync(int lectureId);
+    Task<ToggleEventWidePreRegResult> ToggleEventWidePreRegistrationAsync(bool force);
     Task<List<PreRegistrationEntryDto>> GetPreRegistrationsAsync(int lectureId);
     Task<Dictionary<int, int>> GetPreRegistrationCountsAsync();
+    Task<int> GetEventWidePreRegistrationCountAsync();
+    Task<List<PreRegistrationEntryDto>> GetEventWidePreRegistrationsAsync();
     Task<List<RetroactiveRequestEntryDto>> GetPendingRetroactiveRequestsAsync();
     Task<ApproveRetroactiveResult> ApproveRetroactiveRequestAsync(Guid requestId);
     Task<RejectRetroactiveResult> RejectRetroactiveRequestAsync(Guid requestId);
@@ -30,6 +33,7 @@ public interface IAdminService
 public class AdminOtpResult { public bool Success { get; set; } public string Message { get; set; } = string.Empty; }
 public class AdminLoginResult { public bool Success { get; set; } public string Message { get; set; } = string.Empty; }
 public class ManualCheckInResult { public bool Success { get; set; } public string Message { get; set; } = string.Empty; }
+public class ToggleEventWidePreRegResult { public bool Success { get; set; } public string Message { get; set; } = string.Empty; public int ExistingCount { get; set; } }
 
 public class RetroactiveRequestEntryDto
 {
@@ -300,6 +304,59 @@ public class AdminService : IAdminService
         await _db.SaveChangesAsync();
     }
 
+    public async Task<ToggleEventWidePreRegResult> ToggleEventWidePreRegistrationAsync(bool force)
+    {
+        var ev = await _db.Events.FirstAsync(e => e.Id == EventId);
+        var existingCount = await _db.PreRegistrations.CountAsync(p => p.EventId == EventId && p.IsVerified);
+
+        if (existingCount > 0 && !force)
+        {
+            return new ToggleEventWidePreRegResult
+            {
+                Success = false,
+                ExistingCount = existingCount,
+                Message = $"Existem {existingCount} pré-inscrições ativas. Alterar o modo excluirá todas elas."
+            };
+        }
+
+        if (existingCount > 0 && force)
+        {
+            var all = await _db.PreRegistrations.Where(p => p.EventId == EventId).ToListAsync();
+            _db.PreRegistrations.RemoveRange(all);
+        }
+
+        ev.IsEventWidePreRegistration = !ev.IsEventWidePreRegistration;
+        await _db.SaveChangesAsync();
+
+        return new ToggleEventWidePreRegResult
+        {
+            Success = true,
+            Message = ev.IsEventWidePreRegistration
+                ? "Modo alterado para inscrição por evento."
+                : "Modo alterado para inscrição por palestra."
+        };
+    }
+
+    public async Task<int> GetEventWidePreRegistrationCountAsync()
+    {
+        return await _db.PreRegistrations
+            .Where(p => p.EventId == EventId && p.LectureId == null && p.IsVerified)
+            .CountAsync();
+    }
+
+    public async Task<List<PreRegistrationEntryDto>> GetEventWidePreRegistrationsAsync()
+    {
+        return await _db.PreRegistrations
+            .Where(p => p.EventId == EventId && p.LectureId == null && p.IsVerified)
+            .OrderByDescending(p => p.RegisteredAt)
+            .Select(p => new PreRegistrationEntryDto
+            {
+                AttendeeEmail = p.AttendeeEmail,
+                RegisteredAt = p.RegisteredAt
+            })
+            .ToListAsync();
+    }
+
     public async Task<List<PreRegistrationEntryDto>> GetPreRegistrationsAsync(int lectureId)
     {
         return await _db.PreRegistrations
@@ -317,7 +374,8 @@ public class AdminService : IAdminService
     {
         return await _db.PreRegistrations
             .Where(p => p.EventId == EventId && p.IsVerified)
-            .GroupBy(p => p.LectureId)
+            .Where(p => p.LectureId != null)
+            .GroupBy(p => p.LectureId!.Value)
             .Select(g => new { LectureId = g.Key, Count = g.Count() })
             .ToDictionaryAsync(x => x.LectureId, x => x.Count);
     }

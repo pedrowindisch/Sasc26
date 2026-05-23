@@ -237,6 +237,7 @@ public class AttendanceService : IAttendanceService
 
     public async Task<List<LectureWithPreRegDto>> GetAllLecturesAsync()
     {
+        var isEventWide = _eventContext.CurrentEvent.IsEventWidePreRegistration;
         return await _db.Lectures
             .Include(l => l.TimeSlot)
             .Include(l => l.PreRegistrations)
@@ -253,9 +254,279 @@ public class AttendanceService : IAttendanceService
                 Shift = l.TimeSlot.Shift,
                 Date = l.TimeSlot.StartTime.ToString("yyyy-MM-dd"),
                 IsPreRegistrationEnabled = l.IsPreRegistrationEnabled,
-                PreRegistrationCount = l.PreRegistrations.Count(p => p.IsVerified)
+                PreRegistrationCount = l.PreRegistrations.Count(p => p.IsVerified),
+                IsEventWide = isEventWide
             })
             .ToListAsync();
+    }
+
+    public async Task<bool> HasEventWideRegistrationAsync(string email)
+    {
+        email = email.Trim().ToLowerInvariant();
+        return await _db.PreRegistrations
+            .AnyAsync(p => p.EventId == EventId && p.AttendeeEmail == email && p.LectureId == null && p.IsVerified);
+    }
+
+    public async Task<PreRegisterResult> SubmitEventPreRegistrationAsync(string email)
+    {
+        email = email.Trim().ToLowerInvariant();
+
+        if (string.IsNullOrWhiteSpace(email))
+            return new PreRegisterResult { Success = false, Message = "Informe seu e-mail." };
+
+        var ev = _eventContext.CurrentEvent;
+        if (!ev.IsEventWidePreRegistration)
+            return new PreRegisterResult { Success = false, Message = "Inscrição por evento não está habilitada." };
+
+        var alreadyRegistered = await _db.PreRegistrations
+            .AnyAsync(p => p.EventId == EventId && p.AttendeeEmail == email && p.LectureId == null && p.IsVerified);
+        if (alreadyRegistered)
+            return new PreRegisterResult { Success = false, Message = "Você já está inscrito neste evento." };
+
+        var pending = await _db.PreRegistrations
+            .Where(p => p.EventId == EventId && p.AttendeeEmail == email && p.LectureId == null && !p.IsVerified)
+            .ToListAsync();
+        if (pending.Count > 0)
+        {
+            _db.PreRegistrations.RemoveRange(pending);
+            await _db.SaveChangesAsync();
+        }
+
+        var otpCode = Random.Shared.Next(100000, 999999).ToString("D6");
+        var now = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, BrasiliaTz);
+        var expiresAt = now.AddMinutes(_settings.OtpExpirationMinutes);
+
+        _db.PreRegistrations.Add(new PreRegistration
+        {
+            LectureId = null,
+            EventId = EventId,
+            AttendeeEmail = email,
+            RegisteredAt = now,
+            OtpCode = otpCode,
+            ExpiresAt = expiresAt,
+            IsVerified = false
+        });
+
+        await _db.SaveChangesAsync();
+
+        try
+        {
+            await _emailService.SendOtpEmailAsync(email, otpCode, $"Inscrição {EventName}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send event-wide pre-registration OTP to {Email}", email);
+        }
+
+        return new PreRegisterResult
+        {
+            Success = true,
+            Message = $"Código enviado para {email}. Verifique sua caixa de entrada."
+        };
+    }
+
+    public async Task<PreRegisterResult> VerifyEventPreRegistrationOtpAsync(string email, string code)
+    {
+        email = email.Trim().ToLowerInvariant();
+        var codeTrimmed = code.Trim();
+        var now = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, BrasiliaTz);
+
+        var pending = await _db.PreRegistrations
+            .Where(p => p.EventId == EventId && p.AttendeeEmail == email && p.LectureId == null && !p.IsVerified && p.OtpCode == codeTrimmed)
+            .ToListAsync();
+
+        if (pending.Count == 0)
+            return new PreRegisterResult { Success = false, Message = "Código inválido." };
+
+        if (pending.Any(p => now > p.ExpiresAt))
+            return new PreRegisterResult { Success = false, Message = "O código expirou. Tente novamente." };
+
+        foreach (var p in pending)
+            p.IsVerified = true;
+
+        await _db.SaveChangesAsync();
+
+        return new PreRegisterResult
+        {
+            Success = true,
+            Message = "Inscrição confirmada! Você está inscrito no evento."
+        };
+    }
+
+    public async Task<PreRegisterResult> SubmitPreRegistrationWithFormAsync(SubmitPreRegistrationDto dto)
+    {
+        var email = dto.Email.Trim().ToLowerInvariant();
+
+        if (string.IsNullOrWhiteSpace(email))
+            return new PreRegisterResult { Success = false, Message = "Informe seu e-mail." };
+
+        if (string.IsNullOrWhiteSpace(dto.FullName))
+            return new PreRegisterResult { Success = false, Message = "Informe seu nome completo." };
+
+        if (string.IsNullOrWhiteSpace(dto.Course) || string.IsNullOrWhiteSpace(dto.Shift) || dto.Phase < 1)
+            return new PreRegisterResult { Success = false, Message = "Preencha todos os campos do cadastro." };
+
+        var ev = _eventContext.CurrentEvent;
+
+        // 1. Upsert attendee profile
+        var existingAttendee = await _db.Attendees.FirstOrDefaultAsync(a => a.EventId == EventId && a.Email == email);
+        if (existingAttendee is not null)
+        {
+            existingAttendee.FullName = dto.FullName.Trim();
+            existingAttendee.Course = dto.Course;
+            existingAttendee.Shift = dto.Shift;
+            existingAttendee.Phase = dto.Phase;
+        }
+        else
+        {
+            _db.Attendees.Add(new Attendee
+            {
+                Email = email,
+                EventId = EventId,
+                FullName = dto.FullName.Trim(),
+                Course = dto.Course,
+                Shift = dto.Shift,
+                Phase = dto.Phase
+            });
+        }
+
+        // 2. Save form submission if enabled and responses provided
+        var config = await _db.PreRegistrationConfigs.FirstOrDefaultAsync(c => c.EventId == EventId);
+        if (config is { IsFormEnabled: true } && dto.FormResponses is { Count: > 0 })
+        {
+            _db.PreRegistrationFormSubmissions.Add(new PreRegistrationFormSubmission
+            {
+                AttendeeEmail = email,
+                EventId = EventId,
+                FormData = System.Text.Json.JsonSerializer.Serialize(dto.FormResponses),
+                SubmittedAt = DateTime.UtcNow
+            });
+        }
+
+        // 3. Create PreRegistration records and send OTP
+        if (dto.IsEventWide)
+        {
+            if (!ev.IsEventWidePreRegistration)
+                return new PreRegisterResult { Success = false, Message = "Inscrição por evento não está habilitada." };
+
+            var alreadyRegistered = await _db.PreRegistrations
+                .AnyAsync(p => p.EventId == EventId && p.AttendeeEmail == email && p.LectureId == null && p.IsVerified);
+            if (alreadyRegistered)
+                return new PreRegisterResult { Success = false, Message = "Você já está inscrito neste evento." };
+
+            var pending = await _db.PreRegistrations
+                .Where(p => p.EventId == EventId && p.AttendeeEmail == email && p.LectureId == null && !p.IsVerified)
+                .ToListAsync();
+            if (pending.Count > 0)
+            {
+                _db.PreRegistrations.RemoveRange(pending);
+            }
+
+            var otpCode = Random.Shared.Next(100000, 999999).ToString("D6");
+            var now = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, BrasiliaTz);
+            var expiresAt = now.AddMinutes(_settings.OtpExpirationMinutes);
+
+            _db.PreRegistrations.Add(new PreRegistration
+            {
+                LectureId = null,
+                EventId = EventId,
+                AttendeeEmail = email,
+                RegisteredAt = now,
+                OtpCode = otpCode,
+                ExpiresAt = expiresAt,
+                IsVerified = false
+            });
+
+            await _db.SaveChangesAsync();
+
+            try
+            {
+                await _emailService.SendOtpEmailAsync(email, otpCode, $"Inscrição {EventName}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send event-wide pre-registration OTP to {Email}", email);
+            }
+
+            return new PreRegisterResult
+            {
+                Success = true,
+                Message = $"Código enviado para {email}. Verifique sua caixa de entrada."
+            };
+        }
+        else
+        {
+            if (dto.LectureIds == null || dto.LectureIds.Count == 0)
+                return new PreRegisterResult { Success = false, Message = "Selecione pelo menos uma palestra." };
+
+            if (ev.IsEventWidePreRegistration)
+                return new PreRegisterResult { Success = false, Message = "As inscrições são por evento, não por palestra." };
+
+            var pending = await _db.PreRegistrations
+                .Where(p => p.EventId == EventId && p.AttendeeEmail == email && !p.IsVerified)
+                .ToListAsync();
+            if (pending.Count > 0)
+            {
+                _db.PreRegistrations.RemoveRange(pending);
+            }
+
+            var otpCode = Random.Shared.Next(100000, 999999).ToString("D6");
+            var now = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, BrasiliaTz);
+            var expiresAt = now.AddMinutes(_settings.OtpExpirationMinutes);
+            var addedCount = 0;
+            var usedTimeSlots = new HashSet<int>();
+
+            foreach (var lectureId in dto.LectureIds.Distinct())
+            {
+                var lecture = await _db.Lectures.FirstOrDefaultAsync(l => l.EventId == EventId && l.Id == lectureId);
+                if (lecture is null || !lecture.IsPreRegistrationEnabled) continue;
+
+                if (usedTimeSlots.Contains(lecture.TimeSlotId)) continue;
+                usedTimeSlots.Add(lecture.TimeSlotId);
+
+                var existingInSlot = await _db.PreRegistrations
+                    .Include(p => p.Lecture)
+                    .FirstOrDefaultAsync(p => p.EventId == EventId && p.Lecture != null && p.Lecture.TimeSlotId == lecture.TimeSlotId && p.AttendeeEmail == email && p.IsVerified);
+                if (existingInSlot is not null)
+                    _db.PreRegistrations.Remove(existingInSlot);
+
+                var sameLecture = await _db.PreRegistrations
+                    .AnyAsync(p => p.EventId == EventId && p.LectureId == lectureId && p.AttendeeEmail == email && p.IsVerified);
+                if (sameLecture) continue;
+
+                _db.PreRegistrations.Add(new PreRegistration
+                {
+                    LectureId = lectureId,
+                    EventId = EventId,
+                    AttendeeEmail = email,
+                    RegisteredAt = now,
+                    OtpCode = otpCode,
+                    ExpiresAt = expiresAt,
+                    IsVerified = false
+                });
+                addedCount++;
+            }
+
+            if (addedCount == 0)
+                return new PreRegisterResult { Success = false, Message = "Nenhuma palestra nova para inscrever." };
+
+            await _db.SaveChangesAsync();
+
+            try
+            {
+                await _emailService.SendOtpEmailAsync(email, otpCode, $"Inscrição {EventName}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send pre-registration OTP to {Email}", email);
+            }
+
+            return new PreRegisterResult
+            {
+                Success = true,
+                Message = $"Código enviado para {email}. Verifique sua caixa de entrada."
+            };
+        }
     }
 
     public async Task<PreRegisterResult> SubmitPreRegistrationBatchAsync(string email, List<int> lectureIds)
@@ -267,6 +538,9 @@ public class AttendanceService : IAttendanceService
 
         if (lectureIds == null || lectureIds.Count == 0)
             return new PreRegisterResult { Success = false, Message = "Selecione pelo menos uma palestra." };
+
+        if (_eventContext.CurrentEvent.IsEventWidePreRegistration)
+            return new PreRegisterResult { Success = false, Message = "As inscrições são por evento, não por palestra." };
 
         var pending = await _db.PreRegistrations
             .Where(p => p.EventId == EventId && p.AttendeeEmail == email && !p.IsVerified)
@@ -293,7 +567,7 @@ public class AttendanceService : IAttendanceService
 
             var existingInSlot = await _db.PreRegistrations
                 .Include(p => p.Lecture)
-                .FirstOrDefaultAsync(p => p.EventId == EventId && p.Lecture.TimeSlotId == lecture.TimeSlotId && p.AttendeeEmail == email && p.IsVerified);
+                .FirstOrDefaultAsync(p => p.EventId == EventId && p.Lecture != null && p.Lecture.TimeSlotId == lecture.TimeSlotId && p.AttendeeEmail == email && p.IsVerified);
             if (existingInSlot is not null)
                 _db.PreRegistrations.Remove(existingInSlot);
 
@@ -368,7 +642,8 @@ public class AttendanceService : IAttendanceService
         email = email.Trim().ToLowerInvariant();
         return await _db.PreRegistrations
             .Where(p => p.EventId == EventId && p.AttendeeEmail == email && p.IsVerified)
-            .Select(p => p.LectureId)
+            .Where(p => p.LectureId != null)
+            .Select(p => p.LectureId!.Value)
             .ToHashSetAsync();
     }
 

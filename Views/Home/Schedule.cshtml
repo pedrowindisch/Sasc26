@@ -15,13 +15,15 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="~/css/bulmaswatch.min.css">
     <style>
-        body { font-family: 'Inter', sans-serif; background: @backgroundColor; min-height: 100vh; display: flex; flex-direction: column; }
-        .page-header { background: @primaryColor; padding: 24px 20px; text-align: center; }
-        .page-header img.logo { width: 44px; height: 44px; margin-bottom: 8px; }
-        .page-header h1 { font-size: 1.1rem; font-weight: 700; color: #fff; margin: 0; }
-        .page-header p { font-size: 0.7rem; color: rgba(255,255,255,0.5); margin: 4px 0 0; text-transform: uppercase; letter-spacing: 0.05em; }
-        .container-area { max-width: 560px; margin: 0 auto; padding: 20px 16px; flex: 1; width: 100%; }
-        .step-section { display: none; }
+        body { font-family: 'Inter', sans-serif; background: @backgroundColor; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+        .card-wrapper { width: 100%; max-width: 560px; padding: 0 16px; }
+        .event-card { background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); overflow: hidden; }
+        .event-header { background: @primaryColor; padding: 28px 24px 20px; text-align: center; }
+        .event-header img.logo { width: 56px; height: 56px; margin-bottom: 12px; }
+        .event-header h1 { font-size: 1.25rem; font-weight: 700; color: #fff; margin: 0; }
+        .event-header p { font-size: 0.75rem; color: rgba(255,255,255,0.6); margin: 4px 0 0; text-transform: uppercase; letter-spacing: 0.05em; }
+        .event-body { padding: 8px 24px 28px; }
+        .step-section { display: none; padding-top: 16px; }
         .step-section.active { display: block; }
 
         .day-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 18px; }
@@ -64,20 +66,21 @@
         .nav-links { text-align: center; margin-top: 24px; }
         .nav-links a { font-size: 0.8rem; color: #aaa; }
         .nav-links a:hover { color: #555; }
-        .submit-bar { position: sticky; bottom: 0; background: #fff; padding: 14px 0; border-top: 1px solid #eee; margin-top: 8px; z-index: 10; }
+        .submit-bar { background: #fff; padding: 14px 0; border-top: 1px solid #eee; margin-top: 8px; }
         .shift-divider { margin: 20px 0 10px; padding-bottom: 6px; border-bottom: 2px solid @primaryColor; display: flex; align-items: baseline; gap: 8px; }
         .shift-divider .shift-label { font-size: 0.78rem; font-weight: 700; color: @primaryColor; text-transform: uppercase; letter-spacing: 0.03em; }
         .shift-divider .shift-hint { font-size: 0.65rem; color: #999; font-weight: 400; }
     </style>
 }
 
-<div class="page-header">
-    <img class="logo" src="~/dasc.svg" alt="DASC">
-    <h1>@eventName - Programação</h1>
-    <p>@eventSubtitle</p>
-</div>
-
-<div class="container-area">
+<div class="card-wrapper">
+    <div class="event-card">
+        <div class="event-header">
+            <img class="logo" src="~/dasc.svg" alt="DASC">
+            <h1>@eventName - Programação</h1>
+            <p>@eventSubtitle</p>
+        </div>
+        <div class="event-body">
     <div id="messageArea"></div>
 
     <div class="step-section active" id="stepEmail">
@@ -96,9 +99,27 @@
         <div id="dayTabs" class="day-tabs"></div>
         <div id="lectureContainer"><div class="empty-state">Selecione um dia acima.</div></div>
         <div class="submit-bar">
-            <button class="button is-brand is-fullwidth" id="btnSubmit" onclick="submitPreRegistration()" disabled>Registrar inscrição</button>
+            <button class="button is-brand is-fullwidth" id="btnSubmit" onclick="goToForm()" disabled>Avançar</button>
         </div>
         <a class="back-link" onclick="goBackToEmail()">&#8592; Voltar</a>
+    </div>
+
+    <div class="step-section" id="stepForm">
+        <div id="formConfigHeader">
+            <p style="font-size:0.85rem;color:#333;margin-bottom:16px;" id="selectedLecturesSummary"></p>
+        </div>
+        <div id="formMsg"></div>
+        <div id="profileFields">
+            <div class="field"><label class="label is-small has-text-grey">Nome completo</label><div class="control"><input class="input" type="text" id="fullNameInput" placeholder="João da Silva" autocomplete="name"></div></div>
+            <div class="field"><label class="label is-small has-text-grey">Curso</label><div class="control"><div class="select is-fullwidth"><select id="courseSelect"><option value="">Selecione</option><option value="Ciência da Computação">Ciência da Computação</option><option value="Ciência de Dados">Ciência de Dados</option><option value="Sistemas de Informação">Sistemas de Informação</option></select></div></div></div>
+            <div class="field"><label class="label is-small has-text-grey">Turno</label><div class="control"><div class="select is-fullwidth"><select id="shiftSelect"><option value="">Selecione</option><option value="Matutino">Matutino</option><option value="Noturno">Noturno</option></select></div></div></div>
+            <div class="field"><label class="label is-small has-text-grey">Fase</label><div class="control"><div class="select is-fullwidth"><select id="phaseSelect"><option value="">-</option>@for (var i = 1; i <= 9; i++) {<option value="@i">@i</option>}</select></div></div></div>
+        </div>
+        <div id="customFormArea" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid #eee;"></div>
+        <div class="field" style="margin-top:20px;">
+            <div class="control"><button class="button is-brand is-fullwidth" id="btnSubmitForm" onclick="submitPreRegistrationWithForm()">Concluir inscrição</button></div>
+        </div>
+        <a class="back-link" onclick="goBackToSchedule()">&#8592; Voltar</a>
     </div>
 
     <div class="step-section" id="stepOtp">
@@ -111,13 +132,15 @@
         <div class="field" style="margin-top:14px;">
             <div class="control"><button class="button is-brand is-fullwidth" id="btnVerifyOtp" onclick="verifyOtp()">Confirmar inscrição</button></div>
         </div>
-        <a class="back-link" onclick="goBackToSchedule()">&#8592; Voltar e alterar seleção</a>
+        <a class="back-link" onclick="goBackToForm()">&#8592; Voltar</a>
     </div>
 
     <div class="step-section" id="stepSuccess">
         <div class="msg-success has-text-centered" id="successMessage" style="padding:20px;font-size:0.9rem;"></div>
         <div style="text-align:center;margin-top:16px;">
             <button class="button is-brand" onclick="resetForm()">Nova inscrição</button>
+        </div>
+    </div>
         </div>
     </div>
 </div>
@@ -129,11 +152,17 @@
     let selectedIds = {};
     let allLectures = [];
     let activeDay = null;
+    let isEventWide = false;
+    let hasEventWideRegistration = false;
+    let preRegConfig = null;
 
     function showMessage(t, type) { document.getElementById('messageArea').innerHTML = t ? `<div class="msg-${type}">${t}</div>` : ''; }
+    function showFormMsg(t, type) { document.getElementById('formMsg').innerHTML = t ? `<div class="msg-${type}">${t}</div>` : ''; }
     function clearMessage() { document.getElementById('messageArea').innerHTML = ''; }
+    function clearFormMsg() { document.getElementById('formMsg').innerHTML = ''; }
     function showStep(s) { document.querySelectorAll('.step-section').forEach(el => el.classList.remove('active')); document.getElementById('step' + s).classList.add('active'); }
     function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+    function escA(s) { return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
     function fmtDate(iso) { const [y,m,d] = iso.split('-'); const dt = new Date(y, m-1, d); return dt.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' }); }
 
     async function loadScheduleWithEmail() {
@@ -148,10 +177,17 @@
             const data = await res.json();
             if (!data.success) { showMessage('Erro ao carregar.', 'error'); return; }
             allLectures = data.lectures || [];
+            isEventWide = data.isEventWide || false;
+            hasEventWideRegistration = data.hasEventWideRegistration || false;
             selectedIds = {};
             activeDay = null;
-            renderDayTabs();
             document.getElementById('emailDisplay').textContent = email;
+
+            if (isEventWide) {
+                renderEventWideUI();
+            } else {
+                renderDayTabs();
+            }
             showStep('Schedule');
         } catch { showMessage('Erro de conexão.', 'error'); }
         finally { btn.classList.remove('is-loading'); btn.disabled = false; }
@@ -252,20 +288,150 @@
         const hasChanges = Object.keys(selectedIds).length > 0;
         btn.disabled = !hasChanges;
         const count = Object.keys(selectedIds).length;
-        btn.textContent = count > 0 ? `Registrar inscrição (${count} alteração${count > 1 ? 'ões' : ''})` : 'Registrar inscrição';
+        btn.textContent = count > 0 ? `Avançar (${count})` : 'Avançar';
     }
 
-    async function submitPreRegistration() {
-        const ids = Object.values(selectedIds);
-        if (ids.length === 0) return;
+    function renderEventWideUI() {
+        document.getElementById('dayTabs').innerHTML = '';
+        const container = document.getElementById('lectureContainer');
+        if (hasEventWideRegistration) {
+            container.innerHTML = `
+                <div class="msg-success has-text-centered" style="padding:20px;">
+                    <strong>Você já está inscrito neste evento!</strong>
+                </div>`;
+            document.getElementById('btnSubmit').disabled = true;
+            document.getElementById('btnSubmit').textContent = 'Já inscrito';
+        } else {
+            container.innerHTML = `
+                <div style="text-align:center;padding:20px 0;">
+                    <p style="font-size:0.9rem;margin-bottom:16px;">Inscreva-se no evento completo para garantir sua vaga.</p>
+                    <button class="button is-brand is-fullwidth" onclick="goToForm()" style="max-width:300px;margin:0 auto;">
+                        Inscrever-se no evento
+                    </button>
+                </div>`;
+            document.getElementById('btnSubmit').style.display = 'none';
+        }
+    }
+
+    async function goToForm() {
         clearMessage();
         const btn = document.getElementById('btnSubmit');
+        if (!isEventWide) {
+            const ids = Object.values(selectedIds);
+            if (ids.length === 0) { showMessage('Selecione pelo menos uma palestra.', 'error'); return; }
+        }
         btn.classList.add('is-loading'); btn.disabled = true;
         try {
-            const res = await fetch(baseUrl + '/Home/PreRegister', {
+            const res = await fetch(baseUrl + `/Home/GetPreRegistrationConfig?email=${encodeURIComponent(currentEmail)}`);
+            const data = await res.json();
+            preRegConfig = data.config || { isFormEnabled: false, formFields: [], message: '' };
+
+            const profile = data.profile;
+            if (profile && profile.found) {
+                document.getElementById('fullNameInput').value = profile.fullName || '';
+                document.getElementById('courseSelect').value = profile.course || '';
+                document.getElementById('shiftSelect').value = profile.shift || '';
+                document.getElementById('phaseSelect').value = profile.phase || '';
+            } else {
+                document.getElementById('fullNameInput').value = '';
+                document.getElementById('courseSelect').value = '';
+                document.getElementById('shiftSelect').value = '';
+                document.getElementById('phaseSelect').value = '';
+            }
+
+            renderCustomForm();
+
+            let summary = '';
+            if (isEventWide) {
+                summary = '<strong>Inscrição no evento completo</strong>';
+            } else {
+                const selectedLectures = allLectures.filter(l => Object.values(selectedIds).includes(l.id));
+                const names = selectedLectures.map(l => esc(l.title)).join(', ');
+                summary = `<strong>Palestras selecionadas:</strong> ${names}`;
+            }
+            document.getElementById('selectedLecturesSummary').innerHTML = summary;
+
+            clearFormMsg();
+            showStep('Form');
+        } catch { showMessage('Erro ao carregar formulário.', 'error'); }
+        finally { btn.classList.remove('is-loading'); btn.disabled = false; }
+    }
+
+    function renderCustomForm() {
+        const area = document.getElementById('customFormArea');
+        if (!preRegConfig || !preRegConfig.isFormEnabled || !preRegConfig.formFields || preRegConfig.formFields.length === 0) {
+            area.style.display = 'none';
+            return;
+        }
+        area.style.display = 'block';
+
+        let html = `<h3 style="font-size:0.9rem;font-weight:700;color:#1a1a1a;margin:0 0 8px;">${esc(preRegConfig.formTitle || 'Informações adicionais')}</h3>`;
+        if (preRegConfig.formDescription) {
+            html += `<p style="font-size:0.8rem;color:#666;margin-bottom:16px;">${esc(preRegConfig.formDescription)}</p>`;
+        }
+
+        preRegConfig.formFields.forEach((f, i) => {
+            const req = f.required ? '<span style="color:#b91c1c;">*</span>' : '';
+            html += `<div class="field"><label class="label is-small has-text-grey">${esc(f.label)} ${req}</label>`;
+            if (f.type === 'select') {
+                html += `<div class="control"><div class="select is-fullwidth is-small"><select id="preField_${i}"><option value="">Selecione</option>`;
+                (f.options || []).forEach(o => { html += `<option value="${escA(o)}">${esc(o)}</option>`; });
+                html += '</select></div></div>';
+            } else if (f.type === 'textarea') {
+                html += `<div class="control"><textarea class="textarea is-small" id="preField_${i}" rows="3" placeholder="${escA(f.placeholder || '')}"></textarea></div>`;
+            } else if (f.type === 'date') {
+                html += `<div class="control"><input class="input is-small" type="date" id="preField_${i}"></div>`;
+            } else {
+                html += `<div class="control"><input class="input is-small" type="${f.type === 'email' ? 'email' : 'text'}" id="preField_${i}" placeholder="${escA(f.placeholder || '')}"></div>`;
+            }
+            html += '</div>';
+        });
+
+        area.innerHTML = html;
+    }
+
+    async function submitPreRegistrationWithForm() {
+        clearFormMsg();
+        const fullName = document.getElementById('fullNameInput').value.trim();
+        const course = document.getElementById('courseSelect').value;
+        const shift = document.getElementById('shiftSelect').value;
+        const phase = parseInt(document.getElementById('phaseSelect').value) || 0;
+
+        if (!fullName) { showFormMsg('Informe seu nome completo.', 'error'); return; }
+        if (!course) { showFormMsg('Selecione o curso.', 'error'); return; }
+        if (!shift) { showFormMsg('Selecione o turno.', 'error'); return; }
+        if (phase < 1) { showFormMsg('Selecione a fase.', 'error'); return; }
+
+        let formResponses = [];
+        if (preRegConfig && preRegConfig.isFormEnabled && preRegConfig.formFields) {
+            for (let i = 0; i < preRegConfig.formFields.length; i++) {
+                const f = preRegConfig.formFields[i];
+                const el = document.getElementById('preField_' + i);
+                const val = el ? el.value.trim() : '';
+                if (f.required && !val) { showFormMsg(`Preencha o campo "${f.label}".`, 'error'); return; }
+                formResponses.push({ label: f.label, value: val });
+            }
+        }
+
+        const btn = document.getElementById('btnSubmitForm');
+        btn.classList.add('is-loading'); btn.disabled = true;
+
+        const ids = isEventWide ? [] : Object.values(selectedIds);
+
+        try {
+            const res = await fetch(baseUrl + '/Home/SubmitPreRegistration', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: currentEmail, lectureIds: ids })
+                body: JSON.stringify({
+                    email: currentEmail,
+                    lectureIds: ids,
+                    isEventWide,
+                    fullName,
+                    course,
+                    shift,
+                    phase,
+                    formResponses
+                })
             });
             const data = await res.json();
             if (data.success) {
@@ -275,11 +441,11 @@
                 showStep('Otp');
                 setTimeout(() => document.getElementById('otpInput').focus(), 100);
             } else {
-                showMessage(data.message, 'error');
+                showFormMsg(data.message, 'error');
                 btn.classList.remove('is-loading'); btn.disabled = false;
             }
         } catch {
-            showMessage('Erro de conexão.', 'error');
+            showFormMsg('Erro de conexão.', 'error');
             btn.classList.remove('is-loading'); btn.disabled = false;
         }
     }
@@ -290,8 +456,9 @@
         const btn = document.getElementById('btnVerifyOtp');
         btn.classList.add('is-loading'); btn.disabled = true;
         document.getElementById('otpMsg').innerHTML = '';
+        const endpoint = isEventWide ? '/Home/VerifyEventPreRegistration' : '/Home/VerifyPreRegistration';
         try {
-            const res = await fetch(baseUrl + '/Home/VerifyPreRegistration', {
+            const res = await fetch(baseUrl + endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email: currentEmail, code })
@@ -312,7 +479,20 @@
     }
 
     function goBackToEmail() { clearMessage(); showStep('Email'); }
-    function goBackToSchedule() { showStep('Schedule'); document.getElementById('otpInput').value = ''; }
+    function goBackToSchedule() {
+        showStep('Schedule');
+        if (isEventWide) {
+            document.getElementById('btnSubmit').style.display = 'none';
+        } else {
+            document.getElementById('btnSubmit').style.display = '';
+            updateSubmitBtn();
+        }
+    }
+    function goBackToForm() {
+        showStep('Form');
+        document.getElementById('otpInput').value = '';
+        document.getElementById('otpMsg').innerHTML = '';
+    }
 
     function resetForm() {
         clearMessage();
@@ -320,9 +500,21 @@
         selectedIds = {};
         allLectures = [];
         activeDay = null;
+        isEventWide = false;
+        hasEventWideRegistration = false;
+        preRegConfig = null;
         document.getElementById('emailInput').value = '';
+        document.getElementById('fullNameInput').value = '';
+        document.getElementById('courseSelect').value = '';
+        document.getElementById('shiftSelect').value = '';
+        document.getElementById('phaseSelect').value = '';
         document.getElementById('otpInput').value = '';
         document.getElementById('otpMsg').innerHTML = '';
+        document.getElementById('btnSubmit').style.display = '';
+        document.getElementById('btnSubmit').disabled = true;
+        document.getElementById('btnSubmit').textContent = 'Avançar';
+        document.getElementById('customFormArea').style.display = 'none';
+        document.getElementById('customFormArea').innerHTML = '';
         showStep('Email');
     }
 

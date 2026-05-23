@@ -156,6 +156,12 @@ public class SuperAdminController : Controller
         ev.AdminEmailsJson = string.IsNullOrWhiteSpace(ev.AdminEmailsJson) ? "[]" : ev.AdminEmailsJson;
         ev.PostCheckinButtonsJson = string.IsNullOrWhiteSpace(ev.PostCheckinButtonsJson) ? "[]" : ev.PostCheckinButtonsJson;
 
+        if ((ev.PreRegistrationStart is null) != (ev.PreRegistrationEnd is null))
+        {
+            ModelState.AddModelError("", "Os campos de período de pré-inscrição devem ser preenchidos juntos.");
+            return View(ev);
+        }
+
         _db.Events.Add(ev);
         await _db.SaveChangesAsync();
 
@@ -192,6 +198,14 @@ public class SuperAdminController : Controller
         existing.AccentColor = ev.AccentColor;
         existing.BackgroundColor = ev.BackgroundColor;
         existing.TextColor = ev.TextColor;
+
+        if ((ev.PreRegistrationStart is null) != (ev.PreRegistrationEnd is null))
+        {
+            ModelState.AddModelError("", "Os campos de período de pré-inscrição devem ser preenchidos juntos.");
+            return View(ev);
+        }
+        existing.PreRegistrationStart = ev.PreRegistrationStart;
+        existing.PreRegistrationEnd = ev.PreRegistrationEnd;
 
         await _db.SaveChangesAsync();
         return RedirectToAction(nameof(List));

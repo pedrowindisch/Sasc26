@@ -12,6 +12,8 @@
     var eventName = ev?.Name ?? "SASC 26";
     var eventSubtitle = ev?.Subtitle ?? "";
     var eventSlug = ev?.Slug ?? "";
+    var scheduleEnabled = (bool)(ViewBag.ScheduleEnabled ?? false);
+    var scheduleDisabledReason = ViewBag.ScheduleDisabledReason as string ?? "";
 }
 
 @section Styles {
@@ -64,6 +66,9 @@
         .banner-alert { background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); padding: 20px 24px; margin-bottom: 16px; }
         .banner-alert .banner-title { font-size: 0.9rem; font-weight: 700; color: @primaryColor; margin-bottom: 6px; }
         .banner-alert .banner-desc { font-size: 0.82rem; color: #666; margin-bottom: 12px; line-height: 1.5; }
+        .option-btn { height: auto !important; padding: 14px 16px !important; gap: 10px !important; justify-content: flex-start !important; }
+        .option-icon { font-size: 0.9rem; opacity: 0.4; flex-shrink: 0; }
+        .option-btn[disabled] .option-icon { opacity: 0.25; }
     </style>
 }
 
@@ -100,7 +105,60 @@
         <div class="event-body">
             <div id="messageArea"></div>
 
-            <div class="step-section active" id="stepEmail">
+            <div class="step-section active" id="stepOptions">
+                @if (hasActiveTimeSlot)
+                {
+                    <button class="button is-secondary is-fullwidth option-btn" onclick="startCheckin()">
+                        <span class="option-icon">&#10003;</span>
+                        <span style="display:flex;flex-direction:column;align-items:flex-start;text-align:left;">
+                            <span style="font-weight:600;">Registrar Presença</span>
+                            <span style="font-size:0.7rem;opacity:0.6;margin-top:1px;">Valide sua presença nas palestras</span>
+                        </span>
+                    </button>
+                }
+                else
+                {
+                    <button class="button is-secondary is-fullwidth option-btn" disabled>
+                        <span class="option-icon">&#10003;</span>
+                        <span style="display:flex;flex-direction:column;align-items:flex-start;text-align:left;">
+                            <span style="font-weight:600;">Registrar Presença</span>
+                            <span style="font-size:0.7rem;opacity:0.6;margin-top:1px;">Nenhuma palestra ativa no momento.</span>
+                        </span>
+                    </button>
+                }
+                <div style="margin-top:10px;">
+                    @if (scheduleEnabled)
+                    {
+                        <a href="/@eventSlug/Home/Schedule" class="button is-secondary is-fullwidth option-btn" style="text-decoration:none;">
+                            <span class="option-icon">&#9998;</span>
+                            <span style="display:flex;flex-direction:column;align-items:flex-start;text-align:left;">
+                                <span style="font-weight:600;">Pré-Inscrição</span>
+                                <span style="font-size:0.7rem;opacity:0.6;margin-top:1px;">Garanta sua vaga nas palestras</span>
+                            </span>
+                        </a>
+                    }
+                    else
+                    {
+                        <button class="button is-secondary is-fullwidth option-btn" disabled title="@scheduleDisabledReason">
+                            <span class="option-icon">&#9998;</span>
+                            <span style="display:flex;flex-direction:column;align-items:flex-start;text-align:left;">
+                                <span style="font-weight:600;">Pré-Inscrição</span>
+                                <span style="font-size:0.7rem;opacity:0.6;margin-top:1px;">@scheduleDisabledReason</span>
+                            </span>
+                        </button>
+                    }
+                </div>
+                <div class="has-text-centered" style="margin-top:16px;">
+                    <button onclick="location.href='/@eventSlug/Home/RetroactiveCheckIn'" class="button is-secondary is-fullwidth">Esqueceu de validar suas AACCs?</button>
+                </div>
+                <div class="has-text-centered" style="margin-top:12px;">
+                    <a href="/@eventSlug/Volunteer" class="back-link">Sou voluntário</a>
+                    <span style="color:#ddd;margin:0 6px;">|</span>
+                    <a href="/@eventSlug/Admin" class="back-link">Administração</a>
+                </div>
+            </div>
+
+            <div class="step-section" id="stepEmail">
                 <div class="field">
                     <label class="label is-small has-text-grey">E-mail institucional</label>
                     <div class="control"><input class="input" type="email" id="emailInput" placeholder="seu.nome@furb.br" autocomplete="email" autofocus></div>
@@ -108,14 +166,7 @@
                 <div class="field" style="margin-top:16px;">
                     <div class="control"><button class="button is-brand is-fullwidth" id="btnSendOtp" onclick="requestOtp()">Enviar código</button></div>
                 </div>
-                <div class="field" style="margin-top:10px;">
-                    <div class="control"><button onclick="location.href='/@eventSlug/Home/RetroactiveCheckIn'" class="button is-secondary is-fullwidth">Esqueceu de validar suas AACCs?</button></div>
-                </div>
-                <div class="has-text-centered" style="margin-top:12px;">
-                    <a href="/@eventSlug/Volunteer" class="back-link">Sou voluntário</a>
-                    <span style="color:#ddd;margin:0 6px;">|</span>
-                    <a href="/@eventSlug/Admin" class="back-link">Administração</a>
-                </div>
+                <a class="back-link" onclick="goBackToOptions()">&#8592; Voltar</a>
             </div>
 
             <div class="step-section" id="stepOtp">
@@ -181,6 +232,9 @@
     function showMessage(t, type) { document.getElementById('messageArea').innerHTML = `<div class="msg-${type}">${t}</div>`; }
     function clearMessage() { document.getElementById('messageArea').innerHTML = ''; }
     function showStep(s) { document.querySelectorAll('.step-section').forEach(el => el.classList.remove('active')); document.getElementById('step' + s).classList.add('active'); }
+
+    function startCheckin() { clearMessage(); showStep('Email'); document.getElementById('emailInput').focus(); }
+    function goBackToOptions() { clearMessage(); showStep('Options'); document.getElementById('otpInput').value = ''; }
 
     async function loadProfile(email) {
         try {
@@ -297,7 +351,7 @@
     function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
     function goBack() { clearMessage(); sesFallback = false; showStep('Email'); document.getElementById('otpInput').value = ''; document.getElementById('otpFieldGroup').style.display = 'block'; document.getElementById('sesFallbackWarning').style.display = 'none'; }
     function goBackToOtp() { clearMessage(); showStep('Otp'); }
-    function resetForm() { clearMessage(); sesFallback = false; selectedLectureId = 0; ['emailInput','otpInput','fullNameInput','kw1','kw2','kw3'].forEach(id => document.getElementById(id).value = ''); ['courseSelect','shiftSelect','phaseSelect'].forEach(id => document.getElementById(id).value = ''); document.getElementById('otpFieldGroup').style.display = 'block'; document.getElementById('sesFallbackWarning').style.display = 'none'; currentEmail = ''; showStep('Email'); }
+    function resetForm() { clearMessage(); sesFallback = false; selectedLectureId = 0; ['emailInput','otpInput','fullNameInput','kw1','kw2','kw3'].forEach(id => document.getElementById(id).value = ''); ['courseSelect','shiftSelect','phaseSelect'].forEach(id => document.getElementById(id).value = ''); document.getElementById('otpFieldGroup').style.display = 'block'; document.getElementById('sesFallbackWarning').style.display = 'none'; currentEmail = ''; showStep('Options'); }
 
     document.getElementById('emailInput').addEventListener('keydown', e => { if (e.key === 'Enter') requestOtp(); });
     document.getElementById('otpInput').addEventListener('keydown', e => { if (e.key === 'Enter') verifyOtp(); });
