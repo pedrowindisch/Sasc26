@@ -46,6 +46,8 @@ public class HomeController : Controller
         ViewBag.InstagramUrl = ev.InstagramUrl;
         ViewBag.TshirtPresaleUrl = ev.TshirtPresaleUrl;
         ViewBag.Event = ev;
+        ViewBag.CheckInMode = (int)ev.CheckInMode;
+        ViewBag.RequireOtp = ev.RequireOtp;
         var banner = await _db.Banners.FirstOrDefaultAsync(b => b.EventId == ev.Id && b.IsActive);
         ViewBag.Banner = banner;
 
@@ -253,10 +255,23 @@ public class HomeController : Controller
         if (dto.LectureId <= 0)
             return Json(new { success = false, message = "Selecione uma palestra." });
 
-        if (string.IsNullOrWhiteSpace(dto.Keyword1) || string.IsNullOrWhiteSpace(dto.Keyword2) || string.IsNullOrWhiteSpace(dto.Keyword3))
+        var ev = _eventContext.CurrentEvent;
+        if (ev.CheckInMode == CheckInMode.Keywords && (string.IsNullOrWhiteSpace(dto.Keyword1) || string.IsNullOrWhiteSpace(dto.Keyword2) || string.IsNullOrWhiteSpace(dto.Keyword3)))
             return Json(new { success = false, message = "Preencha as 3 palavras-chave." });
 
         var result = await _attendanceService.SubmitCheckInAsync(dto);
+        return Json(new { result.Success, result.Message });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> SubmitQrCheckIn([FromBody] QrCheckInDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.Email))
+            return Json(new { success = false, message = "E-mail não informado." });
+        if (string.IsNullOrWhiteSpace(dto.Token) || dto.LectureId <= 0)
+            return Json(new { success = false, message = "QR Code inválido." });
+
+        var result = await _attendanceService.QrCheckInAsync(dto);
         return Json(new { result.Success, result.Message });
     }
 

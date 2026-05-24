@@ -77,6 +77,7 @@ public class AdminController : Controller
         ViewBag.Lectures = await _adminService.GetAllLecturesAsync();
         ViewBag.PreRegCounts = await _adminService.GetPreRegistrationCountsAsync();
         ViewBag.Event = _eventContext.CurrentEvent;
+        ViewBag.CheckInMode = (int)_eventContext.CurrentEvent.CheckInMode;
         ViewBag.EventWideRegCount = await _adminService.GetEventWidePreRegistrationCountAsync();
         return View();
     }
@@ -547,6 +548,38 @@ public class AdminController : Controller
         ViewBag.Lecture = lecture;
         ViewBag.Token = session.Token;
         ViewBag.Payload = $"{_eventContext.CurrentEvent.Name}:{lectureId}:{session.Token}";
+        return View();
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> QrCodeBroadcast(int lectureId)
+    {
+        if (!IsAdminLoggedIn) return RedirectToAction(nameof(Index));
+        var lecture = await _db.Lectures.FirstOrDefaultAsync(l => l.EventId == _eventContext.CurrentEventId && l.Id == lectureId);
+        if (lecture is null) return RedirectToAction(nameof(Dashboard));
+
+        var old = await _db.MagicCheckInSessions
+            .Where(s => s.EventId == _eventContext.CurrentEventId && s.LectureId == lectureId && s.IsActive)
+            .ToListAsync();
+        old.ForEach(s => s.IsActive = false);
+
+        var session = new MagicCheckInSession
+        {
+            Id = Guid.NewGuid(),
+            LectureId = lectureId,
+            EventId = _eventContext.CurrentEventId,
+            Token = GenerateMagicToken(),
+            CreatedAt = DateTime.UtcNow,
+            ExpiresAt = DateTime.UtcNow.AddMinutes(10),
+            IsActive = true
+        };
+        _db.MagicCheckInSessions.Add(session);
+        await _db.SaveChangesAsync();
+
+        ViewBag.Lecture = lecture;
+        ViewBag.Token = session.Token;
+        ViewBag.Payload = $"{_eventContext.CurrentEvent.Name}:{lectureId}:{session.Token}";
+        ViewBag.EventSlug = _eventContext.EventSlug;
         return View();
     }
 

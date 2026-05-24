@@ -194,6 +194,8 @@ public class SuperAdminController : Controller
         existing.TshirtPresaleUrl = ev.TshirtPresaleUrl;
         existing.AdminEmailsJson = ev.AdminEmailsJson;
         existing.PostCheckinButtonsJson = ev.PostCheckinButtonsJson;
+        existing.CheckInMode = ev.CheckInMode;
+        existing.RequireOtp = ev.RequireOtp;
         existing.PrimaryColor = ev.PrimaryColor;
         existing.AccentColor = ev.AccentColor;
         existing.BackgroundColor = ev.BackgroundColor;

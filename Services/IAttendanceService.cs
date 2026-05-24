@@ -21,6 +21,7 @@ public interface IAttendanceService
     Task<List<RetroactiveLectureDto>> GetYesterdayLecturesAsync();
     Task<RetroactiveRequestResult> SubmitRetroactiveRequestAsync(RetroactiveRequestDto dto);
     Task<ServiceResult> MagicCheckInAsync(MagicCheckInDto dto);
+    Task<ServiceResult> QrCheckInAsync(QrCheckInDto dto);
 }
 
 public class RequestOtpResult

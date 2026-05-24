@@ -671,15 +671,19 @@ public class AttendanceService : IAttendanceService
         if (alreadyVerified)
             return new SubmitCheckInResult { Success = false, Message = "Você já registrou presença neste horário." };
 
-        var kw1 = dto.Keyword1.Trim().ToLowerInvariant();
-        var kw2 = dto.Keyword2.Trim().ToLowerInvariant();
-        var kw3 = dto.Keyword3.Trim().ToLowerInvariant();
-
-        if (kw1 != lecture.Keyword1.ToLowerInvariant() ||
-            kw2 != lecture.Keyword2.ToLowerInvariant() ||
-            kw3 != lecture.Keyword3.ToLowerInvariant())
+        var ev = await _db.Events.FirstOrDefaultAsync(e => e.Id == EventId);
+        if (ev is not null && ev.CheckInMode == CheckInMode.Keywords)
         {
-            return new SubmitCheckInResult { Success = false, Message = "Palavras-chave incorretas. Verifique e tente novamente." };
+            var kw1 = dto.Keyword1.Trim().ToLowerInvariant();
+            var kw2 = dto.Keyword2.Trim().ToLowerInvariant();
+            var kw3 = dto.Keyword3.Trim().ToLowerInvariant();
+
+            if (kw1 != lecture.Keyword1.ToLowerInvariant() ||
+                kw2 != lecture.Keyword2.ToLowerInvariant() ||
+                kw3 != lecture.Keyword3.ToLowerInvariant())
+            {
+                return new SubmitCheckInResult { Success = false, Message = "Palavras-chave incorretas. Verifique e tente novamente." };
+            }
         }
 
         var otpCheckIn = await _db.CheckIns
@@ -876,6 +880,62 @@ public class AttendanceService : IAttendanceService
         await _db.SaveChangesAsync();
 
         _logger.LogInformation("Magic check-in for {Email} in lecture {LectureId}", email, dto.LectureId);
+
+        return new ServiceResult { Success = true, Message = "Check-in realizado com sucesso!" };
+    }
+
+    public async Task<ServiceResult> QrCheckInAsync(QrCheckInDto dto)
+    {
+        var email = dto.Email.Trim().ToLowerInvariant();
+
+        var session = await _db.MagicCheckInSessions
+            .FirstOrDefaultAsync(s => s.EventId == EventId && s.Token == dto.Token && s.LectureId == dto.LectureId && s.IsActive && s.ExpiresAt > DateTime.UtcNow);
+        if (session is null)
+            return new ServiceResult { Success = false, Message = "QR Code inválido ou expirado." };
+
+        var existingAttendee = await _db.Attendees.FirstOrDefaultAsync(a => a.EventId == EventId && a.Email == email);
+        if (existingAttendee is not null)
+        {
+            existingAttendee.FullName = dto.FullName.Trim();
+            existingAttendee.Course = dto.Course;
+            existingAttendee.Shift = dto.Shift;
+            existingAttendee.Phase = dto.Phase;
+        }
+        else
+        {
+            _db.Attendees.Add(new Attendee
+            {
+                Email = email,
+                EventId = EventId,
+                FullName = dto.FullName.Trim(),
+                Course = dto.Course,
+                Shift = dto.Shift,
+                Phase = dto.Phase
+            });
+        }
+
+        var alreadyCheckedIn = await _db.CheckIns
+            .AnyAsync(c => c.EventId == EventId && c.AttendeeEmail == email && c.LectureId == dto.LectureId && c.Status == CheckInStatus.Verified);
+        if (alreadyCheckedIn)
+            return new ServiceResult { Success = false, Message = "Você já realizou check-in nesta palestra." };
+
+        var now = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, BrasiliaTz);
+        _db.CheckIns.Add(new CheckIn
+        {
+            Id = Guid.NewGuid(),
+            AttendeeEmail = email,
+            EventId = EventId,
+            LectureId = dto.LectureId,
+            OtpCode = "QRCODE",
+            Status = CheckInStatus.Verified,
+            CreatedAt = now,
+            ExpiresAt = now,
+            VerifiedAt = now
+        });
+
+        await _db.SaveChangesAsync();
+
+        _logger.LogInformation("QR code check-in for {Email} in lecture {LectureId}", email, dto.LectureId);
 
         return new ServiceResult { Success = true, Message = "Check-in realizado com sucesso!" };
     }

@@ -12,6 +12,8 @@
     var eventName = ev?.Name ?? "SASC 26";
     var eventSubtitle = ev?.Subtitle ?? "";
     var eventSlug = ev?.Slug ?? "";
+    var checkInMode = (int)(ViewBag.CheckInMode ?? 0);
+    var requireOtp = (bool)(ViewBag.RequireOtp ?? true);
     var scheduleEnabled = (bool)(ViewBag.ScheduleEnabled ?? false);
     var scheduleDisabledReason = ViewBag.ScheduleDisabledReason as string ?? "";
 }
@@ -106,7 +108,17 @@
             <div id="messageArea"></div>
 
             <div class="step-section active" id="stepOptions">
-                @if (hasActiveTimeSlot)
+                @if (checkInMode == 2)
+                {
+                    <a href="/@eventSlug/Home/MagicCheckIn" class="button is-secondary is-fullwidth option-btn" style="text-decoration:none;">
+                        <span class="option-icon">&#128266;</span>
+                        <span style="display:flex;flex-direction:column;align-items:flex-start;text-align:left;">
+                            <span style="font-weight:600;">Check-in Mágico</span>
+                            <span style="font-size:0.7rem;opacity:0.6;margin-top:1px;">Use o áudio ultrassônico para validar presença</span>
+                        </span>
+                    </a>
+                }
+                else if (hasActiveTimeSlot)
                 {
                     <button class="button is-secondary is-fullwidth option-btn" onclick="startCheckin()">
                         <span class="option-icon">&#10003;</span>
@@ -193,14 +205,27 @@
             <div class="step-section" id="stepLecture">
                 <p class="section-label">Selecione a palestra</p>
                 <div id="lectureList"></div>
-                <hr class="section-divider">
-                <p class="section-label">Palavras-chave do palestrante</p>
-                <div class="columns is-mobile is-gapless words" style="margin:0;">
-                    <div class="column" style="padding-right:4px;"><div class="field"><div class="control"><input class="input kw-input" type="text" id="kw1" placeholder="Palavra 1" maxlength="30"></div></div></div>
-                    <div class="column" style="padding:0 2px;"><div class="field"><div class="control"><input class="input kw-input" type="text" id="kw2" placeholder="Palavra 2" maxlength="30"></div></div></div>
-                    <div class="column" style="padding-left:4px;"><div class="field"><div class="control"><input class="input kw-input" type="text" id="kw3" placeholder="Palavra 3" maxlength="30"></div></div></div>
-                </div>
-                <div class="field" style="margin-top:16px;"><div class="control"><button class="button is-brand is-fullwidth" id="btnSubmit" onclick="submitCheckIn()">Confirmar Presença</button></div></div>
+
+                @if (checkInMode == 0)
+                {
+                    <hr class="section-divider">
+                    <p class="section-label">Palavras-chave do palestrante</p>
+                    <div class="columns is-mobile is-gapless words" style="margin:0;">
+                        <div class="column" style="padding-right:4px;"><div class="field"><div class="control"><input class="input kw-input" type="text" id="kw1" placeholder="Palavra 1" maxlength="30"></div></div></div>
+                        <div class="column" style="padding:0 2px;"><div class="field"><div class="control"><input class="input kw-input" type="text" id="kw2" placeholder="Palavra 2" maxlength="30"></div></div></div>
+                        <div class="column" style="padding-left:4px;"><div class="field"><div class="control"><input class="input kw-input" type="text" id="kw3" placeholder="Palavra 3" maxlength="30"></div></div></div>
+                    </div>
+                }
+                else if (checkInMode == 1)
+                {
+                    <hr class="section-divider">
+                    <p class="section-label">QR Code do palestrante</p>
+                    <div id="qrScanner" style="width:100%;max-width:320px;margin:0 auto;"></div>
+                    <div id="qrScanResult" class="msg-success" style="display:none;text-align:center;">QR Code detectado!</div>
+                    <button class="button is-brand is-fullwidth" id="btnStartScanner" onclick="startQrScanner()" style="margin-top:8px;">Escanear QR Code</button>
+                }
+
+                <div class="field" style="margin-top:16px;"><div class="control"><button class="button is-brand is-fullwidth" id="btnSubmit" onclick="submitCheckIn()">@(checkInMode == 3 ? "Confirmar Presença" : "Confirmar Presença")</button></div></div>
                 <a class="back-link" onclick="goBackToOtp()">&#8592; Voltar</a>
             </div>
 
@@ -224,16 +249,34 @@
 </div>
 
 @section Scripts {
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script>
     let currentEmail = '';
     let sesFallback = false;
     let selectedLectureId = 0;
+    let qrCodeScanner = null;
+
+    const baseUrl = '/@eventSlug';
+    const checkInMode = @checkInMode;
+    const requireOtp = @(requireOtp ? "true" : "false");
 
     function showMessage(t, type) { document.getElementById('messageArea').innerHTML = `<div class="msg-${type}">${t}</div>`; }
     function clearMessage() { document.getElementById('messageArea').innerHTML = ''; }
     function showStep(s) { document.querySelectorAll('.step-section').forEach(el => el.classList.remove('active')); document.getElementById('step' + s).classList.add('active'); }
 
-    function startCheckin() { clearMessage(); showStep('Email'); document.getElementById('emailInput').focus(); }
+    function startCheckin() {
+        clearMessage();
+        if (!requireOtp) {
+            showStep('Otp');
+            document.getElementById('otpFieldGroup').style.display = 'none';
+            document.getElementById('sesFallbackWarning').style.display = 'none';
+            document.getElementById('otpInput').value = '000000';
+            sesFallback = true;
+        } else {
+            showStep('Email');
+            document.getElementById('emailInput').focus();
+        }
+    }
     function goBackToOptions() { clearMessage(); showStep('Options'); document.getElementById('otpInput').value = ''; }
 
     async function loadProfile(email) {
@@ -248,8 +291,6 @@
             }
         } catch {}
     }
-
-    const baseUrl = '/@eventSlug';
 
     async function requestOtp() {
         const email = document.getElementById('emailInput').value.trim();
@@ -295,7 +336,7 @@
         const btn = document.getElementById('btnVerify');
         btn.classList.add('is-loading'); btn.disabled = true;
         try {
-            const res = await fetch(baseUrl + '/Home/VerifyOtp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: currentEmail, code, sesFallback, fullName, course, shift, phase }) });
+            const res = await fetch(baseUrl + '/Home/VerifyOtp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: currentEmail, code, sesFallback: sesFallback || !requireOtp, fullName, course, shift, phase }) });
             const data = await res.json();
             if (data.success) { clearMessage(); await loadLectures(); }
             else { showMessage(data.message, 'error'); }
@@ -321,6 +362,9 @@
                     </label>`).join('');
             }
             showStep('Lecture');
+            if (checkInMode === 1) {
+                setTimeout(startQrScanner, 500);
+            }
         } catch { showMessage('Erro ao carregar palestras.', 'error'); }
     }
 
@@ -330,28 +374,126 @@
         el.classList.add('selected');
     }
 
+    function startQrScanner() {
+        const scannerDiv = document.getElementById('qrScanner');
+        const btn = document.getElementById('btnStartScanner');
+        if (qrCodeScanner) {
+            qrCodeScanner.stop().catch(() => {});
+            qrCodeScanner = null;
+        }
+        btn.textContent = 'Abrindo câmera...';
+        btn.disabled = true;
+        qrCodeScanner = new Html5Qrcode("qrScanner");
+        qrCodeScanner.start(
+            { facingMode: "environment" },
+            { fps: 10, qrbox: { width: 250, height: 250 } },
+            function (decodedText) {
+                qrCodeScanner.stop().catch(() => {});
+                qrCodeScanner = null;
+                btn.style.display = 'none';
+                document.getElementById('qrScanResult').style.display = 'block';
+                document.getElementById('qrScanResult').textContent = 'QR Code detectado!';
+                handleQrScan(decodedText);
+            },
+            function () {}
+        ).then(() => {
+            btn.textContent = 'Parar scanner';
+            btn.disabled = false;
+            btn.onclick = function () { stopQrScanner(); };
+        }).catch(function (err) {
+            btn.textContent = 'Escanear QR Code';
+            btn.disabled = false;
+            showMessage('Erro ao abrir câmera: ' + err, 'error');
+        });
+    }
+
+    function stopQrScanner() {
+        if (qrCodeScanner) {
+            qrCodeScanner.stop().catch(() => {});
+            qrCodeScanner = null;
+        }
+        const btn = document.getElementById('btnStartScanner');
+        btn.textContent = 'Escanear QR Code';
+        btn.disabled = false;
+        btn.onclick = function () { startQrScanner(); };
+    }
+
+    function handleQrScan(payload) {
+        var parts = payload.split(':');
+        if (parts.length < 3) {
+            showMessage('QR Code inválido.', 'error');
+            return;
+        }
+        var lectureId = parseInt(parts[parts.length - 2]);
+        var token = parts[parts.length - 1];
+        if (lectureId !== selectedLectureId) {
+            showMessage('O QR Code não corresponde à palestra selecionada.', 'error');
+            stopQrScanner();
+            return;
+        }
+        const btn = document.getElementById('btnSubmit');
+        btn.classList.add('is-loading');
+        btn.disabled = true;
+        fetch(baseUrl + '/Home/SubmitQrCheckIn', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: currentEmail, fullName: '', course: '', shift: '', phase: 0, lectureId, token })
+        }).then(function (r) { return r.json(); }).then(function (data) {
+            if (data.success) {
+                clearMessage();
+                document.getElementById('successMessage').textContent = data.message;
+                showStep('Success');
+            } else {
+                showMessage(data.message, 'error');
+                stopQrScanner();
+            }
+        }).catch(function () {
+            showMessage('Erro de conexão.', 'error');
+            stopQrScanner();
+        }).finally(function () {
+            btn.classList.remove('is-loading');
+            btn.disabled = false;
+        });
+    }
+
     async function submitCheckIn() {
         if (!selectedLectureId) { showMessage('Selecione uma palestra.', 'error'); return; }
-        const kw1 = document.getElementById('kw1').value.trim();
-        const kw2 = document.getElementById('kw2').value.trim();
-        const kw3 = document.getElementById('kw3').value.trim();
-        if (!kw1 || !kw2 || !kw3) { showMessage('Preencha as 3 palavras-chave.', 'error'); return; }
         clearMessage();
-        const btn = document.getElementById('btnSubmit');
-        btn.classList.add('is-loading'); btn.disabled = true;
-        try {
-            const res = await fetch(baseUrl + '/Home/SubmitCheckIn', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: currentEmail, lectureId: selectedLectureId, keyword1: kw1, keyword2: kw2, keyword3: kw3 }) });
-            const data = await res.json();
-            if (data.success) { clearMessage(); document.getElementById('successMessage').textContent = data.message; showStep('Success'); }
-            else { showMessage(data.message, 'error'); }
-        } catch { showMessage('Erro de conexão.', 'error'); }
-        finally { btn.classList.remove('is-loading'); btn.disabled = false; }
+
+        if (checkInMode === 3) {
+            const btn = document.getElementById('btnSubmit');
+            btn.classList.add('is-loading'); btn.disabled = true;
+            try {
+                const res = await fetch(baseUrl + '/Home/SubmitCheckIn', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: currentEmail, lectureId: selectedLectureId, keyword1: '', keyword2: '', keyword3: '' }) });
+                const data = await res.json();
+                if (data.success) { clearMessage(); document.getElementById('successMessage').textContent = data.message; showStep('Success'); }
+                else { showMessage(data.message, 'error'); }
+            } catch { showMessage('Erro de conexão.', 'error'); }
+            finally { btn.classList.remove('is-loading'); btn.disabled = false; }
+            return;
+        }
+
+        if (checkInMode === 0) {
+            const kw1 = document.getElementById('kw1').value.trim();
+            const kw2 = document.getElementById('kw2').value.trim();
+            const kw3 = document.getElementById('kw3').value.trim();
+            if (!kw1 || !kw2 || !kw3) { showMessage('Preencha as 3 palavras-chave.', 'error'); return; }
+            const btn = document.getElementById('btnSubmit');
+            btn.classList.add('is-loading'); btn.disabled = true;
+            try {
+                const res = await fetch(baseUrl + '/Home/SubmitCheckIn', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: currentEmail, lectureId: selectedLectureId, keyword1: kw1, keyword2: kw2, keyword3: kw3 }) });
+                const data = await res.json();
+                if (data.success) { clearMessage(); document.getElementById('successMessage').textContent = data.message; showStep('Success'); }
+                else { showMessage(data.message, 'error'); }
+            } catch { showMessage('Erro de conexão.', 'error'); }
+            finally { btn.classList.remove('is-loading'); btn.disabled = false; }
+        }
     }
 
     function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
     function goBack() { clearMessage(); sesFallback = false; showStep('Email'); document.getElementById('otpInput').value = ''; document.getElementById('otpFieldGroup').style.display = 'block'; document.getElementById('sesFallbackWarning').style.display = 'none'; }
     function goBackToOtp() { clearMessage(); showStep('Otp'); }
-    function resetForm() { clearMessage(); sesFallback = false; selectedLectureId = 0; ['emailInput','otpInput','fullNameInput','kw1','kw2','kw3'].forEach(id => document.getElementById(id).value = ''); ['courseSelect','shiftSelect','phaseSelect'].forEach(id => document.getElementById(id).value = ''); document.getElementById('otpFieldGroup').style.display = 'block'; document.getElementById('sesFallbackWarning').style.display = 'none'; currentEmail = ''; showStep('Options'); }
+    function resetForm() { clearMessage(); sesFallback = false; selectedLectureId = 0; ['emailInput','otpInput','fullNameInput','kw1','kw2','kw3'].forEach(id => document.getElementById(id).value = ''); ['courseSelect','shiftSelect','phaseSelect'].forEach(id => document.getElementById(id).value = ''); document.getElementById('otpFieldGroup').style.display = 'block'; document.getElementById('sesFallbackWarning').style.display = 'none'; currentEmail = ''; if (qrCodeScanner) { qrCodeScanner.stop().catch(() => {}); qrCodeScanner = null; } showStep('Options'); }
 
     document.getElementById('emailInput').addEventListener('keydown', e => { if (e.key === 'Enter') requestOtp(); });
     document.getElementById('otpInput').addEventListener('keydown', e => { if (e.key === 'Enter') verifyOtp(); });

@@ -23,6 +23,8 @@ public class Event
     public byte[]? LogoImage { get; set; }
     public string LogoContentType { get; set; } = string.Empty;
     public string PostCheckinButtonsJson { get; set; } = "[]";
+    public CheckInMode CheckInMode { get; set; } = CheckInMode.Keywords;
+    public bool RequireOtp { get; set; } = true;
     public bool IsEventWidePreRegistration { get; set; }
     public DateTime? PreRegistrationStart { get; set; }
     public DateTime? PreRegistrationEnd { get; set; }

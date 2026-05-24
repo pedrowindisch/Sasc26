@@ -44,6 +44,8 @@ public class AppDbContext : DbContext
             entity.Property(e => e.BackgroundColor).HasMaxLength(20);
             entity.Property(e => e.TextColor).HasMaxLength(20);
             entity.Property(e => e.LogoContentType).HasMaxLength(100);
+            entity.Property(e => e.CheckInMode).HasDefaultValue(Models.CheckInMode.Keywords);
+            entity.Property(e => e.RequireOtp).HasDefaultValue(true);
             entity.HasIndex(e => e.Slug).IsUnique();
         });
 

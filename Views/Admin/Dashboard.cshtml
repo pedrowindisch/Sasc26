@@ -12,6 +12,7 @@
     var preRegCounts = ViewBag.PreRegCounts as Dictionary<int, int> ?? new();
     var isEventWide = ev?.IsEventWidePreRegistration ?? false;
     var eventWideRegCount = ViewBag.EventWideRegCount as int? ?? 0;
+    var checkInMode = (int)(ViewBag.CheckInMode ?? 0);
 }
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -196,8 +197,18 @@
                                 }
                             </td>
                             <td>
-                                <a href="/@eventSlug/Admin/Projector?lectureId=@l.Id" target="_blank" class="button is-small" style="background:#2EBDEF;color:#fff;margin-right:4px;font-size:0.7rem;padding:2px 10px;" title="Abrir tela de projeção">Projetar</a>
-                                <a href="/@eventSlug/Admin/MagicCheckInBroadcast?lectureId=@l.Id" class="button is-small" style="background:#7c3aed;color:#fff;margin-right:4px;font-size:0.7rem;padding:2px 10px;" title="Check-in mágico via áudio">🔊 Mágico</a>
+                                @if (checkInMode == 0)
+                                {
+                                    <a href="/@eventSlug/Admin/Projector?lectureId=@l.Id" target="_blank" class="button is-small" style="background:#2EBDEF;color:#fff;margin-right:4px;font-size:0.7rem;padding:2px 10px;" title="Abrir tela de projeção">Projetar</a>
+                                }
+                                else if (checkInMode == 1)
+                                {
+                                    <a href="/@eventSlug/Admin/QrCodeBroadcast?lectureId=@l.Id" target="_blank" class="button is-small" style="background:#059669;color:#fff;margin-right:4px;font-size:0.7rem;padding:2px 10px;" title="Abrir QR Code">QR Code</a>
+                                }
+                                else if (checkInMode == 2)
+                                {
+                                    <a href="/@eventSlug/Admin/MagicCheckInBroadcast?lectureId=@l.Id" class="button is-small" style="background:#7c3aed;color:#fff;margin-right:4px;font-size:0.7rem;padding:2px 10px;" title="Check-in mágico via áudio">🔊 Mágico</a>
+                                }
                                 <button class="button is-danger-light is-small" onclick="deleteLecture(@l.Id)">Remover</button>
                             </td>
                         </tr>
