@@ -186,6 +186,9 @@ public class SuperAdminController : Controller
             return View(ev);
         }
 
+        _db.Events.Add(ev);
+        ev.CreatedAt = DateTime.UtcNow;
+
         // Save courses
         var coursesJson = Request.Form["CoursesJson"].ToString();
         if (!string.IsNullOrWhiteSpace(coursesJson))
@@ -195,9 +198,8 @@ public class SuperAdminController : Controller
             {
                 if (!string.IsNullOrWhiteSpace(c.Name))
                 {
-                    _db.EventCourses.Add(new EventCourse
+                    ev.Courses.Add(new EventCourse
                     {
-                        EventId = ev.Id,
                         Name = c.Name.Trim(),
                         NumberOfSemesters = c.NumberOfSemesters
                     });
