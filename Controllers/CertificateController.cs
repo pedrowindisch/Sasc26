@@ -104,6 +104,18 @@ public class CertificateController : Controller
     }
 
     [HttpGet]
+    public async Task<IActionResult> GetCourses()
+    {
+        var eventId = _eventContext.CurrentEventId;
+        var courses = await _db.EventCourses
+            .Where(c => c.EventId == eventId)
+            .OrderBy(c => c.Name)
+            .Select(c => new { c.Name, c.NumberOfSemesters })
+            .ToListAsync();
+        return Json(new { success = true, courses });
+    }
+
+    [HttpGet]
     public async Task<IActionResult> BackgroundImage()
     {
         var config = await _db.CertificateConfigs.FirstOrDefaultAsync(c => c.EventId == _eventContext.CurrentEventId);

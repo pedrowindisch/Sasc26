@@ -25,6 +25,7 @@ public class AppDbContext : DbContext
     public DbSet<FormSubmission> FormSubmissions => Set<FormSubmission>();
     public DbSet<PreRegistrationConfig> PreRegistrationConfigs => Set<PreRegistrationConfig>();
     public DbSet<PreRegistrationFormSubmission> PreRegistrationFormSubmissions => Set<PreRegistrationFormSubmission>();
+    public DbSet<EventCourse> EventCourses => Set<EventCourse>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -44,14 +45,28 @@ public class AppDbContext : DbContext
             entity.Property(e => e.BackgroundColor).HasMaxLength(20);
             entity.Property(e => e.TextColor).HasMaxLength(20);
             entity.Property(e => e.LogoContentType).HasMaxLength(100);
+            entity.Property(e => e.BackgroundImageDesktopContentType).HasMaxLength(100);
+            entity.Property(e => e.BackgroundImageMobileContentType).HasMaxLength(100);
             entity.Property(e => e.CheckInMode).HasDefaultValue(Models.CheckInMode.Keywords);
             entity.Property(e => e.RequireOtp).HasDefaultValue(true);
+            entity.Property(e => e.IsRetroactiveCheckInEnabled).HasDefaultValue(true);
             entity.HasIndex(e => e.Slug).IsUnique();
+        });
+
+        modelBuilder.Entity<EventCourse>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
+            entity.HasOne(e => e.Event)
+                  .WithMany(e => e.Courses)
+                  .HasForeignKey(e => e.EventId)
+                  .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => new { e.EventId, e.Name }).IsUnique();
         });
 
         modelBuilder.Entity<Attendee>(entity =>
         {
-            entity.HasKey(e => e.Email);
+            entity.HasKey(e => new { e.EventId, e.Email });
             entity.Property(e => e.Email).HasMaxLength(200);
             entity.Property(e => e.FullName).IsRequired().HasMaxLength(200);
             entity.Property(e => e.Course).IsRequired().HasMaxLength(100);
@@ -62,9 +77,8 @@ public class AppDbContext : DbContext
                   .OnDelete(DeleteBehavior.Restrict);
             entity.HasMany(e => e.CheckIns)
                   .WithOne(c => c.Attendee)
-                  .HasForeignKey(c => c.AttendeeEmail)
+                  .HasForeignKey(c => new { c.EventId, c.AttendeeEmail })
                   .OnDelete(DeleteBehavior.Cascade);
-            entity.HasIndex(e => new { e.EventId, e.Email }).IsUnique();
         });
 
         modelBuilder.Entity<TimeSlot>(entity =>
@@ -190,7 +204,7 @@ public class AppDbContext : DbContext
                   .OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(e => e.Attendee)
                   .WithMany()
-                  .HasForeignKey(e => e.AttendeeEmail)
+                  .HasForeignKey(e => new { e.EventId, e.AttendeeEmail })
                   .OnDelete(DeleteBehavior.Cascade);
             entity.HasOne(e => e.Lecture)
                   .WithMany()

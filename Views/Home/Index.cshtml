@@ -2,8 +2,6 @@
     ViewData["Title"] = "Registrar Presença";
     var ev = ViewBag.Event as Sasc26.Models.Event;
     var hasActiveTimeSlot = (bool)ViewBag.HasActiveTimeSlot;
-    var instagramUrl = ViewBag.InstagramUrl as string ?? "https://instagram.com/dascfurb";
-    var tshirtPresaleUrl = ViewBag.TshirtPresaleUrl as string ?? "";
     var banner = ViewBag.Banner as Sasc26.Models.Banner;
     var primaryColor = ev?.PrimaryColor ?? "#113D76";
     var accentColor = ev?.AccentColor ?? "#2EBDEF";
@@ -91,7 +89,7 @@
     }
     <div class="event-card">
         <div class="event-header">
-            <img class="logo" src="~/dasc.svg" alt="DASC">
+            <img class="logo" src="@ev.LogoUrl(Url)" alt="@(ev?.Name ?? "DASC")">
             <h1>@eventName</h1>
             <p>@eventSubtitle</p>
             @if (hasActiveTimeSlot)
@@ -160,9 +158,12 @@
                         </button>
                     }
                 </div>
-                <div class="has-text-centered" style="margin-top:16px;">
-                    <button onclick="location.href='/@eventSlug/Home/RetroactiveCheckIn'" class="button is-secondary is-fullwidth">Esqueceu de validar suas AACCs?</button>
-                </div>
+                @if (ViewBag.Event?.IsRetroactiveCheckInEnabled == true)
+                {
+                    <div class="has-text-centered" style="margin-top:16px;">
+                        <button onclick="location.href='/@eventSlug/Home/RetroactiveCheckIn'" class="button is-secondary is-fullwidth">Esqueceu de validar suas AACCs?</button>
+                    </div>
+                }
                 <div class="has-text-centered" style="margin-top:12px;">
                     <a href="/@eventSlug/Volunteer" class="back-link">Sou voluntário</a>
                     <span style="color:#ddd;margin:0 6px;">|</span>
@@ -176,7 +177,7 @@
                     <div class="control"><input class="input" type="email" id="emailInput" placeholder="seu.nome@furb.br" autocomplete="email" autofocus></div>
                 </div>
                 <div class="field" style="margin-top:16px;">
-                    <div class="control"><button class="button is-brand is-fullwidth" id="btnSendOtp" onclick="requestOtp()">Enviar código</button></div>
+                    <div class="control"><button class="button is-brand is-fullwidth" id="btnSendOtp" onclick="requestOtp()">@(requireOtp ? "Enviar código" : "Continuar")</button></div>
                 </div>
                 <a class="back-link" onclick="goBackToOptions()">&#8592; Voltar</a>
             </div>
@@ -195,9 +196,9 @@
                 <hr class="section-divider">
                 <p class="section-label">Dados cadastrais</p>
                 <div class="field"><label class="label is-small has-text-grey">Nome completo</label><div class="control"><input class="input" type="text" id="fullNameInput" placeholder="João da Silva" autocomplete="name"></div></div>
-                <div class="field"><label class="label is-small has-text-grey">Curso</label><div class="control"><div class="select is-fullwidth"><select id="courseSelect"><option value="">Selecione</option><option value="Ciência da Computação">Ciência da Computação</option><option value="Ciência de Dados">Ciência de Dados</option><option value="Sistemas de Informação">Sistemas de Informação</option></select></div></div></div>
+                <div class="field"><label class="label is-small has-text-grey">Curso</label><div class="control"><div class="select is-fullwidth"><select id="courseSelect"><option value="">Selecione</option></select></div></div></div>
                 <div class="field"><label class="label is-small has-text-grey">Turno</label><div class="control"><div class="select is-fullwidth"><select id="shiftSelect"><option value="">Selecione</option><option value="Matutino">Matutino</option><option value="Noturno">Noturno</option></select></div></div></div>
-                <div class="field"><label class="label is-small has-text-grey">Fase</label><div class="control"><div class="select is-fullwidth"><select id="phaseSelect"><option value="">-</option>@for (var i = 1; i <= 9; i++) {<option value="@i">@i</option>}</select></div></div></div>
+                <div class="field"><label class="label is-small has-text-grey">Fase</label><div class="control"><div class="select is-fullwidth"><select id="phaseSelect"><option value="">-</option></select></div></div></div>
                 <div class="field" style="margin-top:16px;"><div class="control"><button class="button is-brand is-fullwidth" id="btnVerify" onclick="verifyOtp()">Continuar</button></div></div>
                 <a class="back-link" onclick="goBack()">&#8592; Voltar</a>
             </div>
@@ -220,26 +221,34 @@
                 {
                     <hr class="section-divider">
                     <p class="section-label">QR Code do palestrante</p>
-                    <div id="qrScanner" style="width:100%;max-width:320px;margin:0 auto;"></div>
-                    <div id="qrScanResult" class="msg-success" style="display:none;text-align:center;">QR Code detectado!</div>
-                    <button class="button is-brand is-fullwidth" id="btnStartScanner" onclick="startQrScanner()" style="margin-top:8px;">Escanear QR Code</button>
+                    <button class="button is-brand is-fullwidth" onclick="openQrScanner()">Escanear QR Code</button>
                 }
 
-                <div class="field" style="margin-top:16px;"><div class="control"><button class="button is-brand is-fullwidth" id="btnSubmit" onclick="submitCheckIn()">@(checkInMode == 3 ? "Confirmar Presença" : "Confirmar Presença")</button></div></div>
+                @if (checkInMode != 1)
+                {
+                    <div class="field" style="margin-top:16px;"><div class="control"><button class="button is-brand is-fullwidth" id="btnSubmit" onclick="submitCheckIn()">Confirmar Presença</button></div></div>
+                }
                 <a class="back-link" onclick="goBackToOtp()">&#8592; Voltar</a>
             </div>
 
             <div class="step-section" id="stepSuccess">
                 <div class="msg-success has-text-centered" id="successMessage" style="padding:16px;"></div>
                 <div class="success-actions has-text-centered">
-                    <a href="@instagramUrl" target="_blank" rel="noopener" class="button is-outlined-brand is-fullwidth">@@dascfurb no Instagram</a>
-                    @if (!string.IsNullOrWhiteSpace(tshirtPresaleUrl))
+                    @if (ev?.PostCheckinButtons is { Count: > 0 })
                     {
-                        <a href="@tshirtPresaleUrl" target="_blank" rel="noopener" class="button is-brand is-fullwidth">Confira nossa pré-venda de camisetas</a>
-                    }
-                    else
-                    {
-                        <button class="button is-brand is-fullwidth" disabled title="Em breve">Confira nossa pré-venda de camisetas</button>
+                        var first = true;
+                        foreach (var btn in ev.PostCheckinButtons)
+                        {
+                            if (btn.Enabled && !string.IsNullOrWhiteSpace(btn.Url))
+                            {
+                                <a href="@btn.Url" target="_blank" rel="noopener" class="button @(first ? "is-outlined-brand" : "is-brand") is-fullwidth">@btn.Label</a>
+                            }
+                            else
+                            {
+                                <button class="button is-brand is-fullwidth" disabled title="@(string.IsNullOrWhiteSpace(btn.Url) ? "Em breve" : "")">@btn.Label</button>
+                            }
+                            first = false;
+                        }
                     }
                 </div>
                 <div class="has-text-centered"><a class="back-link" onclick="resetForm()">&#8592; Voltar ao início</a></div>
@@ -249,16 +258,48 @@
 </div>
 
 @section Scripts {
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script>
     let currentEmail = '';
     let sesFallback = false;
     let selectedLectureId = 0;
-    let qrCodeScanner = null;
 
     const baseUrl = '/@eventSlug';
     const checkInMode = @checkInMode;
     const requireOtp = @(requireOtp ? "true" : "false");
+
+    let coursesList = [];
+
+    async function loadCourses() {
+        try {
+            const res = await fetch(baseUrl + '/Home/GetCourses');
+            const data = await res.json();
+            if (data.success && data.courses) {
+                coursesList = data.courses;
+                const sel = document.getElementById('courseSelect');
+                sel.innerHTML = '<option value="">Selecione</option>' +
+                    coursesList.map(c => '<option value="' + esc(c.name) + '">' + esc(c.name) + '</option>').join('');
+            }
+        } catch {}
+    }
+
+    function updatePhaseOptions() {
+        const courseName = document.getElementById('courseSelect').value;
+        const course = coursesList.find(c => c.name === courseName);
+        const max = course ? course.numberOfSemesters : 0;
+        const sel = document.getElementById('phaseSelect');
+        const currentVal = sel.value;
+        let html = '<option value="">-</option>';
+        for (let i = 1; i <= max; i++) {
+            html += '<option value="' + i + '">' + i + '</option>';
+        }
+        sel.innerHTML = html;
+        if (currentVal && parseInt(currentVal) <= max) sel.value = currentVal;
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        loadCourses();
+        document.getElementById('courseSelect').addEventListener('change', updatePhaseOptions);
+    });
 
     function showMessage(t, type) { document.getElementById('messageArea').innerHTML = `<div class="msg-${type}">${t}</div>`; }
     function clearMessage() { document.getElementById('messageArea').innerHTML = ''; }
@@ -266,16 +307,8 @@
 
     function startCheckin() {
         clearMessage();
-        if (!requireOtp) {
-            showStep('Otp');
-            document.getElementById('otpFieldGroup').style.display = 'none';
-            document.getElementById('sesFallbackWarning').style.display = 'none';
-            document.getElementById('otpInput').value = '000000';
-            sesFallback = true;
-        } else {
-            showStep('Email');
-            document.getElementById('emailInput').focus();
-        }
+        showStep('Email');
+        document.getElementById('emailInput').focus();
     }
     function goBackToOptions() { clearMessage(); showStep('Options'); document.getElementById('otpInput').value = ''; }
 
@@ -286,8 +319,9 @@
             if (data && data.found) {
                 document.getElementById('fullNameInput').value = data.fullName || '';
                 document.getElementById('courseSelect').value = data.course || '';
+                updatePhaseOptions();
                 document.getElementById('shiftSelect').value = data.shift || '';
-                document.getElementById('phaseSelect').value = data.phase || '';
+                if (data.phase) document.getElementById('phaseSelect').value = data.phase;
             }
         } catch {}
     }
@@ -298,6 +332,18 @@
         clearMessage();
         const btn = document.getElementById('btnSendOtp');
         btn.classList.add('is-loading'); btn.disabled = true;
+        if (!requireOtp) {
+            currentEmail = email;
+            document.getElementById('emailDisplay').textContent = email;
+            sesFallback = true;
+            document.getElementById('otpFieldGroup').style.display = 'none';
+            document.getElementById('sesFallbackWarning').style.display = 'none';
+            document.getElementById('otpInput').value = '000000';
+            showStep('Otp');
+            loadProfile(email);
+            btn.classList.remove('is-loading'); btn.disabled = false;
+            return;
+        }
         try {
             const res = await fetch(baseUrl + '/Home/RequestOtp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
             const data = await res.json();
@@ -362,9 +408,6 @@
                     </label>`).join('');
             }
             showStep('Lecture');
-            if (checkInMode === 1) {
-                setTimeout(startQrScanner, 500);
-            }
         } catch { showMessage('Erro ao carregar palestras.', 'error'); }
     }
 
@@ -374,86 +417,9 @@
         el.classList.add('selected');
     }
 
-    function startQrScanner() {
-        const scannerDiv = document.getElementById('qrScanner');
-        const btn = document.getElementById('btnStartScanner');
-        if (qrCodeScanner) {
-            qrCodeScanner.stop().catch(() => {});
-            qrCodeScanner = null;
-        }
-        btn.textContent = 'Abrindo câmera...';
-        btn.disabled = true;
-        qrCodeScanner = new Html5Qrcode("qrScanner");
-        qrCodeScanner.start(
-            { facingMode: "environment" },
-            { fps: 10, qrbox: { width: 250, height: 250 } },
-            function (decodedText) {
-                qrCodeScanner.stop().catch(() => {});
-                qrCodeScanner = null;
-                btn.style.display = 'none';
-                document.getElementById('qrScanResult').style.display = 'block';
-                document.getElementById('qrScanResult').textContent = 'QR Code detectado!';
-                handleQrScan(decodedText);
-            },
-            function () {}
-        ).then(() => {
-            btn.textContent = 'Parar scanner';
-            btn.disabled = false;
-            btn.onclick = function () { stopQrScanner(); };
-        }).catch(function (err) {
-            btn.textContent = 'Escanear QR Code';
-            btn.disabled = false;
-            showMessage('Erro ao abrir câmera: ' + err, 'error');
-        });
-    }
-
-    function stopQrScanner() {
-        if (qrCodeScanner) {
-            qrCodeScanner.stop().catch(() => {});
-            qrCodeScanner = null;
-        }
-        const btn = document.getElementById('btnStartScanner');
-        btn.textContent = 'Escanear QR Code';
-        btn.disabled = false;
-        btn.onclick = function () { startQrScanner(); };
-    }
-
-    function handleQrScan(payload) {
-        var parts = payload.split(':');
-        if (parts.length < 3) {
-            showMessage('QR Code inválido.', 'error');
-            return;
-        }
-        var lectureId = parseInt(parts[parts.length - 2]);
-        var token = parts[parts.length - 1];
-        if (lectureId !== selectedLectureId) {
-            showMessage('O QR Code não corresponde à palestra selecionada.', 'error');
-            stopQrScanner();
-            return;
-        }
-        const btn = document.getElementById('btnSubmit');
-        btn.classList.add('is-loading');
-        btn.disabled = true;
-        fetch(baseUrl + '/Home/SubmitQrCheckIn', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: currentEmail, fullName: '', course: '', shift: '', phase: 0, lectureId, token })
-        }).then(function (r) { return r.json(); }).then(function (data) {
-            if (data.success) {
-                clearMessage();
-                document.getElementById('successMessage').textContent = data.message;
-                showStep('Success');
-            } else {
-                showMessage(data.message, 'error');
-                stopQrScanner();
-            }
-        }).catch(function () {
-            showMessage('Erro de conexão.', 'error');
-            stopQrScanner();
-        }).finally(function () {
-            btn.classList.remove('is-loading');
-            btn.disabled = false;
-        });
+    function openQrScanner() {
+        if (!selectedLectureId) { showMessage('Selecione uma palestra.', 'error'); return; }
+        window.location.href = baseUrl + '/Home/QrScan?lectureId=' + selectedLectureId + '&email=' + encodeURIComponent(currentEmail);
     }
 
     async function submitCheckIn() {
@@ -493,7 +459,7 @@
     function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
     function goBack() { clearMessage(); sesFallback = false; showStep('Email'); document.getElementById('otpInput').value = ''; document.getElementById('otpFieldGroup').style.display = 'block'; document.getElementById('sesFallbackWarning').style.display = 'none'; }
     function goBackToOtp() { clearMessage(); showStep('Otp'); }
-    function resetForm() { clearMessage(); sesFallback = false; selectedLectureId = 0; ['emailInput','otpInput','fullNameInput','kw1','kw2','kw3'].forEach(id => document.getElementById(id).value = ''); ['courseSelect','shiftSelect','phaseSelect'].forEach(id => document.getElementById(id).value = ''); document.getElementById('otpFieldGroup').style.display = 'block'; document.getElementById('sesFallbackWarning').style.display = 'none'; currentEmail = ''; if (qrCodeScanner) { qrCodeScanner.stop().catch(() => {}); qrCodeScanner = null; } showStep('Options'); }
+    function resetForm() { clearMessage(); sesFallback = false; selectedLectureId = 0; ['emailInput','otpInput','fullNameInput','kw1','kw2','kw3'].forEach(id => document.getElementById(id).value = ''); ['courseSelect','shiftSelect','phaseSelect'].forEach(id => document.getElementById(id).value = ''); document.getElementById('otpFieldGroup').style.display = 'block'; document.getElementById('sesFallbackWarning').style.display = 'none'; currentEmail = ''; showStep('Options'); }
 
     document.getElementById('emailInput').addEventListener('keydown', e => { if (e.key === 'Enter') requestOtp(); });
     document.getElementById('otpInput').addEventListener('keydown', e => { if (e.key === 'Enter') verifyOtp(); });

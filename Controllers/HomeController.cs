@@ -15,14 +15,16 @@ public class HomeController : Controller
     private readonly IPreRegistrationConfigService _preRegConfigService;
     private readonly IEventContext _eventContext;
     private readonly AppDbContext _db;
+    private readonly IWebHostEnvironment _env;
 
-    public HomeController(ILogger<HomeController> logger, IAttendanceService attendanceService, IPreRegistrationConfigService preRegConfigService, IEventContext eventContext, AppDbContext db)
+    public HomeController(ILogger<HomeController> logger, IAttendanceService attendanceService, IPreRegistrationConfigService preRegConfigService, IEventContext eventContext, AppDbContext db, IWebHostEnvironment env)
     {
         _logger = logger;
         _attendanceService = attendanceService;
         _preRegConfigService = preRegConfigService;
         _eventContext = eventContext;
         _db = db;
+        _env = env;
     }
 
     public async Task<IActionResult> Index()
@@ -43,8 +45,6 @@ public class HomeController : Controller
         var timeSlot = await _attendanceService.GetActiveTimeSlotAsync();
         ViewBag.ActiveTimeSlot = timeSlot;
         ViewBag.HasActiveTimeSlot = timeSlot is not null;
-        ViewBag.InstagramUrl = ev.InstagramUrl;
-        ViewBag.TshirtPresaleUrl = ev.TshirtPresaleUrl;
         ViewBag.Event = ev;
         ViewBag.CheckInMode = (int)ev.CheckInMode;
         ViewBag.RequireOtp = ev.RequireOtp;
@@ -278,6 +278,9 @@ public class HomeController : Controller
     [HttpGet]
     public IActionResult RetroactiveCheckIn()
     {
+        if (_eventContext.CurrentEvent.IsRetroactiveCheckInEnabled == false)
+            return NotFound();
+
         var slug = EventHelper.GetEventSlug(HttpContext);
         if (string.IsNullOrEmpty(slug))
         {
@@ -293,6 +296,9 @@ public class HomeController : Controller
     [HttpGet]
     public async Task<IActionResult> GetYesterdayLectures()
     {
+        if (_eventContext.CurrentEvent.IsRetroactiveCheckInEnabled == false)
+            return Json(new { success = false, message = "Recurso desabilitado." });
+
         var lectures = await _attendanceService.GetYesterdayLecturesAsync();
         return Json(new { success = true, lectures });
     }
@@ -300,6 +306,9 @@ public class HomeController : Controller
     [HttpPost]
     public async Task<IActionResult> SubmitRetroactiveCheckIn([FromBody] RetroactiveRequestDto dto)
     {
+        if (_eventContext.CurrentEvent.IsRetroactiveCheckInEnabled == false)
+            return Json(new { success = false, message = "Recurso desabilitado." });
+
         var result = await _attendanceService.SubmitRetroactiveRequestAsync(dto);
         return Json(new { result.Success, result.Message });
     }
@@ -321,6 +330,55 @@ public class HomeController : Controller
 
         var result = await _attendanceService.MagicCheckInAsync(dto);
         return Json(new { result.Success, result.Message });
+    }
+
+    [HttpGet]
+    [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Client)]
+    public IActionResult Logo()
+    {
+        var ev = _eventContext.CurrentEvent;
+        if (ev.LogoImage is { Length: > 0 } && !string.IsNullOrEmpty(ev.LogoContentType))
+        {
+            return File(ev.LogoImage, ev.LogoContentType);
+        }
+        return PhysicalFile(Path.Combine(_env.WebRootPath, "dasc.svg"), "image/svg+xml");
+    }
+
+    [HttpGet]
+    [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Client)]
+    public IActionResult Background(string type = "desktop")
+    {
+        var ev = _eventContext.CurrentEvent;
+        if (type == "mobile" && ev.BackgroundImageMobile is { Length: > 0 } && !string.IsNullOrEmpty(ev.BackgroundImageMobileContentType))
+        {
+            return File(ev.BackgroundImageMobile, ev.BackgroundImageMobileContentType);
+        }
+        if (ev.BackgroundImageDesktop is { Length: > 0 } && !string.IsNullOrEmpty(ev.BackgroundImageDesktopContentType))
+        {
+            return File(ev.BackgroundImageDesktop, ev.BackgroundImageDesktopContentType);
+        }
+        return NotFound();
+    }
+
+    [HttpGet]
+    public IActionResult QrScan([FromQuery] int lectureId, [FromQuery] string email)
+    {
+        ViewBag.EventSlug = _eventContext.CurrentEvent?.Slug;
+        ViewBag.LectureId = lectureId;
+        ViewBag.Email = email;
+        return View();
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetCourses()
+    {
+        var eventId = _eventContext.CurrentEventId;
+        var courses = await _db.EventCourses
+            .Where(c => c.EventId == eventId)
+            .OrderBy(c => c.Name)
+            .Select(c => new { c.Name, c.NumberOfSemesters })
+            .ToListAsync();
+        return Json(new { success = true, courses });
     }
 
     private static TimeZoneInfo BrasiliaTz => GetBrasiliaTimeZone();

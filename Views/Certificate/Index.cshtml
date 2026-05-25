@@ -79,7 +79,7 @@
 <div class="card-wrapper">
     <div class="event-card">
         <div class="event-header">
-            <img class="logo" src="~/dasc.svg" alt="DASC">
+            <img class="logo" src="@ev.LogoUrl(Url)" alt="@(ev?.Name ?? "DASC")">
             <h1>@eventName</h1>
             <p>@eventSubtitle</p>
             <span class="cert-tag">Certificados</span>
@@ -106,8 +106,8 @@
             <div class="step-section" id="stepProfile"></div>
                 <p style="font-size:0.85rem;color:#666;margin-bottom:12px;">Complete seu perfil para emitir o certificado:</p>
                 <div class="field"><label class="label is-small has-text-grey">Nome completo</label><div class="control"><input class="input" type="text" id="profileName" placeholder="João da Silva"></div></div>
-                <div class="field"><label class="label is-small has-text-grey">Curso</label><div class="control"><div class="select is-fullwidth"><select id="profileCourse"><option value="">Selecione</option><option value="Ciência da Computação">Ciência da Computação</option><option value="Ciência de Dados">Ciência de Dados</option><option value="Sistemas de Informação">Sistemas de Informação</option></select></div></div></div>
-                <div class="field"><label class="label is-small has-text-grey">Fase</label><div class="control"><div class="select is-fullwidth"><select id="profilePhase"><option value="">-</option>@for (var i = 1; i <= 9; i++) {<option value="@i">@i</option>}</select></div></div></div>
+                <div class="field"><label class="label is-small has-text-grey">Curso</label><div class="control"><div class="select is-fullwidth"><select id="profileCourse"><option value="">Selecione</option></select></div></div></div>
+                <div class="field"><label class="label is-small has-text-grey">Fase</label><div class="control"><div class="select is-fullwidth"><select id="profilePhase"><option value="">-</option></select></div></div></div>
                 <div class="field" style="margin-top:16px;"><div class="control"><button class="button is-brand is-fullwidth" id="btnIssue" onclick="issueCertificate()">Emitir certificado</button></div></div>
                 <a class="back-link" onclick="goBack()">&#8592; Voltar</a>
             </div>
@@ -158,6 +158,39 @@
     let wizData = [];
     let wizIdx = 0;
     let tyConfig = null;
+    let coursesList = [];
+
+    async function loadCourses() {
+        try {
+            const res = await fetch(baseUrl + '/Certificate/GetCourses');
+            const data = await res.json();
+            if (data.success && data.courses) {
+                coursesList = data.courses;
+                const sel = document.getElementById('profileCourse');
+                sel.innerHTML = '<option value="">Selecione</option>' +
+                    coursesList.map(c => '<option value="' + esc(c.name) + '">' + esc(c.name) + '</option>').join('');
+            }
+        } catch {}
+    }
+
+    function updatePhaseOptions() {
+        const courseName = document.getElementById('profileCourse').value;
+        const course = coursesList.find(c => c.name === courseName);
+        const max = course ? course.numberOfSemesters : 0;
+        const sel = document.getElementById('profilePhase');
+        const currentVal = sel.value;
+        let html = '<option value="">-</option>';
+        for (let i = 1; i <= max; i++) {
+            html += '<option value="' + i + '">' + i + '</option>';
+        }
+        sel.innerHTML = html;
+        if (currentVal && parseInt(currentVal) <= max) sel.value = currentVal;
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        loadCourses();
+        document.getElementById('profileCourse').addEventListener('change', updatePhaseOptions);
+    });
 
     function showMessage(t, type) { document.getElementById('messageArea').innerHTML = `<div class="msg-${type}">${t}</div>`; }
     function clearMessage() { document.getElementById('messageArea').innerHTML = ''; }
@@ -177,8 +210,16 @@
             if (!data.success) { showMessage(data.message, 'error'); }
             else {
                 currentEmail = email;
-                if (data.exists) { document.getElementById('profileName').value = data.name || ''; document.getElementById('profileCourse').value = data.course || ''; document.getElementById('profilePhase').value = data.phase || ''; }
-                else { document.getElementById('profileName').value = ''; document.getElementById('profileCourse').value = ''; document.getElementById('profilePhase').value = ''; }
+                if (data.exists) {
+                    document.getElementById('profileName').value = data.name || '';
+                    document.getElementById('profileCourse').value = data.course || '';
+                    updatePhaseOptions();
+                    if (data.phase) document.getElementById('profilePhase').value = data.phase;
+                } else {
+                    document.getElementById('profileName').value = '';
+                    document.getElementById('profileCourse').value = '';
+                    document.getElementById('profilePhase').value = '';
+                }
                 showStep('Profile');
             }
         } catch { showMessage('Erro de conexão.', 'error'); }

@@ -75,6 +75,11 @@ public class VolunteerService : IVolunteerService
 
     private int EventId => _eventContext.CurrentEventId;
 
+    private async Task<bool> IsValidCourseAsync(string course)
+    {
+        return await _db.EventCourses.AnyAsync(c => c.EventId == EventId && c.Name == course);
+    }
+
     public async Task<VolunteerLookupResult> LookupVolunteerAsync(string email)
     {
         email = email.Trim().ToLowerInvariant();
@@ -119,6 +124,9 @@ public class VolunteerService : IVolunteerService
                 Message = $"Utilize seu e-mail institucional @{_settings.AllowedEmailDomain}."
             };
         }
+
+        if (!string.IsNullOrWhiteSpace(dto.Course) && !await IsValidCourseAsync(dto.Course))
+            return new VolunteerRegisterResult { Success = false, Message = "Curso inválido para este evento." };
 
         var existing = await _db.Volunteers.FirstOrDefaultAsync(v => v.EventId == EventId && v.Email == email);
         if (existing is not null)

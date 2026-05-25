@@ -50,6 +50,35 @@ public class AdminController : Controller
         return View();
     }
 
+    [HttpGet]
+    public IActionResult GetAdmins()
+    {
+        if (!IsAdminLoggedIn) return Json(new { success = false });
+        var emails = _eventContext.CurrentEvent.AdminEmails;
+        return Json(new { success = true, admins = emails });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> AddAdmin([FromBody] AddAdminDto dto)
+    {
+        if (!IsAdminLoggedIn) return Json(new { success = false, message = "Não autenticado." });
+        if (string.IsNullOrWhiteSpace(dto.Email))
+            return Json(new { success = false, message = "Informe o e-mail." });
+        var result = await _adminService.AddAdminEmailAsync(dto.Email);
+        return Json(new { result.Success, result.Message });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> RemoveAdmin([FromBody] RemoveAdminDto dto)
+    {
+        if (!IsAdminLoggedIn) return Json(new { success = false, message = "Não autenticado." });
+        if (string.IsNullOrWhiteSpace(dto.Email))
+            return Json(new { success = false, message = "Informe o e-mail." });
+        var currentEmail = HttpContext.Session.GetString(AdminSessionKey) ?? "";
+        var result = await _adminService.RemoveAdminEmailAsync(dto.Email, currentEmail);
+        return Json(new { result.Success, result.Message });
+    }
+
     [HttpPost]
     public async Task<IActionResult> SendLoginOtp([FromBody] AdminLoginDto dto)
     {
@@ -68,6 +97,13 @@ public class AdminController : Controller
         if (result.Success)
             HttpContext.Session.SetString(AdminSessionKey, dto.Email.Trim().ToLowerInvariant());
         return Json(new { result.Success, result.Message });
+    }
+
+    public IActionResult Admins()
+    {
+        if (!IsAdminLoggedIn) return RedirectToAction(nameof(Index));
+        ViewBag.Event = _eventContext.CurrentEvent;
+        return View();
     }
 
     public async Task<IActionResult> Dashboard()
@@ -159,6 +195,7 @@ public class AdminController : Controller
         var entries = await _adminService.GetPreRegistrationsAsync(lectureId);
         ViewBag.Lecture = lecture;
         ViewBag.Entries = entries;
+        ViewBag.Event = _eventContext.CurrentEvent;
         return View();
     }
 
@@ -179,6 +216,14 @@ public class AdminController : Controller
         if (!IsAdminLoggedIn) return Json(new { success = false, message = "Não autenticado." });
         var result = await _adminService.ToggleEventWidePreRegistrationAsync(dto.Force);
         return Json(new { result.Success, result.Message, result.ExistingCount });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> ToggleRetroactiveCheckIn()
+    {
+        if (!IsAdminLoggedIn) return Json(new { success = false, message = "Não autenticado." });
+        await _adminService.ToggleRetroactiveCheckInAsync();
+        return Json(new { success = true, message = "Alternado com sucesso." });
     }
 
     [HttpGet]
@@ -207,6 +252,7 @@ public class AdminController : Controller
         if (!IsAdminLoggedIn) return RedirectToAction(nameof(Index));
         var summaries = await _feedbackService.GetLectureFeedbackSummariesAsync();
         ViewBag.FeedbackSummaries = summaries;
+        ViewBag.Event = _eventContext.CurrentEvent;
         return View();
     }
 
@@ -233,6 +279,7 @@ public class AdminController : Controller
         var timeSlots = await _adminService.GetAllTimeSlotsAsync();
         ViewBag.Volunteers = volunteers;
         ViewBag.TimeSlots = timeSlots;
+        ViewBag.Event = _eventContext.CurrentEvent;
         return View();
     }
 
@@ -321,6 +368,7 @@ public class AdminController : Controller
         if (!IsAdminLoggedIn) return RedirectToAction(nameof(Index));
         var certs = await _certificateService.GetAllIssuedCertificatesAsync();
         ViewBag.Certificates = certs;
+        ViewBag.Event = _eventContext.CurrentEvent;
         return View();
     }
 
@@ -348,6 +396,7 @@ public class AdminController : Controller
         var tyConfig = await _thankYouService.GetConfigAsync();
         ViewBag.Submissions = submissions;
         ViewBag.FormFields = tyConfig.FormFields;
+        ViewBag.Event = _eventContext.CurrentEvent;
         return View();
     }
 
@@ -441,6 +490,7 @@ public class AdminController : Controller
         if (!IsAdminLoggedIn) return RedirectToAction(nameof(Index));
         var requests = await _adminService.GetPendingRetroactiveRequestsAsync();
         ViewBag.Requests = requests;
+        ViewBag.Event = _eventContext.CurrentEvent;
         return View();
     }
 
@@ -517,6 +567,7 @@ public class AdminController : Controller
             .Include(l => l.TimeSlot)
             .FirstOrDefaultAsync(l => l.EventId == _eventContext.CurrentEventId && l.Id == lectureId);
         if (lecture is null) return RedirectToAction("Index", "Home");
+        ViewBag.Event = _eventContext.CurrentEvent;
         return View(lecture);
     }
 
@@ -583,6 +634,90 @@ public class AdminController : Controller
         return View();
     }
 
+    [HttpPost]
+    public async Task<IActionResult> RenewQrSession([FromBody] QrRenewDto dto)
+    {
+        if (!IsAdminLoggedIn) return Json(new { success = false });
+        var old = await _db.MagicCheckInSessions
+            .Where(s => s.EventId == _eventContext.CurrentEventId && s.LectureId == dto.LectureId && s.IsActive)
+            .ToListAsync();
+        old.ForEach(s => s.IsActive = false);
+
+        var session = new MagicCheckInSession
+        {
+            Id = Guid.NewGuid(),
+            LectureId = dto.LectureId,
+            EventId = _eventContext.CurrentEventId,
+            Token = GenerateMagicToken(),
+            CreatedAt = DateTime.UtcNow,
+            ExpiresAt = DateTime.UtcNow.AddMinutes(10),
+            IsActive = true
+        };
+        _db.MagicCheckInSessions.Add(session);
+        await _db.SaveChangesAsync();
+
+        var payload = $"{_eventContext.CurrentEvent.Name}:{dto.LectureId}:{session.Token}";
+        return Json(new { success = true, token = session.Token, payload });
+    }
+
+    // Course Management Endpoints
+    [HttpGet]
+    public async Task<IActionResult> GetCourses()
+    {
+        if (!IsAdminLoggedIn) return Json(new { success = false });
+        var eventId = _eventContext.CurrentEventId;
+        var courses = await _db.EventCourses
+            .Where(c => c.EventId == eventId)
+            .OrderBy(c => c.Name)
+            .Select(c => new { c.Id, c.Name, c.NumberOfSemesters })
+            .ToListAsync();
+        return Json(new { success = true, courses });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> BulkSaveCourses([FromBody] BulkSaveCoursesDto dto)
+    {
+        if (!IsAdminLoggedIn) return Json(new { success = false, message = "Não autenticado." });
+        if (dto.Courses == null || dto.Courses.Count == 0)
+            return Json(new { success = false, message = "Informe pelo menos um curso." });
+
+        var eventId = _eventContext.CurrentEventId;
+        var existing = await _db.EventCourses.Where(c => c.EventId == eventId).ToListAsync();
+
+        var incomingIds = dto.Courses.Where(c => c.Id > 0).Select(c => c.Id).ToHashSet();
+
+        var toDelete = existing.Where(c => !incomingIds.Contains(c.Id)).ToList();
+        _db.EventCourses.RemoveRange(toDelete);
+
+        foreach (var c in dto.Courses)
+        {
+            if (string.IsNullOrWhiteSpace(c.Name))
+                continue;
+
+            if (c.Id > 0)
+            {
+                var existingCourse = existing.FirstOrDefault(ec => ec.Id == c.Id);
+                if (existingCourse != null)
+                {
+                    existingCourse.Name = c.Name.Trim();
+                    existingCourse.NumberOfSemesters = c.NumberOfSemesters;
+                }
+            }
+            else
+            {
+                _db.EventCourses.Add(new EventCourse
+                {
+                    EventId = eventId,
+                    Name = c.Name.Trim(),
+                    NumberOfSemesters = c.NumberOfSemesters
+                });
+            }
+        }
+
+        await _db.SaveChangesAsync();
+        return Json(new { success = true, message = "Cursos salvos com sucesso." });
+    }
+
     private static string GenerateMagicToken()
     {
         const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -600,9 +735,24 @@ public class DeleteLectureDto { public int LectureId { get; set; } }
 public class CreateTimeSlotDto { public DateTime StartTime { get; set; } public DateTime EndTime { get; set; } public string Shift { get; set; } = string.Empty; public int CreditHours { get; set; } = 2; }
 public class UpdateTimeSlotCreditHoursDto { public int TimeSlotId { get; set; } public int CreditHours { get; set; } }
 public class DeleteTimeSlotDto { public int TimeSlotId { get; set; } }
+public class QrRenewDto { public int LectureId { get; set; } }
 public class TogglePreRegDto { public int LectureId { get; set; } }
 public class ToggleEventWidePreRegDto { public bool Force { get; set; } }
 public class ApproveRetroactiveDto { public Guid RequestId { get; set; } }
 public class RejectRetroactiveDto { public Guid RequestId { get; set; } }
 
 public class UpdateBannerDto { public string Title { get; set; } = string.Empty; public string Description { get; set; } = string.Empty; public string CtaText { get; set; } = string.Empty; public string CtaUrl { get; set; } = string.Empty; public bool IsActive { get; set; } }
+public class AddAdminDto { public string Email { get; set; } = string.Empty; }
+public class RemoveAdminDto { public string Email { get; set; } = string.Empty; }
+
+public class BulkSaveCoursesDto
+{
+    public List<CourseEntryDto> Courses { get; set; } = new();
+}
+
+public class CourseEntryDto
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public int NumberOfSemesters { get; set; } = 8;
+}

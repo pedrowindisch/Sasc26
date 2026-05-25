@@ -9,8 +9,6 @@ public class Event
     public string Name { get; set; } = string.Empty;
     public string Subtitle { get; set; } = string.Empty;
     public string AllowedEmailDomain { get; set; } = "furb.br";
-    public string InstagramUrl { get; set; } = string.Empty;
-    public string TshirtPresaleUrl { get; set; } = string.Empty;
     public string AdminEmailsJson { get; set; } = "[]";
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; }
@@ -22,12 +20,19 @@ public class Event
     public string TextColor { get; set; } = "#1a1a1a";
     public byte[]? LogoImage { get; set; }
     public string LogoContentType { get; set; } = string.Empty;
+    public byte[]? BackgroundImageDesktop { get; set; }
+    public string BackgroundImageDesktopContentType { get; set; } = string.Empty;
+    public byte[]? BackgroundImageMobile { get; set; }
+    public string BackgroundImageMobileContentType { get; set; } = string.Empty;
     public string PostCheckinButtonsJson { get; set; } = "[]";
     public CheckInMode CheckInMode { get; set; } = CheckInMode.Keywords;
     public bool RequireOtp { get; set; } = true;
     public bool IsEventWidePreRegistration { get; set; }
+    public bool IsRetroactiveCheckInEnabled { get; set; } = true;
     public DateTime? PreRegistrationStart { get; set; }
     public DateTime? PreRegistrationEnd { get; set; }
+
+    public List<EventCourse> Courses { get; set; } = new();
 
     public List<string> AdminEmails
     {

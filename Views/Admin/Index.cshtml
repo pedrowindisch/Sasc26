@@ -60,7 +60,7 @@
     <div class="card-wrapper">
         <div class="login-card">
             <div class="login-header">
-                <img src="~/dasc.svg" alt="DASC">
+                <img src="@ev.LogoUrl(Url)" alt="@(ev?.Name ?? "DASC")">
                 <h1>Área de Administração</h1>
                 <p>@eventName</p>
             </div>

@@ -2,6 +2,7 @@
 @{
     ViewData["Title"] = "Projeção - " + Model.Title;
     Layout = null;
+    var ev = ViewBag.Event as Sasc26.Models.Event;
 }
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -145,8 +146,8 @@
 </head>
 <body>
     <div class="logo-area">
-        <img src="~/dasc.svg" alt="DASC">
-        <span>SASC 26</span>
+        <img src="@ev.LogoUrl(Url)" alt="@(ev?.Name ?? "DASC")">
+        <span>@(ev?.Name ?? "SASC 26")</span>
     </div>
 
     <div class="fullscreen-hint" onclick="toggleFullscreen()" title="Alternar tela cheia">

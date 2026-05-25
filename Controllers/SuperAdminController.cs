@@ -137,7 +137,7 @@ public class SuperAdminController : Controller
     }
 
     [HttpPost]
-    public async Task<IActionResult> Create(Event ev)
+    public async Task<IActionResult> Create(Event ev, IFormFile? LogoFile, IFormFile? BackgroundDesktopFile, IFormFile? BackgroundMobileFile)
     {
         if (!IsSuperAdminLoggedIn) return RedirectToAction(nameof(Index));
 
@@ -153,6 +153,30 @@ public class SuperAdminController : Controller
             return View(ev);
         }
 
+        if (LogoFile is { Length: > 0 })
+        {
+            using var ms = new MemoryStream();
+            await LogoFile.CopyToAsync(ms);
+            ev.LogoImage = ms.ToArray();
+            ev.LogoContentType = LogoFile.ContentType;
+        }
+
+        if (BackgroundDesktopFile is { Length: > 0 })
+        {
+            using var ms = new MemoryStream();
+            await BackgroundDesktopFile.CopyToAsync(ms);
+            ev.BackgroundImageDesktop = ms.ToArray();
+            ev.BackgroundImageDesktopContentType = BackgroundDesktopFile.ContentType;
+        }
+
+        if (BackgroundMobileFile is { Length: > 0 })
+        {
+            using var ms = new MemoryStream();
+            await BackgroundMobileFile.CopyToAsync(ms);
+            ev.BackgroundImageMobile = ms.ToArray();
+            ev.BackgroundImageMobileContentType = BackgroundMobileFile.ContentType;
+        }
+
         ev.AdminEmailsJson = string.IsNullOrWhiteSpace(ev.AdminEmailsJson) ? "[]" : ev.AdminEmailsJson;
         ev.PostCheckinButtonsJson = string.IsNullOrWhiteSpace(ev.PostCheckinButtonsJson) ? "[]" : ev.PostCheckinButtonsJson;
 
@@ -162,7 +186,25 @@ public class SuperAdminController : Controller
             return View(ev);
         }
 
-        _db.Events.Add(ev);
+        // Save courses
+        var coursesJson = Request.Form["CoursesJson"].ToString();
+        if (!string.IsNullOrWhiteSpace(coursesJson))
+        {
+            var courses = System.Text.Json.JsonSerializer.Deserialize<List<CourseFormItem>>(coursesJson) ?? new();
+            foreach (var c in courses)
+            {
+                if (!string.IsNullOrWhiteSpace(c.Name))
+                {
+                    _db.EventCourses.Add(new EventCourse
+                    {
+                        EventId = ev.Id,
+                        Name = c.Name.Trim(),
+                        NumberOfSemesters = c.NumberOfSemesters
+                    });
+                }
+            }
+        }
+
         await _db.SaveChangesAsync();
 
         return RedirectToAction(nameof(List));
@@ -173,13 +215,13 @@ public class SuperAdminController : Controller
     {
         if (!IsSuperAdminLoggedIn) return RedirectToAction(nameof(Index));
 
-        var ev = await _db.Events.FindAsync(id);
+        var ev = await _db.Events.Include(e => e.Courses).FirstOrDefaultAsync(e => e.Id == id);
         if (ev is null) return NotFound();
         return View(ev);
     }
 
     [HttpPost]
-    public async Task<IActionResult> Edit(Event ev)
+    public async Task<IActionResult> Edit(Event ev, IFormFile? LogoFile, bool removeLogo = false, IFormFile? BackgroundDesktopFile = null, bool removeBackgroundDesktop = false, IFormFile? BackgroundMobileFile = null, bool removeBackgroundMobile = false)
     {
         if (!IsSuperAdminLoggedIn) return RedirectToAction(nameof(Index));
 
@@ -190,16 +232,54 @@ public class SuperAdminController : Controller
         existing.Name = ev.Name;
         existing.Subtitle = ev.Subtitle;
         existing.AllowedEmailDomain = ev.AllowedEmailDomain;
-        existing.InstagramUrl = ev.InstagramUrl;
-        existing.TshirtPresaleUrl = ev.TshirtPresaleUrl;
         existing.AdminEmailsJson = ev.AdminEmailsJson;
         existing.PostCheckinButtonsJson = ev.PostCheckinButtonsJson;
         existing.CheckInMode = ev.CheckInMode;
         existing.RequireOtp = ev.RequireOtp;
+        existing.IsRetroactiveCheckInEnabled = ev.IsRetroactiveCheckInEnabled;
         existing.PrimaryColor = ev.PrimaryColor;
         existing.AccentColor = ev.AccentColor;
         existing.BackgroundColor = ev.BackgroundColor;
         existing.TextColor = ev.TextColor;
+
+        if (removeLogo)
+        {
+            existing.LogoImage = null;
+            existing.LogoContentType = string.Empty;
+        }
+        else if (LogoFile is { Length: > 0 })
+        {
+            using var ms = new MemoryStream();
+            await LogoFile.CopyToAsync(ms);
+            existing.LogoImage = ms.ToArray();
+            existing.LogoContentType = LogoFile.ContentType;
+        }
+
+        if (removeBackgroundDesktop)
+        {
+            existing.BackgroundImageDesktop = null;
+            existing.BackgroundImageDesktopContentType = string.Empty;
+        }
+        else if (BackgroundDesktopFile is { Length: > 0 })
+        {
+            using var ms = new MemoryStream();
+            await BackgroundDesktopFile.CopyToAsync(ms);
+            existing.BackgroundImageDesktop = ms.ToArray();
+            existing.BackgroundImageDesktopContentType = BackgroundDesktopFile.ContentType;
+        }
+
+        if (removeBackgroundMobile)
+        {
+            existing.BackgroundImageMobile = null;
+            existing.BackgroundImageMobileContentType = string.Empty;
+        }
+        else if (BackgroundMobileFile is { Length: > 0 })
+        {
+            using var ms = new MemoryStream();
+            await BackgroundMobileFile.CopyToAsync(ms);
+            existing.BackgroundImageMobile = ms.ToArray();
+            existing.BackgroundImageMobileContentType = BackgroundMobileFile.ContentType;
+        }
 
         if ((ev.PreRegistrationStart is null) != (ev.PreRegistrationEnd is null))
         {
@@ -208,6 +288,38 @@ public class SuperAdminController : Controller
         }
         existing.PreRegistrationStart = ev.PreRegistrationStart;
         existing.PreRegistrationEnd = ev.PreRegistrationEnd;
+
+        // Sync courses
+        var coursesJson = Request.Form["CoursesJson"].ToString();
+        if (!string.IsNullOrWhiteSpace(coursesJson))
+        {
+            var incomingCourses = System.Text.Json.JsonSerializer.Deserialize<List<CourseFormItem>>(coursesJson) ?? new();
+            var existingCourses = await _db.EventCourses.Where(c => c.EventId == existing.Id).ToListAsync();
+            var incomingNames = incomingCourses.Where(c => !string.IsNullOrWhiteSpace(c.Name)).Select(c => c.Name.Trim()).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            var toDelete = existingCourses.Where(c => !incomingNames.Contains(c.Name)).ToList();
+            _db.EventCourses.RemoveRange(toDelete);
+
+            foreach (var c in incomingCourses)
+            {
+                if (string.IsNullOrWhiteSpace(c.Name)) continue;
+                var match = existingCourses.FirstOrDefault(ec => ec.Name.Equals(c.Name.Trim(), StringComparison.OrdinalIgnoreCase));
+                if (match != null)
+                {
+                    match.Name = c.Name.Trim();
+                    match.NumberOfSemesters = c.NumberOfSemesters;
+                }
+                else
+                {
+                    _db.EventCourses.Add(new EventCourse
+                    {
+                        EventId = existing.Id,
+                        Name = c.Name.Trim(),
+                        NumberOfSemesters = c.NumberOfSemesters
+                    });
+                }
+            }
+        }
 
         await _db.SaveChangesAsync();
         return RedirectToAction(nameof(List));
@@ -229,3 +341,9 @@ public class SuperAdminController : Controller
 
 public class SuperAdminLoginDto { public string Email { get; set; } = string.Empty; }
 public class SuperAdminVerifyDto { public string Email { get; set; } = string.Empty; public string Code { get; set; } = string.Empty; }
+
+public class CourseFormItem
+{
+    public string Name { get; set; } = string.Empty;
+    public int NumberOfSemesters { get; set; } = 8;
+}

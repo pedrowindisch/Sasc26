@@ -6,7 +6,7 @@
 <div class="container mt-5">
     <h1 class="title">Novo Evento</h1>
 
-    <form asp-action="Create" method="post">
+    <form asp-action="Create" method="post" enctype="multipart/form-data">
         <div class="field">
             <label class="label">Slug (identificador único na URL)</label>
             <div class="control">
@@ -37,32 +37,136 @@
         </div>
 
         <div class="field">
-            <label class="label">URL do Instagram</label>
-            <div class="control">
-                <input asp-for="InstagramUrl" class="input" placeholder="https://instagram.com/..." />
-            </div>
-        </div>
-
-        <div class="field">
-            <label class="label">URL de Pré-venda de Camisetas</label>
-            <div class="control">
-                <input asp-for="TshirtPresaleUrl" class="input" />
-            </div>
-        </div>
-
-        <div class="field">
             <label class="label">E-mails de Admin (JSON array)</label>
             <div class="control">
                 <input asp-for="AdminEmailsJson" class="input" placeholder='["admin@furb.br"]' />
             </div>
         </div>
 
-        <div class="field">
-            <label class="label">Botões Pós-Check-in (JSON array)</label>
-            <div class="control">
-                <input asp-for="PostCheckinButtonsJson" class="input" placeholder="[]" />
-            </div>
+        <h3 class="title is-5 mt-4">Cursos do Evento</h3>
+        <p class="help">Cursos disponíveis para este evento. Os participantes selecionarão um curso durante o check-in e emissão de certificados.</p>
+        <input type="hidden" id="CoursesJson" name="CoursesJson" value='[]' />
+        <div id="coursesList"></div>
+        <button type="button" class="button is-small is-light" onclick="addCourse()">+ Adicionar curso</button>
+
+        <script>
+            function esc(s) { return (s || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+            function parseCourses() {
+                try {
+                    const val = document.getElementById('CoursesJson').value || '[]';
+                    return JSON.parse(val);
+                } catch { return []; }
+            }
+
+            function renderCourses() {
+                const courses = parseCourses();
+                const container = document.getElementById('coursesList');
+                container.innerHTML = courses.map(function(c, i) {
+                    return '<div class="box" style="padding:12px;margin-bottom:8px;">' +
+                        '<div class="columns is-mobile is-vcentered" style="margin-bottom:8px;">' +
+                        '<div class="column" style="padding-bottom:0;"><input class="input is-small" type="text" value="' + esc(c.name) + '" placeholder="Nome do curso" data-idx="' + i + '" data-field="name" oninput="serializeCourses()" /></div>' +
+                        '<div class="column is-narrow" style="padding-bottom:0;display:flex;align-items:center;gap:4px;"><input class="input is-small" type="number" value="' + (c.numberOfSemesters || 8) + '" min="1" max="12" style="width:70px;" data-idx="' + i + '" data-field="numberOfSemesters" oninput="serializeCourses()" /><span style="font-size:0.75rem;color:#999;">sem.</span></div>' +
+                        '<div class="column is-narrow" style="padding-bottom:0;"><button type="button" class="button is-small is-danger is-light" onclick="removeCourse(' + i + ')">X</button></div>' +
+                        '</div></div>';
+                }).join('');
+            }
+
+            function serializeCourses() {
+                const courses = parseCourses();
+                const inputs = document.querySelectorAll('#coursesList [data-idx]');
+                inputs.forEach(function(el) {
+                    const idx = parseInt(el.getAttribute('data-idx'));
+                    const field = el.getAttribute('data-field');
+                    if (field === 'numberOfSemesters') {
+                        courses[idx].numberOfSemesters = parseInt(el.value) || 8;
+                    } else {
+                        courses[idx].name = el.value;
+                    }
+                });
+                document.getElementById('CoursesJson').value = JSON.stringify(courses);
+            }
+
+            function addCourse() {
+                const courses = parseCourses();
+                courses.push({ name: 'Novo Curso', numberOfSemesters: 8 });
+                document.getElementById('CoursesJson').value = JSON.stringify(courses);
+                renderCourses();
+            }
+
+            function removeCourse(idx) {
+                let courses = parseCourses();
+                courses.splice(idx, 1);
+                document.getElementById('CoursesJson').value = JSON.stringify(courses);
+                renderCourses();
+            }
+
+            document.addEventListener('DOMContentLoaded', renderCourses);
+        </script>
+
+        <h3 class="title is-5 mt-4">Botões Pós-Check-in</h3>
+        <p class="help">Botões exibidos na tela de sucesso após o check-in.</p>
+        <div id="postCheckinButtonsEditor">
+            <input type="hidden" asp-for="PostCheckinButtonsJson" id="PostCheckinButtonsJson" />
+            <div id="buttonsList"></div>
+            <button type="button" class="button is-small is-light" onclick="addButton()">+ Adicionar botão</button>
         </div>
+
+        <script>
+            function parseButtons() {
+                try {
+                    const val = document.getElementById('PostCheckinButtonsJson').value || '[]';
+                    return JSON.parse(val);
+                } catch { return []; }
+            }
+
+            function renderButtons() {
+                const buttons = parseButtons();
+                const container = document.getElementById('buttonsList');
+                container.innerHTML = buttons.map(function(b, i) {
+                    return '<div class="box" style="padding:12px;margin-bottom:8px;">' +
+                        '<div class="columns is-mobile is-vcentered" style="margin-bottom:8px;">' +
+                        '<div class="column" style="padding-bottom:0;"><input class="input is-small" type="text" value="' + esc(b.label) + '" placeholder="Rótulo" data-idx="' + i + '" data-field="label" oninput="serializeButtons()" /></div>' +
+                        '<div class="column" style="padding-bottom:0;"><input class="input is-small" type="text" value="' + esc(b.url) + '" placeholder="URL" data-idx="' + i + '" data-field="url" oninput="serializeButtons()" /></div>' +
+                        '<div class="column is-narrow" style="padding-bottom:0;">' +
+                        '<label class="checkbox"><input type="checkbox" ' + (b.enabled ? 'checked' : '') + ' data-idx="' + i + '" data-field="enabled" onchange="serializeButtons()" /> Ativo</label>' +
+                        '</div>' +
+                        '<div class="column is-narrow" style="padding-bottom:0;"><button type="button" class="button is-small is-danger is-light" onclick="removeButton(' + i + ')">X</button></div>' +
+                        '</div></div>';
+                }).join('');
+            }
+
+            function serializeButtons() {
+                const buttons = parseButtons();
+                const inputs = document.querySelectorAll('#buttonsList [data-idx]');
+                inputs.forEach(function(el) {
+                    const idx = parseInt(el.getAttribute('data-idx'));
+                    const field = el.getAttribute('data-field');
+                    if (field === 'enabled') {
+                        buttons[idx].enabled = el.checked;
+                    } else {
+                        buttons[idx][field] = el.value;
+                    }
+                });
+                document.getElementById('PostCheckinButtonsJson').value = JSON.stringify(buttons);
+            }
+
+            function addButton() {
+                const buttons = parseButtons();
+                buttons.push({ label: 'Novo Botão', url: '', enabled: true });
+                document.getElementById('PostCheckinButtonsJson').value = JSON.stringify(buttons);
+                renderButtons();
+            }
+
+            function removeButton(idx) {
+                let buttons = parseButtons();
+                buttons.splice(idx, 1);
+                document.getElementById('PostCheckinButtonsJson').value = JSON.stringify(buttons);
+                renderButtons();
+            }
+
+            document.addEventListener('DOMContentLoaded', renderButtons);
+        </script>
 
         <h3 class="title is-5 mt-4">Check-In</h3>
 
@@ -89,6 +193,15 @@
             </div>
         </div>
 
+        <div class="field">
+            <div class="control">
+                <label class="checkbox">
+                    <input asp-for="IsRetroactiveCheckInEnabled" checked />
+                    Permitir validação retroativa de AACCs
+                </label>
+            </div>
+        </div>
+
         <h3 class="title is-5 mt-4">Período de Pré-Inscrição</h3>
         <p class="help">Ambos devem ser preenchidos, ou nenhum.</p>
         <div class="columns">
@@ -108,6 +221,32 @@
                     </div>
                 </div>
             </div>
+        </div>
+
+        <h3 class="title is-5 mt-4">Logo do Evento</h3>
+        <div class="field">
+            <label class="label">Logo (imagem)</label>
+            <div class="control">
+                <input type="file" name="LogoFile" class="input" accept="image/*" />
+            </div>
+            <p class="help">Deixe vazio para usar o logo padrão (DASC). Formatos aceitos: PNG, JPG, SVG, GIF. Recomendado: imagem quadrada (ex: 200×200 px) para melhor exibição.</p>
+        </div>
+
+        <h3 class="title is-5 mt-4">Imagem de Fundo (páginas públicas)</h3>
+        <p class="help">A imagem substituirá a cor de fundo nas páginas públicas (check-in, certificados, voluntário).</p>
+        <div class="field">
+            <label class="label">Background Desktop</label>
+            <div class="control">
+                <input type="file" name="BackgroundDesktopFile" class="input" accept="image/*" />
+            </div>
+            <p class="help">Recomendado: ~1920×1080 px. Usado em todas as telas se o Mobile não for definido.</p>
+        </div>
+        <div class="field">
+            <label class="label">Background Mobile (opcional)</label>
+            <div class="control">
+                <input type="file" name="BackgroundMobileFile" class="input" accept="image/*" />
+            </div>
+            <p class="help">Recomendado: ~750×1334 px. Substitui o Desktop em telas menores que 768 px.</p>
         </div>
 
         <h3 class="title is-5 mt-4">Cores do Tema</h3>

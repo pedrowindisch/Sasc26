@@ -48,7 +48,7 @@
 <div class="card-wrapper">
     <div class="event-card">
         <div class="event-header">
-            <img class="logo" src="~/dasc.svg" alt="DASC">
+            <img class="logo" src="@ev.LogoUrl(Url)" alt="@(ev?.Name ?? "DASC")">
             <h1>Check-in Mágico</h1>
             <p>Escaneie o áudio da palestra</p>
         </div>

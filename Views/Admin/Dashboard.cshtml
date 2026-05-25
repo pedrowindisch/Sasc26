@@ -11,6 +11,7 @@
     var lectures = ViewBag.Lectures as List<Sasc26.Models.Lecture> ?? new();
     var preRegCounts = ViewBag.PreRegCounts as Dictionary<int, int> ?? new();
     var isEventWide = ev?.IsEventWidePreRegistration ?? false;
+    var isRetroactiveEnabled = ev?.IsRetroactiveCheckInEnabled ?? true;
     var eventWideRegCount = ViewBag.EventWideRegCount as int? ?? 0;
     var checkInMode = (int)(ViewBag.CheckInMode ?? 0);
 }
@@ -21,21 +22,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - SASC 26</title>
     <link rel="stylesheet" href="~/css/bulmaswatch.min.css">
+    <link rel="stylesheet" href="~/css/admin-responsive.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; background: @backgroundColor; min-height: 100vh; }
-        .nav-bar { background: @primaryColor; padding: 16px 24px; display: flex; align-items: center; gap: 16px; }
-        .nav-logo { display: flex; align-items: center; gap: 12px; flex: 1; }
-        .nav-logo img { height: 32px; }
-        .nav-logo h1 { font-size: 1rem; font-weight: 700; color: #fff; margin: 0; }
-        .nav-links { display: flex; gap: 16px; align-items: center; }
-        .nav-links a { font-size: 0.8rem; color: @accentColor; }
-        .nav-links a:hover { color: #fff; }
-        .nav-links a.nav-logout { color: rgba(255,255,255,0.6); }
-        .nav-links a.nav-logout:hover { color: #fff; }
-        .container-area { max-width: 1200px; margin: 0 auto; padding: 24px 16px; }
+        .main-content { max-width: 1200px; padding: 24px 16px; }
         .panel-card { background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); padding: 24px; margin-bottom: 20px; }
         .panel-card h2 { font-size: 0.95rem; font-weight: 700; color: #1a1a1a; margin: 0 0 16px; }
         .input:focus, .select select:focus { border-color: @accentColor; box-shadow: 0 0 0 3px rgba(46,189,239,0.15); }
@@ -64,23 +57,9 @@
     </style>
 </head>
 <body>
-    <div class="nav-bar">
-        <div class="nav-logo">
-            <img src="~/dasc.svg" alt="DASC">
-            <h1>Painel Administrativo</h1>
-        </div>
-        <div class="nav-links">
-            <a href="/@eventSlug/Admin/Volunteers">Voluntários</a>
-            <a href="/@eventSlug/Admin/RetroactiveRequests">Retroativas</a>
-            <a href="/@eventSlug/Admin/Feedback">Avaliações</a>
-            <a href="/@eventSlug/Admin/CertificateConfig">Certificados</a>
-            <a href="/@eventSlug/Admin/ThankYouConfig">Agradecimento</a>
-            <a href="/@eventSlug/Admin/PreRegistrationConfig">Pré-Inscrição</a>
-            <a href="/@eventSlug/Admin/Logout" class="nav-logout">Sair</a>
-        </div>
-    </div>
+    @await Html.PartialAsync("_AdminNav")
 
-    <div class="container-area">
+    <div class="main-content">
         <div class="stats-row">
             <div class="stat-box"><div class="num" id="statTotal">-</div><div class="lbl">Check-ins</div></div>
             <div class="stat-box"><div class="num" id="statToday">-</div><div class="lbl">Hoje</div></div>
@@ -108,12 +87,35 @@
                     </a>
                 }
             </div>
+            <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:8px;">
+                <div>
+                    <span style="font-size:0.85rem;font-weight:600;color:#555;">Validação retroativa:</span>
+                    <span id="retroBadge" class="badge @(isRetroactiveEnabled ? "badge-ok" : "badge-off")" style="margin-left:8px;">
+                        @(isRetroactiveEnabled ? "Ativada" : "Desativada")
+                    </span>
+                </div>
+                <button class="button is-small @(isRetroactiveEnabled ? "is-danger-light" : "is-brand")" onclick="toggleRetroactive()">
+                    @(isRetroactiveEnabled ? "Desativar" : "Ativar")
+                </button>
+            </div>
+        </div>
+
+        <!-- ADMIN MANAGERS -->
+        <div class="panel-card">
+            <h2>Gerenciar Administradores</h2>
+            <div id="adminMsg"></div>
+            <div id="adminList" style="margin-bottom:12px;"></div>
+            <div style="display:flex;gap:8px;align-items:center;">
+                <input class="input" type="email" id="newAdminEmail" placeholder="admin@exemplo.com" style="max-width:300px;">
+                <button class="button is-brand" onclick="addAdmin()">Adicionar</button>
+            </div>
         </div>
 
         <!-- TIME SLOTS -->
         <div class="panel-card">
             <h2>Horários (Time Slots)</h2>
             <div id="tsMsg"></div>
+            <div class="table-container">
             <table class="table is-fullwidth is-hoverable is-striped">
                 <thead><tr><th>ID</th><th>Início</th><th>Fim</th><th>Turno</th><th>Horas AACC</th><th>Palestras</th><th></th></tr></thead>
                 <tbody>
@@ -132,6 +134,7 @@
                     }
                 </tbody>
             </table>
+            </div>
             <div class="columns" style="margin-top:12px;">
                 <div class="column is-3"><div class="field"><div class="control"><input class="input" type="datetime-local" id="tsStart"></div></div></div>
                 <div class="column is-3"><div class="field"><div class="control"><input class="input" type="datetime-local" id="tsEnd"></div></div></div>
@@ -154,6 +157,7 @@
         <div class="panel-card">
             <h2>Palestras</h2>
             <div id="lecMsg"></div>
+            <div class="table-container">
             <table class="table is-fullwidth is-hoverable is-striped">
                 <thead><tr><th>Título</th><th>Palestrante</th><th>Horário</th><th>Turno</th><th>Palavras-chave</th><th>Inscrições</th><th>Inscritos</th><th></th></tr></thead>
                 <tbody>
@@ -215,6 +219,7 @@
                     }
                 </tbody>
             </table>
+            </div>
             <hr>
             <p class="has-text-weight-semibold is-size-7 has-text-grey" style="margin-bottom:8px;">Nova palestra</p>
             <div class="columns">
@@ -277,6 +282,18 @@
                 </div>
             </div>
             <div id="checkinsTable"><div class="empty-state">Carregando...</div></div>
+        </div>
+
+        <!-- COURSES -->
+        <div class="panel-card" id="cursos">
+            <h2>Cursos do Evento</h2>
+            <div id="coursesMsg"></div>
+            <p class="help" style="margin-top:-8px;margin-bottom:12px;">Cursos que os participantes podem selecionar no check-in, certificados e voluntários.</p>
+            <div id="coursesList"></div>
+            <div style="display:flex;gap:12px;margin-top:12px;flex-wrap:wrap;">
+                <button class="button is-small is-brand" onclick="addCourseRow()">+ Adicionar curso</button>
+                <button class="button is-small is-outlined-brand" onclick="saveCourses()">Salvar cursos</button>
+            </div>
         </div>
 
         <!-- BANNER -->
@@ -396,6 +413,13 @@
             }
         }
 
+        async function toggleRetroactive() {
+            const res = await fetch(baseUrl + '/Admin/ToggleRetroactiveCheckIn', { method: 'POST' });
+            const data = await res.json();
+            if (data.success) location.reload();
+            else showMsg('evConfigMsg', data.message || 'Erro.', 'error');
+        }
+
         async function manualCheckIn() {
             const email = document.getElementById('mEmail').value.trim();
             const fullName = document.getElementById('mName').value.trim();
@@ -479,6 +503,126 @@
         }
 
         loadBanner();
+
+        async function loadAdmins() {
+            const res = await fetch(baseUrl + '/Admin/GetAdmins');
+            const data = await res.json();
+            if (!data.success || !data.admins) return;
+            const container = document.getElementById('adminList');
+            if (data.admins.length === 0) {
+                container.innerHTML = '<div class="empty-state">Nenhum administrador.</div>';
+                return;
+            }
+            let html = '<table class="table is-fullwidth is-striped"><tbody>';
+            for (const email of data.admins) {
+                html += `<tr>
+                    <td style="vertical-align:middle;">${esc(email)}</td>
+                    <td style="width:80px;text-align:right;"><button class="button is-danger-light is-small" onclick="removeAdmin('${esc(email)}')">Remover</button></td>
+                </tr>`;
+            }
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        async function addAdmin() {
+            const email = document.getElementById('newAdminEmail').value.trim();
+            if (!email) { showMsg('adminMsg', 'Informe um e-mail.', 'error'); return; }
+            const res = await fetch(baseUrl + '/Admin/AddAdmin', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
+            const data = await res.json();
+            if (data.success) {
+                showMsg('adminMsg', data.message, 'success');
+                document.getElementById('newAdminEmail').value = '';
+                loadAdmins();
+            } else {
+                showMsg('adminMsg', data.message || 'Erro.', 'error');
+            }
+        }
+
+        async function removeAdmin(email) {
+            if (!confirm(`Remover ${email} dos administradores?`)) return;
+            const res = await fetch(baseUrl + '/Admin/RemoveAdmin', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
+            const data = await res.json();
+            if (data.success) {
+                showMsg('adminMsg', data.message, 'success');
+                loadAdmins();
+            } else {
+                showMsg('adminMsg', data.message || 'Erro.', 'error');
+            }
+        }
+
+        loadAdmins();
+
+        // Course management
+        let courseData = [];
+
+        async function loadCourses() {
+            const res = await fetch(baseUrl + '/Admin/GetCourses');
+            const data = await res.json();
+            if (!data.success || !data.courses) return;
+            courseData = data.courses.map(c => ({ id: c.id, name: c.name, numberOfSemesters: c.numberOfSemesters }));
+            renderCourses();
+        }
+
+        function renderCourses() {
+            const container = document.getElementById('coursesList');
+            if (courseData.length === 0) {
+                container.innerHTML = '<div class="empty-state">Nenhum curso cadastrado. Adicione um curso abaixo.</div>';
+                return;
+            }
+            let html = '<table class="table is-fullwidth is-hoverable is-striped"><thead><tr><th>Curso</th><th>Semestres</th><th></th></tr></thead><tbody>';
+            courseData.forEach(function(c, i) {
+                html += '<tr>' +
+                    '<td><input class="input is-small" type="text" value="' + esc(c.name) + '" data-idx="' + i + '" data-field="name" oninput="updateCourseField(' + i + ', this)" /></td>' +
+                    '<td><input class="input is-small" type="number" value="' + c.numberOfSemesters + '" min="1" max="12" style="width:80px;" data-idx="' + i + '" data-field="numberOfSemesters" oninput="updateCourseField(' + i + ', this)" /></td>' +
+                    '<td><button class="button is-danger-light is-small" onclick="removeCourseRow(' + i + ')">Remover</button></td>' +
+                    '</tr>';
+            });
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        function updateCourseField(idx, el) {
+            const field = el.getAttribute('data-field');
+            if (field === 'numberOfSemesters') {
+                courseData[idx].numberOfSemesters = parseInt(el.value) || 8;
+            } else {
+                courseData[idx].name = el.value;
+            }
+        }
+
+        function addCourseRow() {
+            courseData.push({ id: 0, name: 'Novo Curso', numberOfSemesters: 8 });
+            renderCourses();
+        }
+
+        function removeCourseRow(idx) {
+            courseData.splice(idx, 1);
+            renderCourses();
+        }
+
+        async function saveCourses() {
+            const btn = document.querySelector('button[onclick="saveCourses()"]');
+            btn.classList.add('is-loading'); btn.disabled = true;
+            try {
+                const res = await fetch(baseUrl + '/Admin/BulkSaveCourses', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ courses: courseData })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showMsg('coursesMsg', data.message, 'success');
+                    await loadCourses();
+                } else {
+                    showMsg('coursesMsg', data.message || 'Erro ao salvar.', 'error');
+                }
+            } catch {
+                showMsg('coursesMsg', 'Erro de conexão.', 'error');
+            }
+            finally { btn.classList.remove('is-loading'); btn.disabled = false; }
+        }
+
+        loadCourses();
     </script>
 </body>
 </html>

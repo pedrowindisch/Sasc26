@@ -1,164 +1,437 @@
 @model Sasc26.Models.Event
 @{
-    ViewData["Title"] = "Editar Evento";
+    Layout = null;
+    var primaryColor = Model.PrimaryColor ?? "#113D76";
+    var accentColor = Model.AccentColor ?? "#2EBDEF";
+    var textColor = Model.TextColor ?? "#1a1a1a";
 }
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Editar Evento - @Model.Name</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="~/css/bulmaswatch.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #f5f5f5; min-height: 100vh; display: flex; }
+        .sidebar { width: 260px; background: @primaryColor; display: flex; flex-direction: column; padding: 28px 20px; position: fixed; top: 0; left: 0; height: 100vh; z-index: 100; transition: transform 0.25s ease; }
+        .sidebar h1 { font-size: 1rem; font-weight: 700; color: #fff; margin-bottom: 4px; }
+        .sidebar .sub { font-size: 0.75rem; color: rgba(255,255,255,0.55); margin-bottom: 24px; }
+        .sidebar .back { font-size: 0.8rem; color: rgba(255,255,255,0.6); text-decoration: none; display: inline-flex; align-items: center; gap: 4px; margin-top: auto; padding: 6px 0; }
+        .sidebar .back:hover { color: #fff; }
+        .sidebar .sections { list-style: none; }
+        .sidebar .sections li { margin-bottom: 4px; }
+        .sidebar .sections a { display: block; font-size: 0.8rem; color: rgba(255,255,255,0.6); text-decoration: none; padding: 7px 10px; border-radius: 6px; transition: background 0.15s; }
+        .sidebar .sections a:hover { background: rgba(255,255,255,0.08); color: #fff; }
+        .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 99; }
 
-<div class="container mt-5">
-    <h1 class="title">Editar Evento: @Model.Name</h1>
+        .topbar { display: none; background: @primaryColor; padding: 12px 16px; align-items: center; gap: 12px; }
+        .topbar .hamburger { background: none; border: none; color: #fff; font-size: 1.3rem; cursor: pointer; padding: 4px; line-height: 1; }
+        .topbar .hamburger:focus { outline: none; }
+        .topbar .top-title { font-size: 0.95rem; font-weight: 600; color: #fff; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .topbar .top-back { color: rgba(255,255,255,0.7); text-decoration: none; font-size: 0.8rem; }
 
-    <form asp-action="Edit" method="post">
-        <input type="hidden" asp-for="Id" />
+        .main-content { margin-left: 260px; flex: 1; padding: 32px; max-width: 800px; }
+        .page-title { font-size: 1.3rem; font-weight: 700; color: #1a1a1a; margin-bottom: 24px; }
 
-        <div class="field">
-            <label class="label">Slug (identificador único na URL)</label>
-            <div class="control">
-                <input asp-for="Slug" class="input" required />
-            </div>
-            <p class="help">Será usado na URL: /{slug}/admin</p>
+        .panel-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); padding: 24px; margin-bottom: 16px; }
+        .panel-card h2 { font-size: 0.8rem; font-weight: 700; color: @primaryColor; margin: 0 0 16px; text-transform: uppercase; letter-spacing: 0.04em; padding-bottom: 10px; border-bottom: 1px solid #f0f0f0; }
+        .panel-card .help { font-size: 0.75rem; color: #999; margin-top: 4px; }
+        .panel-card .field + .field { margin-top: 14px; }
+        .panel-card label.label { font-size: 0.8rem; font-weight: 600; color: #555; }
+        .input:focus, .select select:focus { border-color: @accentColor; box-shadow: 0 0 0 3px rgba(46,189,239,0.15); }
+        .button.is-brand { background-color: @primaryColor; color: #fff; border-color: @primaryColor; }
+        .button.is-brand:hover { background-color: @primaryColor; opacity: 0.85; color: #fff; }
+        .button.is-outlined-brand { background-color: transparent; color: @primaryColor; border: 1px solid @primaryColor; }
+        .button.is-outlined-brand:hover { background-color: @primaryColor; color: #fff; }
+        .color-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .color-swatch { display: flex; align-items: center; gap: 8px; }
+        .color-swatch input[type="color"] { width: 40px; height: 40px; border: 2px solid #e0e0e0; border-radius: 8px; padding: 2px; cursor: pointer; flex-shrink: 0; }
+        .color-swatch .color-label { font-size: 0.75rem; color: #888; min-width: 0; }
+        .color-swatch .color-label strong { display: block; font-size: 0.8rem; color: #333; }
+        .img-preview { display: inline-block; margin-bottom: 8px; border: 1px solid #e0e0e0; border-radius: 8px; padding: 4px; background: #fafafa; }
+        .form-actions { display: flex; gap: 10px; }
+        .form-actions .button { flex: 1; }
+        .btn-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        .muted { color: #bbb; font-size: 0.75rem; }
+        .file-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .file-row input[type="file"] { flex: 1; min-width: 0; font-size: 0.8rem; }
+        .file-row .checkbox-label { font-size: 0.8rem; white-space: nowrap; }
+        .inline-check { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+        @@media (max-width: 768px) {
+            body { flex-direction: column; }
+            .sidebar { transform: translateX(-100%); }
+            .sidebar.open { transform: translateX(0); }
+            .sidebar-overlay.open { display: block; }
+            .topbar { display: flex; }
+            .main-content { margin-left: 0; padding: 16px; }
+            .page-title { display: none; }
+            .color-grid { grid-template-columns: 1fr; }
+            .grid-2 { grid-template-columns: 1fr; }
+            .panel-card { padding: 16px; }
+            .btn-row { flex-direction: column; align-items: stretch; }
+            #buttonsList .button-grid { grid-template-columns: 1fr !important; }
+            .btn-row .muted { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+    <div class="sidebar" id="sidebar">
+        <div>
+            <h1>@Model.Name</h1>
+            <div class="sub">Editar configurações</div>
+            <ul class="sections">
+                <li><a href="#basicas" onclick="closeSidebar()">Informações Básicas</a></li>
+                <li><a href="#checkin" onclick="closeSidebar()">Check-in</a></li>
+                <li><a href="#preinscricao" onclick="closeSidebar()">Pré-Inscrição</a></li>
+                <li><a href="#cursos" onclick="closeSidebar()">Cursos</a></li>
+                <li><a href="#botoes" onclick="closeSidebar()">Botões Pós-Check-in</a></li>
+                <li><a href="#aparencia" onclick="closeSidebar()">Aparência</a></li>
+                <li><a href="#backgrounds" onclick="closeSidebar()">Imagens de Fundo</a></li>
+            </ul>
         </div>
+        <a class="back" asp-action="List">&larr; Voltar para lista</a>
+    </div>
 
-        <div class="field">
-            <label class="label">Nome</label>
-            <div class="control">
-                <input asp-for="Name" class="input" required />
-            </div>
-        </div>
+    <div class="topbar">
+        <button class="hamburger" onclick="toggleSidebar()">&#9776;</button>
+        <span class="top-title">@Model.Name</span>
+        <a class="top-back" asp-action="List">&larr;</a>
+    </div>
 
-        <div class="field">
-            <label class="label">Subtítulo</label>
-            <div class="control">
-                <input asp-for="Subtitle" class="input" />
-            </div>
-        </div>
+    <div class="main-content">
+        <div class="page-title">Editar Evento</div>
 
-        <div class="field">
-            <label class="label">Domínio de E-mail Permitido</label>
-            <div class="control">
-                <input asp-for="AllowedEmailDomain" class="input" />
-            </div>
-        </div>
+        <form asp-action="Edit" method="post" enctype="multipart/form-data">
+            <input type="hidden" asp-for="Id" />
 
-        <div class="field">
-            <label class="label">URL do Instagram</label>
-            <div class="control">
-                <input asp-for="InstagramUrl" class="input" />
-            </div>
-        </div>
-
-        <div class="field">
-            <label class="label">URL de Pré-venda de Camisetas</label>
-            <div class="control">
-                <input asp-for="TshirtPresaleUrl" class="input" />
-            </div>
-        </div>
-
-        <div class="field">
-            <label class="label">E-mails de Admin (JSON array)</label>
-            <div class="control">
-                <input asp-for="AdminEmailsJson" class="input" />
-            </div>
-        </div>
-
-        <div class="field">
-            <label class="label">Botões Pós-Check-in (JSON array)</label>
-            <div class="control">
-                <input asp-for="PostCheckinButtonsJson" class="input" />
-            </div>
-        </div>
-
-        <h3 class="title is-5 mt-4">Check-In</h3>
-
-        <div class="field">
-            <label class="label">Modo de verificação de presença</label>
-            <div class="control">
-                <div class="select">
-                    <select asp-for="CheckInMode">
-                        <option value="0">Palavras-chave (projetor)</option>
-                        <option value="1">QR Code (projetor + câmera)</option>
-                        <option value="2">Áudio ultrassônico (Magic Check-In)</option>
-                        <option value="3">Nenhuma (apenas OTP)</option>
-                    </select>
+            <div class="panel-card" id="basicas">
+                <h2>Informações Básicas</h2>
+                <div class="field">
+                    <label class="label">Slug</label>
+                    <div class="control">
+                        <input asp-for="Slug" class="input" required />
+                    </div>
+                    <p class="help">Identificador único na URL: /&#123;slug&#125;/admin</p>
+                </div>
+                <div class="field">
+                    <label class="label">Nome</label>
+                    <div class="control">
+                        <input asp-for="Name" class="input" required />
+                    </div>
+                </div>
+                <div class="field">
+                    <label class="label">Subtítulo</label>
+                    <div class="control">
+                        <input asp-for="Subtitle" class="input" />
+                    </div>
+                </div>
+                <div class="field">
+                    <label class="label">Domínio de E-mail Permitido</label>
+                    <div class="control">
+                        <input asp-for="AllowedEmailDomain" class="input" />
+                    </div>
+                    <p class="help">Ex: furb.br</p>
+                </div>
+                <div class="field">
+                    <label class="label">E-mails de Admin</label>
+                    <div class="control">
+                        <input asp-for="AdminEmailsJson" class="input" placeholder='["admin@furb.br"]' />
+                    </div>
+                    <p class="help">Array JSON de e-mails autorizados no painel administrativo.</p>
                 </div>
             </div>
-        </div>
 
-        <div class="field">
-            <div class="control">
-                <label class="checkbox">
-                    <input asp-for="RequireOtp" />
-                    Exigir OTP por e-mail antes do check-in
-                </label>
-            </div>
-        </div>
-
-        <h3 class="title is-5 mt-4">Período de Pré-Inscrição</h3>
-        <p class="help">Ambos devem ser preenchidos, ou nenhum.</p>
-        <div class="columns">
-            <div class="column">
+            <div class="panel-card" id="checkin">
+                <h2>Check-in</h2>
                 <div class="field">
-                    <label class="label">Início</label>
+                    <label class="label">Modo de verificação</label>
                     <div class="control">
-                        <input asp-for="PreRegistrationStart" class="input" type="datetime-local" />
+                        <div class="select is-fullwidth">
+                            <select asp-for="CheckInMode">
+                                <option value="0">Palavras-chave (projetor)</option>
+                                <option value="1">QR Code (projetor + câmera)</option>
+                                <option value="2">Áudio ultrassônico (Magic Check-In)</option>
+                                <option value="3">Nenhuma (apenas OTP)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="btn-row">
+                    <label class="inline-check">
+                        <input asp-for="RequireOtp" />
+                        Exigir OTP por e-mail
+                    </label>
+                    <span class="muted">|</span>
+                    <label class="inline-check">
+                        <input asp-for="IsRetroactiveCheckInEnabled" />
+                        Validação retroativa de AACCs
+                    </label>
+                </div>
+            </div>
+
+            <div class="panel-card" id="preinscricao">
+                <h2>Pré-Inscrição</h2>
+                <p class="help" style="margin-top:-8px;margin-bottom:12px;">Ambos devem ser preenchidos, ou nenhum.</p>
+                <div class="grid-2">
+                    <div class="field">
+                        <label class="label">Início</label>
+                        <div class="control">
+                            <input asp-for="PreRegistrationStart" class="input" type="datetime-local" />
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label class="label">Fim</label>
+                        <div class="control">
+                            <input asp-for="PreRegistrationEnd" class="input" type="datetime-local" />
+                        </div>
                     </div>
                 </div>
             </div>
-            <div class="column">
-                <div class="field">
-                    <label class="label">Fim</label>
-                    <div class="control">
-                        <input asp-for="PreRegistrationEnd" class="input" type="datetime-local" />
-                    </div>
-                </div>
-            </div>
-        </div>
 
-        <h3 class="title is-5 mt-4">Cores do Tema</h3>
+            <div class="panel-card" id="cursos">
+                <h2>Cursos do Evento</h2>
+                <p class="help" style="margin-top:-8px;margin-bottom:12px;">Gerencie os cursos disponíveis para este evento.</p>
+                <input type="hidden" id="CoursesJson" name="CoursesJson" value='@System.Text.Json.JsonSerializer.Serialize(Model.Courses.Select(c => new { c.Name, c.NumberOfSemesters }))' />
+                <div id="coursesList"></div>
+                <button type="button" class="button is-small is-outlined-brand" onclick="addCourse()">+ Adicionar curso</button>
+            </div>
 
-        <div class="columns">
-            <div class="column">
-                <div class="field">
-                    <label class="label">Cor Primária</label>
-                    <div class="control">
-                        <input asp-for="PrimaryColor" class="input" type="color" />
-                    </div>
+            <div class="panel-card" id="botoes">
+                <h2>Botões Pós-Check-in</h2>
+                <p class="help" style="margin-top:-8px;margin-bottom:12px;">Exibidos na tela de sucesso após o check-in.</p>
+                <div id="postCheckinButtonsEditor">
+                    <input type="hidden" asp-for="PostCheckinButtonsJson" id="PostCheckinButtonsJson" />
+                    <div id="buttonsList"></div>
+                    <button type="button" class="button is-small is-outlined-brand" onclick="addButton()">+ Adicionar botão</button>
                 </div>
             </div>
-            <div class="column">
-                <div class="field">
-                    <label class="label">Cor de Destaque</label>
-                    <div class="control">
-                        <input asp-for="AccentColor" class="input" type="color" />
-                    </div>
-                </div>
-            </div>
-        </div>
 
-        <div class="columns">
-            <div class="column">
+            <div class="panel-card" id="aparencia">
+                <h2>Aparência</h2>
                 <div class="field">
-                    <label class="label">Cor de Fundo</label>
-                    <div class="control">
-                        <input asp-for="BackgroundColor" class="input" type="color" />
+                    <label class="label">Logo</label>
+                    @if (Model.LogoImage is { Length: > 0 })
+                    {
+                        var base64 = Convert.ToBase64String(Model.LogoImage);
+                        <div class="img-preview">
+                            <img src="data:@Model.LogoContentType;base64,@base64" alt="Logo" style="max-height:60px;display:block;" />
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="help">Nenhum logo personalizado. Será usado o logo padrão (DASC).</p>
+                    }
+                    <div class="file-row">
+                        <input type="file" name="LogoFile" accept="image/*" />
+                        <label class="checkbox-label"><input type="checkbox" name="removeLogo" value="true" /> Remover</label>
+                    </div>
+                </div>
+                <div class="field">
+                    <label class="label">Cores</label>
+                    <div class="color-grid">
+                        <div class="color-swatch">
+                            <input asp-for="PrimaryColor" type="color" />
+                            <div class="color-label"><strong>Primária</strong>@Model.PrimaryColor</div>
+                        </div>
+                        <div class="color-swatch">
+                            <input asp-for="AccentColor" type="color" />
+                            <div class="color-label"><strong>Destaque</strong>@Model.AccentColor</div>
+                        </div>
+                        <div class="color-swatch">
+                            <input asp-for="BackgroundColor" type="color" />
+                            <div class="color-label"><strong>Fundo</strong>@Model.BackgroundColor</div>
+                        </div>
+                        <div class="color-swatch">
+                            <input asp-for="TextColor" type="color" />
+                            <div class="color-label"><strong>Texto</strong>@Model.TextColor</div>
+                        </div>
                     </div>
                 </div>
             </div>
-            <div class="column">
-                <div class="field">
-                    <label class="label">Cor do Texto</label>
-                    <div class="control">
-                        <input asp-for="TextColor" class="input" type="color" />
-                    </div>
-                </div>
-            </div>
-        </div>
 
-        <div class="field is-grouped">
-            <div class="control">
-                <button type="submit" class="button is-primary">Salvar</button>
+            <div class="panel-card" id="backgrounds">
+                <h2>Imagens de Fundo</h2>
+                <p class="help" style="margin-top:-8px;margin-bottom:12px;">Substituem a cor de fundo nas páginas públicas (check-in, certificados, voluntário).</p>
+                <div class="field">
+                    <label class="label">Desktop</label>
+                    @if (Model.BackgroundImageDesktop is { Length: > 0 })
+                    {
+                        var base64 = Convert.ToBase64String(Model.BackgroundImageDesktop);
+                        <div class="img-preview">
+                            <img src="data:@Model.BackgroundImageDesktopContentType;base64,@base64" alt="Background desktop" style="max-height:80px;display:block;" />
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="help">Nenhuma imagem definida. Será usada a cor de fundo.</p>
+                    }
+                    <div class="file-row">
+                        <input type="file" name="BackgroundDesktopFile" accept="image/*" />
+                        <label class="checkbox-label"><input type="checkbox" name="removeBackgroundDesktop" value="true" /> Remover</label>
+                    </div>
+                    <p class="help">Recomendado: ~1920×1080 px.</p>
+                </div>
+                <div class="field">
+                    <label class="label">Mobile</label>
+                    @if (Model.BackgroundImageMobile is { Length: > 0 })
+                    {
+                        var base64 = Convert.ToBase64String(Model.BackgroundImageMobile);
+                        <div class="img-preview">
+                            <img src="data:@Model.BackgroundImageMobileContentType;base64,@base64" alt="Background mobile" style="max-height:80px;display:block;" />
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="help">Nenhuma imagem definida. Será usado o Desktop em telas menores.</p>
+                    }
+                    <div class="file-row">
+                        <input type="file" name="BackgroundMobileFile" accept="image/*" />
+                        <label class="checkbox-label"><input type="checkbox" name="removeBackgroundMobile" value="true" /> Remover</label>
+                    </div>
+                    <p class="help">Recomendado: ~750×1334 px.</p>
+                </div>
             </div>
-            <div class="control">
-                <a asp-action="List" class="button is-light">Cancelar</a>
+
+            <div class="panel-card" style="padding:16px 24px;">
+                <div class="form-actions">
+                    <button type="submit" class="button is-brand">Salvar</button>
+                    <a asp-action="List" class="button is-outlined-brand">Cancelar</a>
+                </div>
             </div>
-        </div>
-    </form>
-</div>
+        </form>
+    </div>
+
+    <script>
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+            document.getElementById('sidebarOverlay').classList.toggle('open');
+        }
+        function closeSidebar() {
+            document.getElementById('sidebar').classList.remove('open');
+            document.getElementById('sidebarOverlay').classList.remove('open');
+        }
+
+        function parseButtons() {
+            try {
+                const val = document.getElementById('PostCheckinButtonsJson').value || '[]';
+                return JSON.parse(val);
+            } catch { return []; }
+        }
+
+        function renderButtons() {
+            const buttons = parseButtons();
+            const container = document.getElementById('buttonsList');
+            container.innerHTML = buttons.map(function(b, i) {
+                return '<div style="border:1px solid #e0e0e0;border-radius:8px;padding:12px;margin-bottom:8px;">' +
+                    '<div style="display:grid;grid-template-columns:1fr 1fr auto auto;gap:8px;align-items:center;" class="button-grid">' +
+                    '<input class="input is-small" type="text" value="' + esc(b.label) + '" placeholder="Rótulo" data-idx="' + i + '" data-field="label" oninput="serializeButtons()" />' +
+                    '<input class="input is-small" type="text" value="' + esc(b.url) + '" placeholder="URL" data-idx="' + i + '" data-field="url" oninput="serializeButtons()" />' +
+                    '<label class="checkbox" style="font-size:0.8rem;white-space:nowrap;"><input type="checkbox" ' + (b.enabled ? 'checked' : '') + ' data-idx="' + i + '" data-field="enabled" onchange="serializeButtons()" /> Ativo</label>' +
+                    '<button type="button" class="button is-small is-danger is-light" onclick="removeButton(' + i + ')">X</button>' +
+                    '</div></div>';
+            }).join('');
+        }
+
+        function serializeButtons() {
+            const buttons = parseButtons();
+            const inputs = document.querySelectorAll('#buttonsList [data-idx]');
+            inputs.forEach(function(el) {
+                const idx = parseInt(el.getAttribute('data-idx'));
+                const field = el.getAttribute('data-field');
+                if (field === 'enabled') {
+                    buttons[idx].enabled = el.checked;
+                } else {
+                    buttons[idx][field] = el.value;
+                }
+            });
+            document.getElementById('PostCheckinButtonsJson').value = JSON.stringify(buttons);
+        }
+
+        function addButton() {
+            const buttons = parseButtons();
+            buttons.push({ label: 'Novo Botão', url: '', enabled: true });
+            document.getElementById('PostCheckinButtonsJson').value = JSON.stringify(buttons);
+            renderButtons();
+        }
+
+        function removeButton(idx) {
+            let buttons = parseButtons();
+            buttons.splice(idx, 1);
+            document.getElementById('PostCheckinButtonsJson').value = JSON.stringify(buttons);
+            renderButtons();
+        }
+
+        function esc(s) { return (s || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+        document.addEventListener('DOMContentLoaded', renderButtons);
+
+        document.querySelectorAll('.sidebar .sections a').forEach(function(a) {
+            a.addEventListener('click', function(e) {
+                e.preventDefault();
+                var target = document.querySelector(this.getAttribute('href'));
+                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+        });
+
+        // Course management
+        function parseCourses() {
+            try {
+                var val = document.getElementById('CoursesJson').value || '[]';
+                return JSON.parse(val);
+            } catch { return []; }
+        }
+
+        function renderCourses() {
+            var courses = parseCourses();
+            var container = document.getElementById('coursesList');
+            container.innerHTML = courses.map(function(c, i) {
+                return '<div style="border:1px solid #e0e0e0;border-radius:8px;padding:12px;margin-bottom:8px;">' +
+                    '<div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:center;">' +
+                    '<input class="input is-small" type="text" value="' + esc(c.name) + '" placeholder="Nome do curso" data-idx="' + i + '" data-field="name" oninput="serializeCourses()" />' +
+                    '<div style="display:flex;align-items:center;gap:4px;"><input class="input is-small" type="number" value="' + (c.numberOfSemesters || 8) + '" min="1" max="12" style="width:70px;" data-idx="' + i + '" data-field="numberOfSemesters" oninput="serializeCourses()" /> <span style="font-size:0.75rem;color:#999;">semestres</span></div>' +
+                    '<button type="button" class="button is-small is-danger is-light" onclick="removeCourse(' + i + ')">X</button>' +
+                    '</div></div>';
+            }).join('');
+        }
+
+        function serializeCourses() {
+            var courses = parseCourses();
+            var inputs = document.querySelectorAll('#coursesList [data-idx]');
+            inputs.forEach(function(el) {
+                var idx = parseInt(el.getAttribute('data-idx'));
+                var field = el.getAttribute('data-field');
+                if (field === 'numberOfSemesters') {
+                    courses[idx].numberOfSemesters = parseInt(el.value) || 8;
+                } else {
+                    courses[idx].name = el.value;
+                }
+            });
+            document.getElementById('CoursesJson').value = JSON.stringify(courses);
+        }
+
+        function addCourse() {
+            var courses = parseCourses();
+            courses.push({ name: 'Novo Curso', numberOfSemesters: 8 });
+            document.getElementById('CoursesJson').value = JSON.stringify(courses);
+            renderCourses();
+        }
+
+        function removeCourse(idx) {
+            var courses = parseCourses();
+            courses.splice(idx, 1);
+            document.getElementById('CoursesJson').value = JSON.stringify(courses);
+            renderCourses();
+        }
+
+        document.addEventListener('DOMContentLoaded', renderCourses);
+    </script>
+</body>
+</html>

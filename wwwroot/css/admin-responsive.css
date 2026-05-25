@@ -1,0 +1,19 @@
+@media (max-width: 768px) {
+    .panel-card { padding: 16px; }
+    .panel-card h2 { font-size: 0.9rem; }
+    .stats-row .stat-box,
+    .stat-row .stat-box { min-width: 80px; padding: 12px; }
+    .stat-box .num { font-size: 1.2rem; }
+    .columns .column { padding: 0.25rem 0; }
+    .field-row { flex-wrap: wrap; padding: 8px; }
+    .field-row .field { flex: 1 1 100% !important; }
+    .color-row { flex-wrap: wrap; }
+    .table-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .table-container .table { white-space: nowrap; margin-bottom: 0; }
+    [style*="display:flex"] { flex-wrap: wrap; }
+}
+
+@media (max-width: 480px) {
+    .panel-card { padding: 12px; }
+    .stat-box .num { font-size: 1rem; }
+}

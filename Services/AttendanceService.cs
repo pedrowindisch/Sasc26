@@ -30,6 +30,11 @@ public class AttendanceService : IAttendanceService
     }
 
     private int EventId => _eventContext.CurrentEventId;
+
+    private async Task<bool> IsValidCourseAsync(string course)
+    {
+        return await _db.EventCourses.AnyAsync(c => c.EventId == EventId && c.Name == course);
+    }
     private string EventName => _eventContext.CurrentEvent.Name;
 
     public async Task<TimeSlot?> GetActiveTimeSlotAsync()
@@ -188,8 +193,27 @@ public class AttendanceService : IAttendanceService
                 return new VerifyOtpResult { Success = false, Message = "O código expirou." };
         }
 
+        if (checkIn is null && dto.SesFallback)
+        {
+            checkIn = new CheckIn
+            {
+                Id = Guid.NewGuid(),
+                AttendeeEmail = email,
+                EventId = EventId,
+                OtpCode = "SKIPPED",
+                Status = CheckInStatus.Pending,
+                CreatedAt = now,
+                ExpiresAt = now.AddMinutes(15),
+                SesFallback = true
+            };
+            _db.CheckIns.Add(checkIn);
+        }
+
         if (checkIn is null)
             return new VerifyOtpResult { Success = false, Message = "Nenhuma solicitação pendente." };
+
+        if (!string.IsNullOrWhiteSpace(dto.Course) && !await IsValidCourseAsync(dto.Course))
+            return new VerifyOtpResult { Success = false, Message = "Curso inválido para este evento." };
 
         var existingAttendee = await _db.Attendees.FirstOrDefaultAsync(a => a.EventId == EventId && a.Email == email);
         if (existingAttendee is not null)
@@ -214,7 +238,25 @@ public class AttendanceService : IAttendanceService
 
         checkIn.Status = CheckInStatus.OtpVerified;
         checkIn.SesFallback = dto.SesFallback;
-        await _db.SaveChangesAsync();
+
+        try
+        {
+            await _db.SaveChangesAsync();
+        }
+        catch (DbUpdateException) when (existingAttendee is null)
+        {
+            foreach (var entry in _db.ChangeTracker.Entries<Attendee>().ToList())
+                entry.State = EntityState.Detached;
+            var reloaded = await _db.Attendees.FirstOrDefaultAsync(a => a.EventId == EventId && a.Email == email);
+            if (reloaded is not null)
+            {
+                reloaded.FullName = dto.FullName.Trim();
+                reloaded.Course = dto.Course;
+                reloaded.Shift = dto.Shift;
+                reloaded.Phase = dto.Phase;
+            }
+            await _db.SaveChangesAsync();
+        }
 
         return new VerifyOtpResult { Success = true, Message = "E-mail verificado." };
     }
@@ -365,6 +407,9 @@ public class AttendanceService : IAttendanceService
 
         if (string.IsNullOrWhiteSpace(dto.Course) || string.IsNullOrWhiteSpace(dto.Shift) || dto.Phase < 1)
             return new PreRegisterResult { Success = false, Message = "Preencha todos os campos do cadastro." };
+
+        if (!await IsValidCourseAsync(dto.Course))
+            return new PreRegisterResult { Success = false, Message = "Curso inválido para este evento." };
 
         var ev = _eventContext.CurrentEvent;
 
@@ -762,6 +807,9 @@ public class AttendanceService : IAttendanceService
         if (string.IsNullOrWhiteSpace(dto.Course) || string.IsNullOrWhiteSpace(dto.Shift) || dto.Phase < 1)
             return new RetroactiveRequestResult { Success = false, Message = "Preencha todos os campos do cadastro." };
 
+        if (!await IsValidCourseAsync(dto.Course))
+            return new RetroactiveRequestResult { Success = false, Message = "Curso inválido para este evento." };
+
         var lecture = await _db.Lectures.Include(l => l.TimeSlot).FirstOrDefaultAsync(l => l.EventId == EventId && l.Id == dto.LectureId);
         if (lecture is null)
             return new RetroactiveRequestResult { Success = false, Message = "Palestra não encontrada." };
@@ -837,6 +885,9 @@ public class AttendanceService : IAttendanceService
         if (session is null)
             return new ServiceResult { Success = false, Message = "Token inválido ou expirado." };
 
+        if (!string.IsNullOrWhiteSpace(dto.Course) && !await IsValidCourseAsync(dto.Course))
+            return new ServiceResult { Success = false, Message = "Curso inválido para este evento." };
+
         var existingAttendee = await _db.Attendees.FirstOrDefaultAsync(a => a.EventId == EventId && a.Email == email);
         if (existingAttendee is not null)
         {
@@ -893,13 +944,25 @@ public class AttendanceService : IAttendanceService
         if (session is null)
             return new ServiceResult { Success = false, Message = "QR Code inválido ou expirado." };
 
+        if (!string.IsNullOrWhiteSpace(dto.Course) && !await IsValidCourseAsync(dto.Course))
+            return new ServiceResult { Success = false, Message = "Curso inválido para este evento." };
+
+        var alreadyCheckedIn = await _db.CheckIns
+            .AnyAsync(c => c.EventId == EventId && c.AttendeeEmail == email && c.LectureId == dto.LectureId && c.Status == CheckInStatus.Verified);
+        if (alreadyCheckedIn)
+            return new ServiceResult { Success = false, Message = "Você já realizou check-in nesta palestra." };
+
         var existingAttendee = await _db.Attendees.FirstOrDefaultAsync(a => a.EventId == EventId && a.Email == email);
         if (existingAttendee is not null)
         {
-            existingAttendee.FullName = dto.FullName.Trim();
-            existingAttendee.Course = dto.Course;
-            existingAttendee.Shift = dto.Shift;
-            existingAttendee.Phase = dto.Phase;
+            if (!string.IsNullOrWhiteSpace(dto.FullName))
+                existingAttendee.FullName = dto.FullName.Trim();
+            if (!string.IsNullOrWhiteSpace(dto.Course))
+                existingAttendee.Course = dto.Course;
+            if (!string.IsNullOrWhiteSpace(dto.Shift))
+                existingAttendee.Shift = dto.Shift;
+            if (dto.Phase > 0)
+                existingAttendee.Phase = dto.Phase;
         }
         else
         {
@@ -908,16 +971,11 @@ public class AttendanceService : IAttendanceService
                 Email = email,
                 EventId = EventId,
                 FullName = dto.FullName.Trim(),
-                Course = dto.Course,
-                Shift = dto.Shift,
+                Course = dto.Course ?? "",
+                Shift = dto.Shift ?? "",
                 Phase = dto.Phase
             });
         }
-
-        var alreadyCheckedIn = await _db.CheckIns
-            .AnyAsync(c => c.EventId == EventId && c.AttendeeEmail == email && c.LectureId == dto.LectureId && c.Status == CheckInStatus.Verified);
-        if (alreadyCheckedIn)
-            return new ServiceResult { Success = false, Message = "Você já realizou check-in nesta palestra." };
 
         var now = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, BrasiliaTz);
         _db.CheckIns.Add(new CheckIn
@@ -933,9 +991,49 @@ public class AttendanceService : IAttendanceService
             VerifiedAt = now
         });
 
-        await _db.SaveChangesAsync();
+        try
+        {
+            await _db.SaveChangesAsync();
+        }
+        catch (DbUpdateException)
+        {
+            foreach (var entry in _db.ChangeTracker.Entries().ToList())
+                entry.State = EntityState.Detached;
 
-        _logger.LogInformation("QR code check-in for {Email} in lecture {LectureId}", email, dto.LectureId);
+            if (existingAttendee is null)
+            {
+                var reloaded = await _db.Attendees.FirstOrDefaultAsync(a => a.EventId == EventId && a.Email == email);
+                if (reloaded is null)
+                {
+                    _db.Attendees.Add(new Attendee
+                    {
+                        Email = email,
+                        EventId = EventId,
+                        FullName = dto.FullName.Trim(),
+                        Course = dto.Course ?? "",
+                        Shift = dto.Shift ?? "",
+                        Phase = dto.Phase
+                    });
+                }
+            }
+
+            _db.CheckIns.Add(new CheckIn
+            {
+                Id = Guid.NewGuid(),
+                AttendeeEmail = email,
+                EventId = EventId,
+                LectureId = dto.LectureId,
+                OtpCode = "QRCODE",
+                Status = CheckInStatus.Verified,
+                CreatedAt = now,
+                ExpiresAt = now,
+                VerifiedAt = now
+            });
+
+            await _db.SaveChangesAsync();
+        }
+
+        _logger.LogInformation("QR code check-in succeeded for {Email} in lecture {LectureId}", email, dto.LectureId);
 
         return new ServiceResult { Success = true, Message = "Check-in realizado com sucesso!" };
     }

@@ -4,6 +4,7 @@
     var token = ViewBag.Token as string;
     var payload = ViewBag.Payload as string;
     var eventSlug = ViewBag.EventSlug as string ?? "";
+    var lectureId = lecture?.Id ?? 0;
 }
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -20,8 +21,8 @@
         .qr-card { text-align: center; padding: 40px; max-width: 520px; width: 100%; margin: 0 16px; }
         .qr-card h1 { font-size: 1.4rem; font-weight: 700; margin: 0 0 8px; color: #1a1a1a; }
         .qr-card .lecture-name { font-size: 1rem; color: #666; margin-bottom: 24px; }
-        #qrcode { display: inline-block; padding: 20px; background: #fff; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.1); margin-bottom: 16px; }
-        #qrcode img, #qrcode canvas { display: block !important; width: 260px; height: 260px; }
+        #qrcode { display: inline-flex; align-items: center; justify-content: center; padding: 12px; background: #fff; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.1); margin-bottom: 16px; min-width: 260px; min-height: 260px; }
+        #qrcode img { display: block; }
         .qr-hint { font-size: 0.85rem; color: #999; margin-bottom: 8px; }
         .status-text { font-size: 1rem; font-weight: 600; color: #059669; margin: 8px 0 24px; }
         .token-debug { background: #f5f5f5; border-radius: 8px; padding: 12px; margin: 16px 0 24px; font-family: monospace; font-size: 0.9rem; letter-spacing: 2px; color: #666; cursor: pointer; }
@@ -49,19 +50,40 @@
         <a href="/@eventSlug/Admin/Dashboard" class="btn-dashboard">← Voltar ao Dashboard</a>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
     <script>
-        var payload = "@payload";
+        var lectureId = @lectureId;
+        var expiresAt = new Date("@DateTime.UtcNow.AddMinutes(10).ToString("o")");
         var running = true;
 
-        new QRCode(document.getElementById("qrcode"), {
-            text: payload,
-            width: 260,
-            height: 260,
-            colorDark: "#1a1a1a",
-            colorLight: "#ffffff",
-            correctLevel: QRCode.CorrectLevel.H
-        });
+        function renderQr(text) {
+            var qr = qrcode(0, 'H');
+            qr.addData(text);
+            qr.make();
+            document.getElementById('qrcode').innerHTML = qr.createImgTag(9, 4);
+        }
+
+        renderQr("@payload");
+
+        function refreshQr() {
+            if (!running) return;
+            fetch('/@eventSlug/Admin/RenewQrSession', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ lectureId: lectureId })
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.success) {
+                    document.getElementById('tokenDebug').textContent = data.token;
+                    document.getElementById('tokenDebug').__token = data.token;
+                    renderQr(data.payload);
+                }
+            })
+            .catch(function () {});
+        }
+
+        setInterval(refreshQr, 15000);
 
         function stopBroadcast() {
             running = false;
@@ -71,16 +93,14 @@
             document.getElementById('qrcode').style.opacity = '0.3';
         }
 
-        function copyToken() {
-            navigator.clipboard.writeText("@token").then(function () {
+        function copyToken(t) {
+            var token = t || this.__token || "@token";
+            navigator.clipboard.writeText(token).then(function () {
                 var el = document.getElementById("tokenDebug");
                 el.textContent = "Copiado!";
-                setTimeout(function () { el.textContent = "@token"; }, 1500);
+                setTimeout(function () { el.textContent = token; }, 1500);
             });
         }
-
-        var createdAt = new Date("@DateTime.UtcNow.ToString("o")");
-        var expiresAt = new Date(createdAt.getTime() + 10 * 60 * 1000);
 
         function checkExpiry() {
             if (!running) return;

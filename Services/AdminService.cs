@@ -10,6 +10,8 @@ public interface IAdminService
     bool IsAdminEmail(string email);
     Task<AdminOtpResult> SendAdminOtpAsync(string email);
     Task<AdminLoginResult> VerifyAdminOtpAsync(string email, string code);
+    Task<AdminManageResult> AddAdminEmailAsync(string email);
+    Task<AdminManageResult> RemoveAdminEmailAsync(string email, string currentAdminEmail);
     Task<ManualCheckInResult> ManualCheckInAsync(string email, string fullName, string course, string shift, int phase, int lectureId);
     Task<List<CheckInEntryDto>> GetAllCheckInsAsync(int? lectureId);
     Task<List<TimeSlot>> GetAllTimeSlotsAsync();
@@ -21,6 +23,7 @@ public interface IAdminService
     Task<bool> DeleteTimeSlotAsync(int timeSlotId);
     Task TogglePreRegistrationAsync(int lectureId);
     Task<ToggleEventWidePreRegResult> ToggleEventWidePreRegistrationAsync(bool force);
+    Task ToggleRetroactiveCheckInAsync();
     Task<List<PreRegistrationEntryDto>> GetPreRegistrationsAsync(int lectureId);
     Task<Dictionary<int, int>> GetPreRegistrationCountsAsync();
     Task<int> GetEventWidePreRegistrationCountAsync();
@@ -33,6 +36,7 @@ public interface IAdminService
 public class AdminOtpResult { public bool Success { get; set; } public string Message { get; set; } = string.Empty; }
 public class AdminLoginResult { public bool Success { get; set; } public string Message { get; set; } = string.Empty; }
 public class ManualCheckInResult { public bool Success { get; set; } public string Message { get; set; } = string.Empty; }
+public class AdminManageResult { public bool Success { get; set; } public string Message { get; set; } = string.Empty; }
 public class ToggleEventWidePreRegResult { public bool Success { get; set; } public string Message { get; set; } = string.Empty; public int ExistingCount { get; set; } }
 
 public class RetroactiveRequestEntryDto
@@ -112,6 +116,12 @@ public class AdminService : IAdminService
     }
 
     private int EventId => _eventContext.CurrentEventId;
+
+    private async Task<bool> IsValidCourseAsync(string course)
+    {
+        if (string.IsNullOrWhiteSpace(course)) return true;
+        return await _db.EventCourses.AnyAsync(c => c.EventId == EventId && c.Name == course);
+    }
     private string EventName => _eventContext.CurrentEvent.Name;
 
     public bool IsAdminEmail(string email)
@@ -123,6 +133,49 @@ public class AdminService : IAdminService
             return true;
         // Fallback to global admin emails from config
         return _settings.AdminEmails.Contains(email, StringComparer.OrdinalIgnoreCase);
+    }
+
+    public async Task<AdminManageResult> AddAdminEmailAsync(string email)
+    {
+        email = email.Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(email) || !email.Contains('@'))
+            return new AdminManageResult { Success = false, Message = "E-mail inválido." };
+
+        var ev = await _db.Events.FirstAsync(e => e.Id == EventId);
+        var admins = ev.AdminEmails;
+
+        if (admins.Contains(email, StringComparer.OrdinalIgnoreCase))
+            return new AdminManageResult { Success = false, Message = "Este e-mail já é administrador." };
+
+        admins.Add(email);
+        ev.AdminEmails = admins;
+        await _db.SaveChangesAsync();
+
+        return new AdminManageResult { Success = true, Message = "Administrador adicionado com sucesso." };
+    }
+
+    public async Task<AdminManageResult> RemoveAdminEmailAsync(string email, string currentAdminEmail)
+    {
+        email = email.Trim().ToLowerInvariant();
+        currentAdminEmail = currentAdminEmail.Trim().ToLowerInvariant();
+
+        if (string.Equals(email, currentAdminEmail, StringComparison.OrdinalIgnoreCase))
+            return new AdminManageResult { Success = false, Message = "Você não pode remover a si mesmo." };
+
+        var ev = await _db.Events.FirstAsync(e => e.Id == EventId);
+        var admins = ev.AdminEmails;
+
+        if (!admins.Contains(email, StringComparer.OrdinalIgnoreCase))
+            return new AdminManageResult { Success = false, Message = "E-mail não encontrado entre os administradores." };
+
+        if (admins.Count <= 1)
+            return new AdminManageResult { Success = false, Message = "Não é possível remover o único administrador." };
+
+        admins.RemoveAll(a => string.Equals(a, email, StringComparison.OrdinalIgnoreCase));
+        ev.AdminEmails = admins;
+        await _db.SaveChangesAsync();
+
+        return new AdminManageResult { Success = true, Message = "Administrador removido com sucesso." };
     }
 
     public async Task<AdminOtpResult> SendAdminOtpAsync(string email)
@@ -177,6 +230,9 @@ public class AdminService : IAdminService
             c.Status == CheckInStatus.Verified);
         if (already)
             return new ManualCheckInResult { Success = false, Message = "Check-in já existe para este horário." };
+
+        if (!string.IsNullOrWhiteSpace(course) && !await IsValidCourseAsync(course))
+            return new ManualCheckInResult { Success = false, Message = "Curso inválido para este evento." };
 
         var existing = await _db.Attendees.FirstOrDefaultAsync(a => a.EventId == EventId && a.Email == email);
         if (existing is not null)
@@ -335,6 +391,13 @@ public class AdminService : IAdminService
                 ? "Modo alterado para inscrição por evento."
                 : "Modo alterado para inscrição por palestra."
         };
+    }
+
+    public async Task ToggleRetroactiveCheckInAsync()
+    {
+        var ev = await _db.Events.FirstAsync(e => e.Id == EventId);
+        ev.IsRetroactiveCheckInEnabled = !ev.IsRetroactiveCheckInEnabled;
+        await _db.SaveChangesAsync();
     }
 
     public async Task<int> GetEventWidePreRegistrationCountAsync()

@@ -54,7 +54,7 @@
 <div class="card-wrapper">
     <div class="event-card">
         <div class="event-header">
-            <img class="logo" src="~/dasc.svg" alt="DASC">
+            <img class="logo" src="@ev.LogoUrl(Url)" alt="@(ev?.Name ?? "DASC")">
             <h1>Validação Retroativa de AACCs</h1>
             <p>Esqueceu de validar suas AACCs?</p>
         </div>

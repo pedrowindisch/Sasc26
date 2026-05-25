@@ -78,6 +78,11 @@ public class CertificateService : ICertificateService
     }
 
     private int EventId => _eventContext.CurrentEventId;
+
+    private async Task<bool> IsValidCourseAsync(string course)
+    {
+        return await _db.EventCourses.AnyAsync(c => c.EventId == EventId && c.Name == course);
+    }
     private string EventName => _eventContext.CurrentEvent.Name;
 
     public async Task<CertificateLookupResult> LookupProfileAsync(string email)
@@ -127,6 +132,9 @@ public class CertificateService : ICertificateService
 
         if (totalHours <= 0)
             return new CertificateIssueResult { Success = false, Message = "Nenhuma presença registrada para emitir certificado." };
+
+        if (!string.IsNullOrWhiteSpace(dto.Course) && !await IsValidCourseAsync(dto.Course))
+            return new CertificateIssueResult { Success = false, Message = "Curso inválido para este evento." };
 
         var validationCode = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
         var now = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, BrasiliaTz);
