@@ -10,4 +10,6 @@ public class LectureFeedback
     public string Comment { get; set; } = string.Empty;
     public bool Skipped { get; set; }
     public DateTime CreatedAt { get; set; }
+    public int EventId { get; set; }
+    public Event Event { get; set; } = null!;
 }

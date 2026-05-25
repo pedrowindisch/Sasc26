@@ -11,12 +11,17 @@ public interface IAttendanceService
     Task<List<LectureDto>> GetActiveLecturesAsync();
     Task<List<LectureWithPreRegDto>> GetAllLecturesAsync();
     Task<PreRegisterResult> SubmitPreRegistrationBatchAsync(string email, List<int> lectureIds);
+    Task<PreRegisterResult> SubmitPreRegistrationWithFormAsync(SubmitPreRegistrationDto dto);
     Task<PreRegisterResult> VerifyPreRegistrationOtpAsync(string email, string code);
     Task<HashSet<int>> GetPreRegisteredLectureIdsAsync(string email);
+    Task<bool> HasEventWideRegistrationAsync(string email);
+    Task<PreRegisterResult> SubmitEventPreRegistrationAsync(string email);
+    Task<PreRegisterResult> VerifyEventPreRegistrationOtpAsync(string email, string code);
     Task<SubmitCheckInResult> SubmitCheckInAsync(SubmitCheckInDto dto);
     Task<List<RetroactiveLectureDto>> GetYesterdayLecturesAsync();
     Task<RetroactiveRequestResult> SubmitRetroactiveRequestAsync(RetroactiveRequestDto dto);
     Task<ServiceResult> MagicCheckInAsync(MagicCheckInDto dto);
+    Task<ServiceResult> QrCheckInAsync(QrCheckInDto dto);
 }
 
 public class RequestOtpResult
@@ -56,6 +61,7 @@ public class LectureWithPreRegDto
     public bool IsPreRegistrationEnabled { get; set; }
     public int PreRegistrationCount { get; set; }
     public bool AlreadyRegistered { get; set; }
+    public bool IsEventWide { get; set; }
 }
 
 public class ServiceResult

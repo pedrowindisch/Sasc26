@@ -19,6 +19,9 @@ namespace Sasc26.Migrations
 
             modelBuilder.Entity("Sasc26.Models.Attendee", b =>
                 {
+                    b.Property<int>("EventId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Email")
                         .HasMaxLength(200)
                         .HasColumnType("TEXT");
@@ -41,7 +44,7 @@ namespace Sasc26.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("TEXT");
 
-                    b.HasKey("Email");
+                    b.HasKey("EventId", "Email");
 
                     b.ToTable("Attendees");
                 });
@@ -67,6 +70,9 @@ namespace Sasc26.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("EventId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("INTEGER");
 
@@ -79,6 +85,9 @@ namespace Sasc26.Migrations
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("EventId")
+                        .IsUnique();
 
                     b.ToTable("Banners");
                 });
@@ -105,6 +114,9 @@ namespace Sasc26.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("EventId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("TemplateMessage")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -114,6 +126,9 @@ namespace Sasc26.Migrations
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("EventId")
+                        .IsUnique();
 
                     b.ToTable("CertificateConfigs");
                 });
@@ -130,6 +145,9 @@ namespace Sasc26.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
+
+                    b.Property<int>("EventId")
+                        .HasColumnType("INTEGER");
 
                     b.Property<DateTime>("ExpiresAt")
                         .HasColumnType("TEXT");
@@ -153,11 +171,156 @@ namespace Sasc26.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("AttendeeEmail");
-
                     b.HasIndex("LectureId");
 
+                    b.HasIndex("EventId", "AttendeeEmail");
+
                     b.ToTable("CheckIns");
+                });
+
+            modelBuilder.Entity("Sasc26.Models.Event", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("AccentColor")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.PrimitiveCollection<string>("AdminEmails")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AdminEmailsJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AllowedEmailDomain")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("BackgroundColor")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("BackgroundImageDesktop")
+                        .HasColumnType("BLOB");
+
+                    b.Property<string>("BackgroundImageDesktopContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("BackgroundImageMobile")
+                        .HasColumnType("BLOB");
+
+                    b.Property<string>("BackgroundImageMobileContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("CheckInMode")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0);
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsEventWidePreRegistration")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsRetroactiveCheckInEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(true);
+
+                    b.Property<string>("LogoContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("LogoImage")
+                        .HasColumnType("BLOB");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PostCheckinButtonsJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("PreRegistrationEnd")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("PreRegistrationStart")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PrimaryColor")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("RequireOtp")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(true);
+
+                    b.Property<string>("Slug")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Subtitle")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TextColor")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Slug")
+                        .IsUnique();
+
+                    b.ToTable("Events");
+                });
+
+            modelBuilder.Entity("Sasc26.Models.EventCourse", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("EventId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("NumberOfSemesters")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EventId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("EventCourses");
                 });
 
             modelBuilder.Entity("Sasc26.Models.FormSubmission", b =>
@@ -171,6 +334,9 @@ namespace Sasc26.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("EventId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("FormData")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -179,6 +345,8 @@ namespace Sasc26.Migrations
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("EventId");
 
                     b.ToTable("FormSubmissions");
                 });
@@ -198,6 +366,9 @@ namespace Sasc26.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("TEXT");
+
+                    b.Property<int>("EventId")
+                        .HasColumnType("INTEGER");
 
                     b.Property<DateTime>("IssuedAt")
                         .HasColumnType("TEXT");
@@ -220,6 +391,8 @@ namespace Sasc26.Migrations
                     b.HasIndex("Email")
                         .IsUnique();
 
+                    b.HasIndex("EventId");
+
                     b.ToTable("IssuedCertificates");
                 });
 
@@ -227,6 +400,9 @@ namespace Sasc26.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("EventId")
                         .HasColumnType("INTEGER");
 
                     b.Property<bool>("IsPreRegistrationEnabled")
@@ -262,6 +438,8 @@ namespace Sasc26.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("EventId");
+
                     b.HasIndex("TimeSlotId");
 
                     b.ToTable("Lectures");
@@ -286,6 +464,9 @@ namespace Sasc26.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("EventId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int>("LectureId")
                         .HasColumnType("INTEGER");
 
@@ -296,6 +477,8 @@ namespace Sasc26.Migrations
                         .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("EventId");
 
                     b.HasIndex("LectureId", "AttendeeEmail")
                         .IsUnique();
@@ -311,6 +494,9 @@ namespace Sasc26.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
+
+                    b.Property<int>("EventId")
+                        .HasColumnType("INTEGER");
 
                     b.Property<DateTime>("ExpiresAt")
                         .HasColumnType("TEXT");
@@ -328,6 +514,8 @@ namespace Sasc26.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("EventId");
+
                     b.HasIndex("LectureId");
 
                     b.ToTable("MagicCheckInSessions");
@@ -344,13 +532,16 @@ namespace Sasc26.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("EventId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<DateTime>("ExpiresAt")
                         .HasColumnType("TEXT");
 
                     b.Property<bool>("IsVerified")
                         .HasColumnType("INTEGER");
 
-                    b.Property<int>("LectureId")
+                    b.Property<int?>("LectureId")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("OtpCode")
@@ -363,53 +554,21 @@ namespace Sasc26.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("EventId");
+
                     b.HasIndex("LectureId", "AttendeeEmail")
                         .IsUnique();
 
                     b.ToTable("PreRegistrations");
                 });
 
-            modelBuilder.Entity("Sasc26.Models.RetroactiveCheckIn", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("AttendeeEmail")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Justification")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("LectureId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime>("RequestedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime?>("ResolvedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("INTEGER");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("AttendeeEmail");
-
-                    b.HasIndex("LectureId");
-
-                    b.ToTable("RetroactiveCheckIns");
-                });
-
-            modelBuilder.Entity("Sasc26.Models.ThankYouConfig", b =>
+            modelBuilder.Entity("Sasc26.Models.PreRegistrationConfig", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("EventId")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("FormButtonText")
@@ -440,6 +599,120 @@ namespace Sasc26.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("EventId")
+                        .IsUnique();
+
+                    b.ToTable("PreRegistrationConfigs");
+                });
+
+            modelBuilder.Entity("Sasc26.Models.PreRegistrationFormSubmission", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("AttendeeEmail")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("EventId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("FormData")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("SubmittedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EventId");
+
+                    b.ToTable("PreRegistrationFormSubmissions");
+                });
+
+            modelBuilder.Entity("Sasc26.Models.RetroactiveCheckIn", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AttendeeEmail")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("EventId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Justification")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("LectureId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("RequestedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("ResolvedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LectureId");
+
+                    b.HasIndex("EventId", "AttendeeEmail");
+
+                    b.ToTable("RetroactiveCheckIns");
+                });
+
+            modelBuilder.Entity("Sasc26.Models.ThankYouConfig", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("EventId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("FormButtonText")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("FormDescription")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("FormFields")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("FormTitle")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsFormEnabled")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EventId")
+                        .IsUnique();
+
                     b.ToTable("ThankYouConfigs");
                 });
 
@@ -455,6 +728,9 @@ namespace Sasc26.Migrations
                     b.Property<DateTime>("EndTime")
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("EventId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Shift")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -463,6 +739,8 @@ namespace Sasc26.Migrations
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("EventId");
 
                     b.ToTable("TimeSlots");
                 });
@@ -482,6 +760,9 @@ namespace Sasc26.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("TEXT");
+
+                    b.Property<int>("EventId")
+                        .HasColumnType("INTEGER");
 
                     b.Property<bool>("IsVerified")
                         .HasColumnType("INTEGER");
@@ -507,6 +788,8 @@ namespace Sasc26.Migrations
                     b.HasIndex("Email")
                         .IsUnique();
 
+                    b.HasIndex("EventId");
+
                     b.ToTable("Volunteers");
                 });
 
@@ -519,6 +802,9 @@ namespace Sasc26.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("EventId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int>("TimeSlotId")
                         .HasColumnType("INTEGER");
 
@@ -526,6 +812,8 @@ namespace Sasc26.Migrations
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("EventId");
 
                     b.HasIndex("TimeSlotId");
 
@@ -535,12 +823,45 @@ namespace Sasc26.Migrations
                     b.ToTable("VolunteerCheckIns");
                 });
 
+            modelBuilder.Entity("Sasc26.Models.Attendee", b =>
+                {
+                    b.HasOne("Sasc26.Models.Event", "Event")
+                        .WithMany()
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Event");
+                });
+
+            modelBuilder.Entity("Sasc26.Models.Banner", b =>
+                {
+                    b.HasOne("Sasc26.Models.Event", "Event")
+                        .WithMany()
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Event");
+                });
+
+            modelBuilder.Entity("Sasc26.Models.CertificateConfig", b =>
+                {
+                    b.HasOne("Sasc26.Models.Event", "Event")
+                        .WithMany()
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Event");
+                });
+
             modelBuilder.Entity("Sasc26.Models.CheckIn", b =>
                 {
-                    b.HasOne("Sasc26.Models.Attendee", "Attendee")
-                        .WithMany("CheckIns")
-                        .HasForeignKey("AttendeeEmail")
-                        .OnDelete(DeleteBehavior.Cascade)
+                    b.HasOne("Sasc26.Models.Event", "Event")
+                        .WithMany()
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("Sasc26.Models.Lecture", "Lecture")
@@ -548,76 +869,217 @@ namespace Sasc26.Migrations
                         .HasForeignKey("LectureId")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.HasOne("Sasc26.Models.Attendee", "Attendee")
+                        .WithMany("CheckIns")
+                        .HasForeignKey("EventId", "AttendeeEmail")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.Navigation("Attendee");
+
+                    b.Navigation("Event");
 
                     b.Navigation("Lecture");
                 });
 
+            modelBuilder.Entity("Sasc26.Models.EventCourse", b =>
+                {
+                    b.HasOne("Sasc26.Models.Event", "Event")
+                        .WithMany("Courses")
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Event");
+                });
+
+            modelBuilder.Entity("Sasc26.Models.FormSubmission", b =>
+                {
+                    b.HasOne("Sasc26.Models.Event", "Event")
+                        .WithMany()
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Event");
+                });
+
+            modelBuilder.Entity("Sasc26.Models.IssuedCertificate", b =>
+                {
+                    b.HasOne("Sasc26.Models.Event", "Event")
+                        .WithMany()
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Event");
+                });
+
             modelBuilder.Entity("Sasc26.Models.Lecture", b =>
                 {
+                    b.HasOne("Sasc26.Models.Event", "Event")
+                        .WithMany()
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("Sasc26.Models.TimeSlot", "TimeSlot")
                         .WithMany("Lectures")
                         .HasForeignKey("TimeSlotId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.Navigation("Event");
+
                     b.Navigation("TimeSlot");
                 });
 
             modelBuilder.Entity("Sasc26.Models.LectureFeedback", b =>
                 {
+                    b.HasOne("Sasc26.Models.Event", "Event")
+                        .WithMany()
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("Sasc26.Models.Lecture", "Lecture")
                         .WithMany()
                         .HasForeignKey("LectureId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Event");
 
                     b.Navigation("Lecture");
                 });
 
             modelBuilder.Entity("Sasc26.Models.MagicCheckInSession", b =>
                 {
+                    b.HasOne("Sasc26.Models.Event", "Event")
+                        .WithMany()
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("Sasc26.Models.Lecture", "Lecture")
                         .WithMany()
                         .HasForeignKey("LectureId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Event");
 
                     b.Navigation("Lecture");
                 });
 
             modelBuilder.Entity("Sasc26.Models.PreRegistration", b =>
                 {
+                    b.HasOne("Sasc26.Models.Event", "Event")
+                        .WithMany()
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("Sasc26.Models.Lecture", "Lecture")
                         .WithMany("PreRegistrations")
                         .HasForeignKey("LectureId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("Event");
 
                     b.Navigation("Lecture");
                 });
 
+            modelBuilder.Entity("Sasc26.Models.PreRegistrationConfig", b =>
+                {
+                    b.HasOne("Sasc26.Models.Event", "Event")
+                        .WithMany()
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Event");
+                });
+
+            modelBuilder.Entity("Sasc26.Models.PreRegistrationFormSubmission", b =>
+                {
+                    b.HasOne("Sasc26.Models.Event", "Event")
+                        .WithMany()
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Event");
+                });
+
             modelBuilder.Entity("Sasc26.Models.RetroactiveCheckIn", b =>
                 {
-                    b.HasOne("Sasc26.Models.Attendee", "Attendee")
+                    b.HasOne("Sasc26.Models.Event", "Event")
                         .WithMany()
-                        .HasForeignKey("AttendeeEmail")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("Sasc26.Models.Lecture", "Lecture")
                         .WithMany()
                         .HasForeignKey("LectureId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Sasc26.Models.Attendee", "Attendee")
+                        .WithMany()
+                        .HasForeignKey("EventId", "AttendeeEmail")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Attendee");
 
+                    b.Navigation("Event");
+
                     b.Navigation("Lecture");
+                });
+
+            modelBuilder.Entity("Sasc26.Models.ThankYouConfig", b =>
+                {
+                    b.HasOne("Sasc26.Models.Event", "Event")
+                        .WithMany()
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Event");
+                });
+
+            modelBuilder.Entity("Sasc26.Models.TimeSlot", b =>
+                {
+                    b.HasOne("Sasc26.Models.Event", "Event")
+                        .WithMany()
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Event");
+                });
+
+            modelBuilder.Entity("Sasc26.Models.Volunteer", b =>
+                {
+                    b.HasOne("Sasc26.Models.Event", "Event")
+                        .WithMany()
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Event");
                 });
 
             modelBuilder.Entity("Sasc26.Models.VolunteerCheckIn", b =>
                 {
+                    b.HasOne("Sasc26.Models.Event", "Event")
+                        .WithMany()
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("Sasc26.Models.TimeSlot", "TimeSlot")
                         .WithMany()
                         .HasForeignKey("TimeSlotId")
@@ -630,6 +1092,8 @@ namespace Sasc26.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.Navigation("Event");
+
                     b.Navigation("TimeSlot");
 
                     b.Navigation("Volunteer");
@@ -638,6 +1102,11 @@ namespace Sasc26.Migrations
             modelBuilder.Entity("Sasc26.Models.Attendee", b =>
                 {
                     b.Navigation("CheckIns");
+                });
+
+            modelBuilder.Entity("Sasc26.Models.Event", b =>
+                {
+                    b.Navigation("Courses");
                 });
 
             modelBuilder.Entity("Sasc26.Models.Lecture", b =>

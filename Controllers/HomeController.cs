@@ -12,26 +12,75 @@ public class HomeController : Controller
 {
     private readonly ILogger<HomeController> _logger;
     private readonly IAttendanceService _attendanceService;
-    private readonly EventSettings _eventSettings;
+    private readonly IPreRegistrationConfigService _preRegConfigService;
+    private readonly IEventContext _eventContext;
     private readonly AppDbContext _db;
+    private readonly IWebHostEnvironment _env;
 
-    public HomeController(ILogger<HomeController> logger, IAttendanceService attendanceService, IOptions<EventSettings> eventSettings, AppDbContext db)
+    public HomeController(ILogger<HomeController> logger, IAttendanceService attendanceService, IPreRegistrationConfigService preRegConfigService, IEventContext eventContext, AppDbContext db, IWebHostEnvironment env)
     {
         _logger = logger;
         _attendanceService = attendanceService;
-        _eventSettings = eventSettings.Value;
+        _preRegConfigService = preRegConfigService;
+        _eventContext = eventContext;
         _db = db;
+        _env = env;
     }
 
     public async Task<IActionResult> Index()
     {
+        // If no event slug in route, redirect to the first active event
+        var slug = HttpContext.Request.RouteValues["eventSlug"] as string;
+        if (string.IsNullOrEmpty(slug))
+        {
+            var firstEvent = await _db.Events.Where(e => e.IsActive).OrderBy(e => e.Id).FirstOrDefaultAsync();
+            if (firstEvent is not null)
+            {
+                return Redirect($"/{firstEvent.Slug}");
+            }
+            return NotFound("No events configured.");
+        }
+
+        var ev = _eventContext.CurrentEvent;
         var timeSlot = await _attendanceService.GetActiveTimeSlotAsync();
         ViewBag.ActiveTimeSlot = timeSlot;
         ViewBag.HasActiveTimeSlot = timeSlot is not null;
-        ViewBag.InstagramUrl = _eventSettings.InstagramUrl;
-        ViewBag.TshirtPresaleUrl = _eventSettings.TshirtPresaleUrl;
-        var banner = await _db.Banners.FirstOrDefaultAsync(b => b.IsActive);
+        ViewBag.Event = ev;
+        ViewBag.CheckInMode = (int)ev.CheckInMode;
+        ViewBag.RequireOtp = ev.RequireOtp;
+        var banner = await _db.Banners.FirstOrDefaultAsync(b => b.EventId == ev.Id && b.IsActive);
         ViewBag.Banner = banner;
+
+        var hasOpenPreRegistration = ev.IsEventWidePreRegistration
+            || await _db.Lectures.AnyAsync(l => l.EventId == ev.Id && l.IsPreRegistrationEnabled);
+
+        var scheduleEnabled = false;
+        var scheduleDisabledReason = "";
+
+        if (!hasOpenPreRegistration)
+        {
+            scheduleDisabledReason = "Não há palestras com inscrições abertas no momento.";
+        }
+        else if (ev.PreRegistrationStart is null || ev.PreRegistrationEnd is null)
+        {
+            scheduleDisabledReason = "O período de pré-inscrição não foi definido.";
+        }
+        else
+        {
+            var now = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, BrasiliaTz);
+            if (now >= ev.PreRegistrationStart && now <= ev.PreRegistrationEnd)
+            {
+                scheduleEnabled = true;
+            }
+            else
+            {
+                scheduleDisabledReason = "Fora do período de pré-inscrição.";
+            }
+        }
+
+        ViewBag.ScheduleEnabled = scheduleEnabled;
+        ViewBag.ScheduleDisabledReason = scheduleDisabledReason;
+
         return View();
     }
 
@@ -59,6 +108,7 @@ public class HomeController : Controller
     public async Task<IActionResult> Schedule()
     {
         var lectures = await _attendanceService.GetAllLecturesAsync();
+        ViewBag.Event = _eventContext.CurrentEvent;
         return View(lectures);
     }
 
@@ -66,14 +116,24 @@ public class HomeController : Controller
     public async Task<IActionResult> GetSchedule(string? email)
     {
         var lectures = await _attendanceService.GetAllLecturesAsync();
+        var isEventWide = lectures.FirstOrDefault()?.IsEventWide ?? false;
+        var hasEventWideRegistration = false;
+
         if (!string.IsNullOrWhiteSpace(email))
         {
             email = email.Trim().ToLowerInvariant();
-            var registeredIds = await _attendanceService.GetPreRegisteredLectureIdsAsync(email);
-            foreach (var l in lectures)
-                l.AlreadyRegistered = registeredIds.Contains(l.Id);
+            if (isEventWide)
+            {
+                hasEventWideRegistration = await _attendanceService.HasEventWideRegistrationAsync(email);
+            }
+            else
+            {
+                var registeredIds = await _attendanceService.GetPreRegisteredLectureIdsAsync(email);
+                foreach (var l in lectures)
+                    l.AlreadyRegistered = registeredIds.Contains(l.Id);
+            }
         }
-        return Json(new { success = true, lectures });
+        return Json(new { success = true, lectures, isEventWide, hasEventWideRegistration });
     }
 
     [HttpPost]
@@ -95,6 +155,65 @@ public class HomeController : Controller
         if (string.IsNullOrWhiteSpace(dto.Code))
             return Json(new { success = false, message = "Informe o código." });
         var result = await _attendanceService.VerifyPreRegistrationOtpAsync(dto.Email, dto.Code);
+        return Json(new { result.Success, result.Message });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> PreRegisterEvent([FromBody] EventWidePreRegDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.Email))
+            return Json(new { success = false, message = "Informe seu e-mail." });
+        var result = await _attendanceService.SubmitEventPreRegistrationAsync(dto.Email);
+        return Json(new { result.Success, result.Message });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> VerifyEventPreRegistration([FromBody] VerifyPreRegDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.Email))
+            return Json(new { success = false, message = "E-mail não informado." });
+        if (string.IsNullOrWhiteSpace(dto.Code))
+            return Json(new { success = false, message = "Informe o código." });
+        var result = await _attendanceService.VerifyEventPreRegistrationOtpAsync(dto.Email, dto.Code);
+        return Json(new { result.Success, result.Message });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetPreRegistrationConfig(string? email)
+    {
+        var config = await _preRegConfigService.GetConfigAsync();
+
+        object? profile = null;
+        if (!string.IsNullOrWhiteSpace(email))
+        {
+            var attendee = await _db.Attendees.FirstOrDefaultAsync(a => a.EventId == _eventContext.CurrentEventId && a.Email == email.Trim().ToLowerInvariant());
+            if (attendee is not null)
+            {
+                profile = new
+                {
+                    fullName = attendee.FullName,
+                    course = attendee.Course,
+                    shift = attendee.Shift,
+                    phase = attendee.Phase,
+                    found = true
+                };
+            }
+        }
+
+        return Json(new { success = true, config, profile });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> SubmitPreRegistration([FromBody] SubmitPreRegistrationDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.Email))
+            return Json(new { success = false, message = "Informe seu e-mail." });
+        if (string.IsNullOrWhiteSpace(dto.FullName))
+            return Json(new { success = false, message = "Informe seu nome completo." });
+        if (string.IsNullOrWhiteSpace(dto.Course) || string.IsNullOrWhiteSpace(dto.Shift) || dto.Phase < 1)
+            return Json(new { success = false, message = "Preencha todos os campos do cadastro." });
+
+        var result = await _attendanceService.SubmitPreRegistrationWithFormAsync(dto);
         return Json(new { result.Success, result.Message });
     }
 
@@ -136,22 +255,50 @@ public class HomeController : Controller
         if (dto.LectureId <= 0)
             return Json(new { success = false, message = "Selecione uma palestra." });
 
-        if (string.IsNullOrWhiteSpace(dto.Keyword1) || string.IsNullOrWhiteSpace(dto.Keyword2) || string.IsNullOrWhiteSpace(dto.Keyword3))
+        var ev = _eventContext.CurrentEvent;
+        if (ev.CheckInMode == CheckInMode.Keywords && (string.IsNullOrWhiteSpace(dto.Keyword1) || string.IsNullOrWhiteSpace(dto.Keyword2) || string.IsNullOrWhiteSpace(dto.Keyword3)))
             return Json(new { success = false, message = "Preencha as 3 palavras-chave." });
 
         var result = await _attendanceService.SubmitCheckInAsync(dto);
         return Json(new { result.Success, result.Message });
     }
 
-    [HttpGet]
-    public async Task<IActionResult> RetroactiveCheckIn()
+    [HttpPost]
+    public async Task<IActionResult> SubmitQrCheckIn([FromBody] QrCheckInDto dto)
     {
+        if (string.IsNullOrWhiteSpace(dto.Email))
+            return Json(new { success = false, message = "E-mail não informado." });
+        if (string.IsNullOrWhiteSpace(dto.Token) || dto.LectureId <= 0)
+            return Json(new { success = false, message = "QR Code inválido." });
+
+        var result = await _attendanceService.QrCheckInAsync(dto);
+        return Json(new { result.Success, result.Message });
+    }
+
+    [HttpGet]
+    public IActionResult RetroactiveCheckIn()
+    {
+        if (_eventContext.CurrentEvent.IsRetroactiveCheckInEnabled == false)
+            return NotFound();
+
+        var slug = EventHelper.GetEventSlug(HttpContext);
+        if (string.IsNullOrEmpty(slug))
+        {
+            var firstEvent = _db.Events.Where(e => e.IsActive).OrderBy(e => e.Id).FirstOrDefault();
+            if (firstEvent is not null)
+                return Redirect($"/{firstEvent.Slug}/Home/RetroactiveCheckIn");
+            return NotFound("No events configured.");
+        }
+        ViewBag.Event = _eventContext.CurrentEvent;
         return View();
     }
 
     [HttpGet]
     public async Task<IActionResult> GetYesterdayLectures()
     {
+        if (_eventContext.CurrentEvent.IsRetroactiveCheckInEnabled == false)
+            return Json(new { success = false, message = "Recurso desabilitado." });
+
         var lectures = await _attendanceService.GetYesterdayLecturesAsync();
         return Json(new { success = true, lectures });
     }
@@ -159,12 +306,19 @@ public class HomeController : Controller
     [HttpPost]
     public async Task<IActionResult> SubmitRetroactiveCheckIn([FromBody] RetroactiveRequestDto dto)
     {
+        if (_eventContext.CurrentEvent.IsRetroactiveCheckInEnabled == false)
+            return Json(new { success = false, message = "Recurso desabilitado." });
+
         var result = await _attendanceService.SubmitRetroactiveRequestAsync(dto);
         return Json(new { result.Success, result.Message });
     }
 
     [HttpGet]
-    public IActionResult MagicCheckIn() => View();
+    public IActionResult MagicCheckIn()
+    {
+        ViewBag.Event = _eventContext.CurrentEvent;
+        return View();
+    }
 
     [HttpPost]
     public async Task<IActionResult> MagicCheckIn([FromBody] MagicCheckInDto dto)
@@ -176,6 +330,63 @@ public class HomeController : Controller
 
         var result = await _attendanceService.MagicCheckInAsync(dto);
         return Json(new { result.Success, result.Message });
+    }
+
+    [HttpGet]
+    [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Client)]
+    public IActionResult Logo()
+    {
+        var ev = _eventContext.CurrentEvent;
+        if (ev.LogoImage is { Length: > 0 } && !string.IsNullOrEmpty(ev.LogoContentType))
+        {
+            return File(ev.LogoImage, ev.LogoContentType);
+        }
+        return PhysicalFile(Path.Combine(_env.WebRootPath, "dasc.svg"), "image/svg+xml");
+    }
+
+    [HttpGet]
+    [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Client)]
+    public IActionResult Background(string type = "desktop")
+    {
+        var ev = _eventContext.CurrentEvent;
+        if (type == "mobile" && ev.BackgroundImageMobile is { Length: > 0 } && !string.IsNullOrEmpty(ev.BackgroundImageMobileContentType))
+        {
+            return File(ev.BackgroundImageMobile, ev.BackgroundImageMobileContentType);
+        }
+        if (ev.BackgroundImageDesktop is { Length: > 0 } && !string.IsNullOrEmpty(ev.BackgroundImageDesktopContentType))
+        {
+            return File(ev.BackgroundImageDesktop, ev.BackgroundImageDesktopContentType);
+        }
+        return NotFound();
+    }
+
+    [HttpGet]
+    public IActionResult QrScan([FromQuery] int lectureId, [FromQuery] string email)
+    {
+        ViewBag.EventSlug = _eventContext.CurrentEvent?.Slug;
+        ViewBag.LectureId = lectureId;
+        ViewBag.Email = email;
+        return View();
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetCourses()
+    {
+        var eventId = _eventContext.CurrentEventId;
+        var courses = await _db.EventCourses
+            .Where(c => c.EventId == eventId)
+            .OrderBy(c => c.Name)
+            .Select(c => new { c.Name, c.NumberOfSemesters })
+            .ToListAsync();
+        return Json(new { success = true, courses });
+    }
+
+    private static TimeZoneInfo BrasiliaTz => GetBrasiliaTimeZone();
+
+    private static TimeZoneInfo GetBrasiliaTimeZone()
+    {
+        try { return TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo"); }
+        catch { return TimeZoneInfo.FindSystemTimeZoneById("E. South America Standard Time"); }
     }
 
     [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]

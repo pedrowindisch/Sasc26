@@ -1,0 +1,76 @@
+@using Sasc26.Models
+@{
+    var ev = ViewBag.Event as Event;
+    var slug = ev?.Slug ?? "";
+    var name = ev?.Name ?? "";
+    var isRetroactive = ev?.IsRetroactiveCheckInEnabled ?? true;
+}
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+<div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+        <img src="@ev.LogoUrl(Url)" alt="@name">
+        <h1>Painel Administrativo</h1>
+        <div class="sidebar-sub">@name</div>
+    </div>
+    <nav class="sidebar-links">
+        <a href="/@slug/Admin/Dashboard">Dashboard</a>
+        <a href="/@slug/Admin/Volunteers">Voluntários</a>
+        @if (isRetroactive)
+        {
+            <a href="/@slug/Admin/RetroactiveRequests">Retroativas</a>
+        }
+        <a href="/@slug/Admin/Feedback">Avaliações</a>
+        <a href="/@slug/Admin/CertificateConfig">Certificados</a>
+        <a href="/@slug/Admin/IssuedCertificates">Emissões</a>
+        <a href="/@slug/Admin/ThankYouConfig">Agradecimento</a>
+        <a href="/@slug/Admin/PreRegistrationConfig">Pré-Inscrição</a>
+        <a href="/@slug/Admin/Admins">Administradores</a>
+    </nav>
+    <a href="/@slug/Admin/Logout" class="sidebar-logout">Sair</a>
+</div>
+
+<div class="topbar">
+    <button class="topbar-hamburger" onclick="toggleSidebar()" aria-label="Menu">☰</button>
+    <span class="topbar-title">@ViewData["Title"]</span>
+    <a href="/@slug/Admin/Logout" class="topbar-logout">Sair</a>
+</div>
+
+<style>
+.sidebar { width: 260px; background: @(ev?.PrimaryColor ?? "#113D76"); display: flex; flex-direction: column; padding: 28px 20px; position: fixed; top: 0; left: 0; height: 100vh; z-index: 100; transition: transform 0.25s ease; }
+.sidebar-header img { height: 32px; margin-bottom: 8px; }
+.sidebar-header h1 { font-size: 1rem; font-weight: 700; color: #fff; margin: 0; }
+.sidebar-sub { font-size: 0.75rem; color: rgba(255,255,255,0.55); margin-bottom: 24px; }
+.sidebar-links { list-style: none; flex: 1; }
+.sidebar-links a { display: block; font-size: 0.8rem; color: rgba(255,255,255,0.65); text-decoration: none; padding: 7px 10px; border-radius: 6px; transition: background 0.15s; }
+.sidebar-links a:hover { background: rgba(255,255,255,0.1); color: #fff; }
+.sidebar-logout { font-size: 0.8rem; color: rgba(255,255,255,0.5); text-decoration: none; display: inline-flex; align-items: center; gap: 4px; padding: 6px 10px; border-radius: 6px; transition: background 0.15s; }
+.sidebar-logout:hover { background: rgba(255,255,255,0.1); color: #fff; }
+.sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 99; }
+
+.topbar { display: none; background: @(ev?.PrimaryColor ?? "#113D76"); padding: 12px 16px; align-items: center; gap: 12px; }
+.topbar-hamburger { background: none; border: none; color: #fff; font-size: 1.3rem; cursor: pointer; padding: 4px; line-height: 1; }
+.topbar-hamburger:focus { outline: none; }
+.topbar-title { font-size: 0.95rem; font-weight: 600; color: #fff; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.topbar-logout { color: rgba(255,255,255,0.7); text-decoration: none; font-size: 0.8rem; }
+
+.main-content { margin-left: 260px; flex: 1; padding: 24px 16px; max-width: 100%; }
+
+@@media (max-width: 768px) {
+    .sidebar { transform: translateX(-100%); }
+    .sidebar.open { transform: translateX(0); }
+    .sidebar-overlay.open { display: block; }
+    .topbar { display: flex; }
+    .main-content { margin-left: 0; padding: 16px; }
+}
+@@media (max-width: 480px) {
+    .main-content { padding: 8px; }
+}
+</style>
+
+<script>
+function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('open');
+    document.getElementById('sidebarOverlay').classList.toggle('open');
+}
+</script>

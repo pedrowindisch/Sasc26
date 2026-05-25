@@ -10,5 +10,7 @@ public class Volunteer
     public int Semester { get; set; }
     public bool IsVerified { get; set; }
     public DateTime RegisteredAt { get; set; }
+    public int EventId { get; set; }
+    public Event Event { get; set; } = null!;
     public ICollection<VolunteerCheckIn> CheckIns { get; set; } = new List<VolunteerCheckIn>();
 }

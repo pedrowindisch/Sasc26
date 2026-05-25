@@ -18,20 +18,25 @@ public class ThankYouService : IThankYouService
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
     private readonly AppDbContext _db;
+    private readonly IEventContext _eventContext;
 
-    public ThankYouService(AppDbContext db)
+    public ThankYouService(AppDbContext db, IEventContext eventContext)
     {
         _db = db;
+        _eventContext = eventContext;
     }
+
+    private int EventId => _eventContext.CurrentEventId;
+    private string EventName => _eventContext.CurrentEvent.Name;
 
     public async Task<ThankYouConfigDto> GetConfigAsync()
     {
-        var config = await _db.ThankYouConfigs.FirstOrDefaultAsync();
+        var config = await _db.ThankYouConfigs.FirstOrDefaultAsync(c => c.EventId == EventId);
         if (config is null)
         {
             return new ThankYouConfigDto
             {
-                Message = "Obrigado por participar da SASC 26!",
+                Message = $"Obrigado por participar da {EventName}!",
                 IsFormEnabled = false,
                 FormFields = []
             };
@@ -51,10 +56,10 @@ public class ThankYouService : IThankYouService
 
     public async Task<ThankYouConfigDto> UpdateConfigAsync(ThankYouConfigDto dto)
     {
-        var config = await _db.ThankYouConfigs.FirstOrDefaultAsync();
+        var config = await _db.ThankYouConfigs.FirstOrDefaultAsync(c => c.EventId == EventId);
         if (config is null)
         {
-            config = new ThankYouConfig();
+            config = new ThankYouConfig { EventId = EventId };
             _db.ThankYouConfigs.Add(config);
         }
 
@@ -77,6 +82,7 @@ public class ThankYouService : IThankYouService
         _db.FormSubmissions.Add(new FormSubmission
         {
             AttendeeEmail = email,
+            EventId = EventId,
             FormData = data,
             SubmittedAt = DateTime.UtcNow
         });
@@ -87,6 +93,7 @@ public class ThankYouService : IThankYouService
     public async Task<List<FormSubmissionDto>> GetSubmissionsAsync()
     {
         var submissions = await _db.FormSubmissions
+            .Where(s => s.EventId == EventId)
             .OrderByDescending(s => s.SubmittedAt)
             .ToListAsync();
 

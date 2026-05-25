@@ -11,18 +11,29 @@ public class CertificateController : Controller
     private readonly ICertificateService _certificateService;
     private readonly IFeedbackService _feedbackService;
     private readonly IThankYouService _thankYouService;
+    private readonly IEventContext _eventContext;
     private readonly AppDbContext _db;
 
-    public CertificateController(ICertificateService certificateService, IFeedbackService feedbackService, IThankYouService thankYouService, AppDbContext db)
+    public CertificateController(ICertificateService certificateService, IFeedbackService feedbackService, IThankYouService thankYouService, IEventContext eventContext, AppDbContext db)
     {
         _certificateService = certificateService;
         _feedbackService = feedbackService;
         _thankYouService = thankYouService;
+        _eventContext = eventContext;
         _db = db;
     }
 
     public IActionResult Index()
     {
+        var slug = EventHelper.GetEventSlug(HttpContext);
+        if (string.IsNullOrEmpty(slug))
+        {
+            var firstEvent = _db.Events.Where(e => e.IsActive).OrderBy(e => e.Id).FirstOrDefault();
+            if (firstEvent is not null)
+                return Redirect($"/{firstEvent.Slug}/Certificate");
+            return NotFound("No events configured.");
+        }
+        ViewBag.Event = _eventContext.CurrentEvent;
         return View();
     }
 
@@ -68,6 +79,7 @@ public class CertificateController : Controller
 
     public IActionResult Validate()
     {
+        ViewBag.Event = _eventContext.CurrentEvent;
         return View();
     }
 
@@ -92,9 +104,21 @@ public class CertificateController : Controller
     }
 
     [HttpGet]
+    public async Task<IActionResult> GetCourses()
+    {
+        var eventId = _eventContext.CurrentEventId;
+        var courses = await _db.EventCourses
+            .Where(c => c.EventId == eventId)
+            .OrderBy(c => c.Name)
+            .Select(c => new { c.Name, c.NumberOfSemesters })
+            .ToListAsync();
+        return Json(new { success = true, courses });
+    }
+
+    [HttpGet]
     public async Task<IActionResult> BackgroundImage()
     {
-        var config = await _db.CertificateConfigs.FirstOrDefaultAsync();
+        var config = await _db.CertificateConfigs.FirstOrDefaultAsync(c => c.EventId == _eventContext.CurrentEventId);
         if (config?.BackgroundImage is null || config.BackgroundImage.Length == 0)
             return NotFound();
         return File(config.BackgroundImage, config.BackgroundImageContentType ?? "image/png");

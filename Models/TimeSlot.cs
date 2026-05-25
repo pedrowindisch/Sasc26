@@ -7,5 +7,7 @@ public class TimeSlot
     public DateTime EndTime { get; set; }
     public string Shift { get; set; } = string.Empty;
     public int CreditHours { get; set; } = 2;
+    public int EventId { get; set; }
+    public Event Event { get; set; } = null!;
     public ICollection<Lecture> Lectures { get; set; } = new List<Lecture>();
 }

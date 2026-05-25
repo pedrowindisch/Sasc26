@@ -7,5 +7,7 @@ public class Attendee
     public string Course { get; set; } = string.Empty;
     public string Shift { get; set; } = string.Empty;
     public int Phase { get; set; }
+    public int EventId { get; set; }
+    public Event Event { get; set; } = null!;
     public ICollection<CheckIn> CheckIns { get; set; } = new List<CheckIn>();
 }

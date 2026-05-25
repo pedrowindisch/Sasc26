@@ -1,9 +1,19 @@
 @{
     ViewData["Title"] = "Painel do Administrador";
     Layout = null;
+    var ev = ViewBag.Event as Sasc26.Models.Event;
+    var primaryColor = ev?.PrimaryColor ?? "#113D76";
+    var accentColor = ev?.AccentColor ?? "#2EBDEF";
+    var backgroundColor = ev?.BackgroundColor ?? "#f5f5f5";
+    var eventName = ev?.Name ?? "SASC 26";
+    var eventSlug = ev?.Slug ?? "";
     var timeSlots = ViewBag.TimeSlots as List<Sasc26.Models.TimeSlot> ?? new();
     var lectures = ViewBag.Lectures as List<Sasc26.Models.Lecture> ?? new();
     var preRegCounts = ViewBag.PreRegCounts as Dictionary<int, int> ?? new();
+    var isEventWide = ev?.IsEventWidePreRegistration ?? false;
+    var isRetroactiveEnabled = ev?.IsRetroactiveCheckInEnabled ?? true;
+    var eventWideRegCount = ViewBag.EventWideRegCount as int? ?? 0;
+    var checkInMode = (int)(ViewBag.CheckInMode ?? 0);
 }
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -12,35 +22,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - SASC 26</title>
     <link rel="stylesheet" href="~/css/bulmaswatch.min.css">
+    <link rel="stylesheet" href="~/css/admin-responsive.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', sans-serif; background: #f5f5f5; min-height: 100vh; }
-        .nav-bar { background: #113D76; padding: 16px 24px; display: flex; align-items: center; gap: 16px; }
-        .nav-logo { display: flex; align-items: center; gap: 12px; flex: 1; }
-        .nav-logo img { height: 32px; }
-        .nav-logo h1 { font-size: 1rem; font-weight: 700; color: #fff; margin: 0; }
-        .nav-links { display: flex; gap: 16px; align-items: center; }
-        .nav-links a { font-size: 0.8rem; color: #2EBDEF; }
-        .nav-links a:hover { color: #fff; }
-        .nav-links a.nav-logout { color: rgba(255,255,255,0.6); }
-        .nav-links a.nav-logout:hover { color: #fff; }
-        .container-area { max-width: 1200px; margin: 0 auto; padding: 24px 16px; }
+        body { font-family: 'Inter', sans-serif; background: @backgroundColor; min-height: 100vh; }
+        .main-content { max-width: 1200px; padding: 24px 16px; }
         .panel-card { background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); padding: 24px; margin-bottom: 20px; }
         .panel-card h2 { font-size: 0.95rem; font-weight: 700; color: #1a1a1a; margin: 0 0 16px; }
-        .input:focus, .select select:focus { border-color: #2EBDEF; box-shadow: 0 0 0 3px rgba(46,189,239,0.15); }
-        .button.is-brand { background-color: #fff; color: #113D76; }
-        .button.is-brand:hover { background-color: #f0f0f0; color: #113D76; }
-        .button.is-outlined-brand { background-color: transparent; color: #113D76; border: 1px solid #113D76; }
-        .button.is-outlined-brand:hover { background-color: #113D76; color: #fff; }
+        .input:focus, .select select:focus { border-color: @accentColor; box-shadow: 0 0 0 3px rgba(46,189,239,0.15); }
+        .button.is-brand { background-color: #fff; color: @primaryColor; }
+        .button.is-brand:hover { background-color: #f0f0f0; color: @primaryColor; }
+        .button.is-outlined-brand { background-color: transparent; color: @primaryColor; border: 1px solid @primaryColor; }
+        .button.is-outlined-brand:hover { background-color: @primaryColor; color: #fff; }
         .button.is-danger-light { background: #fff; color: #dc2626; border: 1px solid #dc2626; }
         .button.is-danger-light:hover { background: #dc2626; color: #fff; }
         .msg-error { background: #fef2f2; color: #b91c1c; padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; margin-bottom: 12px; }
         .msg-success { background: #ecfdf5; color: #047857; padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; margin-bottom: 12px; }
         .table { font-size: 0.82rem; }
         .table th { font-weight: 600; color: #555; }
-        .kw-badge { display: inline-block; background: #113D76; color: #fff; padding: 3px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; margin: 1px 2px; font-family: monospace; }
+        .kw-badge { display: inline-block; background: @primaryColor; color: #fff; padding: 3px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; margin: 1px 2px; font-family: monospace; }
         .badge { display: inline-block; padding: 2px 10px; border-radius: 100px; font-size: 0.7rem; font-weight: 600; }
         .badge-ok { background: #ecfdf5; color: #059669; }
         .badge-fallback { background: #fffbeb; color: #92400e; }
@@ -49,38 +51,71 @@
         .badge-off { background: #f3f4f6; color: #9ca3af; }
         .stats-row { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
         .stat-box { background: #fff; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); padding: 16px 20px; flex: 1; min-width: 140px; text-align: center; }
-        .stat-box .num { font-size: 1.5rem; font-weight: 700; color: #113D76; }
+        .stat-box .num { font-size: 1.5rem; font-weight: 700; color: @primaryColor; }
         .stat-box .lbl { font-size: 0.7rem; color: #999; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 4px; }
         .empty-state { text-align: center; padding: 24px; color: #bbb; font-size: 0.85rem; }
     </style>
 </head>
 <body>
-    <div class="nav-bar">
-        <div class="nav-logo">
-            <img src="~/dasc.svg" alt="DASC">
-            <h1>Painel Administrativo</h1>
-        </div>
-        <div class="nav-links">
-            <a href="/Admin/Volunteers">Voluntários</a>
-            <a href="/Admin/RetroactiveRequests">Retroativas</a>
-            <a href="/Admin/Feedback">Avaliações</a>
-            <a href="/Admin/CertificateConfig">Certificados</a>
-            <a href="/Admin/ThankYouConfig">Agradecimento</a>
-            <a href="/Admin/Logout" class="nav-logout">Sair</a>
-        </div>
-    </div>
+    @await Html.PartialAsync("_AdminNav")
 
-    <div class="container-area">
+    <div class="main-content">
         <div class="stats-row">
             <div class="stat-box"><div class="num" id="statTotal">-</div><div class="lbl">Check-ins</div></div>
             <div class="stat-box"><div class="num" id="statToday">-</div><div class="lbl">Hoje</div></div>
             <div class="stat-box"><div class="num" id="statFallback">-</div><div class="lbl">Fallback</div></div>
         </div>
 
+        <!-- CONFIGURAÇÕES DO EVENTO -->
+        <div class="panel-card">
+            <h2>Configurações do Evento</h2>
+            <div id="evConfigMsg"></div>
+            <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+                <div>
+                    <span style="font-size:0.85rem;font-weight:600;color:#555;">Modo de pré-inscrição:</span>
+                    <span id="modeBadge" class="badge @(isEventWide ? "badge-ok" : "badge-off")" style="margin-left:8px;">
+                        @(isEventWide ? "Por evento" : "Por palestra")
+                    </span>
+                </div>
+                <button class="button is-small @(isEventWide ? "is-danger-light" : "is-brand")" onclick="toggleEventWideMode()">
+                    @(isEventWide ? "Mudar para por palestra" : "Mudar para por evento")
+                </button>
+                @if (isEventWide)
+                {
+                    <a href="/@eventSlug/Admin/EventPreRegistrations" class="button is-small is-outlined-brand">
+                        Ver inscrições (@eventWideRegCount)
+                    </a>
+                }
+            </div>
+            <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:8px;">
+                <div>
+                    <span style="font-size:0.85rem;font-weight:600;color:#555;">Validação retroativa:</span>
+                    <span id="retroBadge" class="badge @(isRetroactiveEnabled ? "badge-ok" : "badge-off")" style="margin-left:8px;">
+                        @(isRetroactiveEnabled ? "Ativada" : "Desativada")
+                    </span>
+                </div>
+                <button class="button is-small @(isRetroactiveEnabled ? "is-danger-light" : "is-brand")" onclick="toggleRetroactive()">
+                    @(isRetroactiveEnabled ? "Desativar" : "Ativar")
+                </button>
+            </div>
+        </div>
+
+        <!-- ADMIN MANAGERS -->
+        <div class="panel-card">
+            <h2>Gerenciar Administradores</h2>
+            <div id="adminMsg"></div>
+            <div id="adminList" style="margin-bottom:12px;"></div>
+            <div style="display:flex;gap:8px;align-items:center;">
+                <input class="input" type="email" id="newAdminEmail" placeholder="admin@exemplo.com" style="max-width:300px;">
+                <button class="button is-brand" onclick="addAdmin()">Adicionar</button>
+            </div>
+        </div>
+
         <!-- TIME SLOTS -->
         <div class="panel-card">
             <h2>Horários (Time Slots)</h2>
             <div id="tsMsg"></div>
+            <div class="table-container">
             <table class="table is-fullwidth is-hoverable is-striped">
                 <thead><tr><th>ID</th><th>Início</th><th>Fim</th><th>Turno</th><th>Horas AACC</th><th>Palestras</th><th></th></tr></thead>
                 <tbody>
@@ -99,6 +134,7 @@
                     }
                 </tbody>
             </table>
+            </div>
             <div class="columns" style="margin-top:12px;">
                 <div class="column is-3"><div class="field"><div class="control"><input class="input" type="datetime-local" id="tsStart"></div></div></div>
                 <div class="column is-3"><div class="field"><div class="control"><input class="input" type="datetime-local" id="tsEnd"></div></div></div>
@@ -121,6 +157,7 @@
         <div class="panel-card">
             <h2>Palestras</h2>
             <div id="lecMsg"></div>
+            <div class="table-container">
             <table class="table is-fullwidth is-hoverable is-striped">
                 <thead><tr><th>Título</th><th>Palestrante</th><th>Horário</th><th>Turno</th><th>Palavras-chave</th><th>Inscrições</th><th>Inscritos</th><th></th></tr></thead>
                 <tbody>
@@ -138,14 +175,25 @@
                                 <span class="kw-badge">@l.Keyword3</span>
                             </td>
                             <td>
-                                <button class="button is-small @(l.IsPreRegistrationEnabled ? "is-brand" : "is-outlined-brand")" style="font-size:0.7rem;padding:2px 10px;" onclick="togglePreReg(@l.Id)">
-                                    @(l.IsPreRegistrationEnabled ? "Abertas" : "Fechadas")
-                                </button>
+                                @if (isEventWide)
+                                {
+                                    <span style="color:#bbb;font-size:0.75rem;">Por evento</span>
+                                }
+                                else
+                                {
+                                    <button class="button is-small @(l.IsPreRegistrationEnabled ? "is-brand" : "is-outlined-brand")" style="font-size:0.7rem;padding:2px 10px;" onclick="togglePreReg(@l.Id)">
+                                        @(l.IsPreRegistrationEnabled ? "Abertas" : "Fechadas")
+                                    </button>
+                                }
                             </td>
                             <td>
-                                @if (count > 0)
+                                @if (isEventWide)
                                 {
-                                    <a href="/Admin/PreRegistrations?lectureId=@l.Id" style="font-weight:600;color:#113D76;">@count inscrito(s)</a>
+                                    <span style="color:#bbb;">-</span>
+                                }
+                                else if (count > 0)
+                                {
+                                    <a href="/@eventSlug/Admin/PreRegistrations?lectureId=@l.Id" style="font-weight:600;color:#113D76;">@count inscrito(s)</a>
                                 }
                                 else
                                 {
@@ -153,14 +201,25 @@
                                 }
                             </td>
                             <td>
-                                <a href="/Admin/Projector?lectureId=@l.Id" target="_blank" class="button is-small" style="background:#2EBDEF;color:#fff;margin-right:4px;font-size:0.7rem;padding:2px 10px;" title="Abrir tela de projeção">Projetar</a>
-                                <a href="/Admin/MagicCheckInBroadcast?lectureId=@l.Id" class="button is-small" style="background:#7c3aed;color:#fff;margin-right:4px;font-size:0.7rem;padding:2px 10px;" title="Check-in mágico via áudio">🔊 Mágico</a>
+                                @if (checkInMode == 0)
+                                {
+                                    <a href="/@eventSlug/Admin/Projector?lectureId=@l.Id" target="_blank" class="button is-small" style="background:#2EBDEF;color:#fff;margin-right:4px;font-size:0.7rem;padding:2px 10px;" title="Abrir tela de projeção">Projetar</a>
+                                }
+                                else if (checkInMode == 1)
+                                {
+                                    <a href="/@eventSlug/Admin/QrCodeBroadcast?lectureId=@l.Id" target="_blank" class="button is-small" style="background:#059669;color:#fff;margin-right:4px;font-size:0.7rem;padding:2px 10px;" title="Abrir QR Code">QR Code</a>
+                                }
+                                else if (checkInMode == 2)
+                                {
+                                    <a href="/@eventSlug/Admin/MagicCheckInBroadcast?lectureId=@l.Id" class="button is-small" style="background:#7c3aed;color:#fff;margin-right:4px;font-size:0.7rem;padding:2px 10px;" title="Check-in mágico via áudio">🔊 Mágico</a>
+                                }
                                 <button class="button is-danger-light is-small" onclick="deleteLecture(@l.Id)">Remover</button>
                             </td>
                         </tr>
                     }
                 </tbody>
             </table>
+            </div>
             <hr>
             <p class="has-text-weight-semibold is-size-7 has-text-grey" style="margin-bottom:8px;">Nova palestra</p>
             <div class="columns">
@@ -225,6 +284,18 @@
             <div id="checkinsTable"><div class="empty-state">Carregando...</div></div>
         </div>
 
+        <!-- COURSES -->
+        <div class="panel-card" id="cursos">
+            <h2>Cursos do Evento</h2>
+            <div id="coursesMsg"></div>
+            <p class="help" style="margin-top:-8px;margin-bottom:12px;">Cursos que os participantes podem selecionar no check-in, certificados e voluntários.</p>
+            <div id="coursesList"></div>
+            <div style="display:flex;gap:12px;margin-top:12px;flex-wrap:wrap;">
+                <button class="button is-small is-brand" onclick="addCourseRow()">+ Adicionar curso</button>
+                <button class="button is-small is-outlined-brand" onclick="saveCourses()">Salvar cursos</button>
+            </div>
+        </div>
+
         <!-- BANNER -->
         <div class="panel-card">
             <h2>Banner da Página Inicial</h2>
@@ -248,9 +319,18 @@
         <div class="panel-card">
             <h2>Certificados</h2>
             <div style="display:flex;gap:12px;flex-wrap:wrap;">
-                <a href="/Admin/CertificateConfig" class="button is-brand">Configurar mensagem</a>
-                <a href="/Admin/IssuedCertificates" class="button is-brand">Ver emissões</a>
-                <a href="/Admin/ExportAllCertificates" class="button is-brand" style="background:#113D76;color:#fff;">📦 Exportar todos (ZIP)</a>
+                <a href="/@eventSlug/Admin/CertificateConfig" class="button is-brand">Configurar mensagem</a>
+                <a href="/@eventSlug/Admin/IssuedCertificates" class="button is-brand">Ver emissões</a>
+                <a href="/@eventSlug/Admin/ExportAllCertificates" class="button is-brand" style="background:#113D76;color:#fff;">📦 Exportar todos (ZIP)</a>
+            </div>
+        </div>
+
+        <!-- PRE-REGISTRATION -->
+        <div class="panel-card">
+            <h2>Pré-Inscrição</h2>
+            <div style="display:flex;gap:12px;">
+                <a href="/@eventSlug/Admin/PreRegistrationConfig" class="button is-brand">Configurar formulário</a>
+                <a href="/@eventSlug/Admin/PreRegFormSubmissions" class="button is-brand">Ver respostas</a>
             </div>
         </div>
 
@@ -258,23 +338,24 @@
         <div class="panel-card">
             <h2>Agradecimento &amp; Formulário</h2>
             <div style="display:flex;gap:12px;">
-                <a href="/Admin/ThankYouConfig" class="button is-brand">Configurar agradecimento</a>
-                <a href="/Admin/FormSubmissions" class="button is-brand">Ver inscrições</a>
+                <a href="/@eventSlug/Admin/ThankYouConfig" class="button is-brand">Configurar agradecimento</a>
+                <a href="/@eventSlug/Admin/FormSubmissions" class="button is-brand">Ver inscrições</a>
             </div>
         </div>
 
         <div style="text-align:center;margin-top:16px;">
-            <a href="/" style="font-size:0.8rem;color:#aaa;">&#8592; Voltar ao site</a>
+            <a href="/@eventSlug" style="font-size:0.8rem;color:#aaa;">&#8592; Voltar ao site</a>
         </div>
     </div>
 
     <script>
+        const baseUrl = '/@eventSlug';
         function showMsg(id, t, type) { document.getElementById(id).innerHTML = `<div class="msg-${type}">${t}</div>`; }
         function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
 
         async function updateCreditHours(id, val) {
             const creditHours = parseInt(val) || 2;
-            await fetch('/Admin/UpdateTimeSlotCreditHours', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ timeSlotId: id, creditHours }) });
+            await fetch(baseUrl + '/Admin/UpdateTimeSlotCreditHours', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ timeSlotId: id, creditHours }) });
         }
 
         async function createTimeSlot() {
@@ -283,7 +364,7 @@
             const shift = document.getElementById('tsShift').value;
             const creditHours = parseInt(document.getElementById('tsCreditHours').value) || 2;
             if (!start || !end) { showMsg('tsMsg', 'Preencha início e fim.', 'error'); return; }
-            const res = await fetch('/Admin/CreateTimeSlot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ startTime: start, endTime: end, shift, creditHours }) });
+            const res = await fetch(baseUrl + '/Admin/CreateTimeSlot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ startTime: start, endTime: end, shift, creditHours }) });
             const data = await res.json();
             if (data.success) location.reload();
             else showMsg('tsMsg', data.message || 'Erro.', 'error');
@@ -291,7 +372,7 @@
 
         async function deleteTimeSlot(id) {
             if (!confirm('Remover este horário e todas as palestras vinculadas?')) return;
-            await fetch('/Admin/DeleteTimeSlot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ timeSlotId: id }) });
+            await fetch(baseUrl + '/Admin/DeleteTimeSlot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ timeSlotId: id }) });
             location.reload();
         }
 
@@ -300,7 +381,7 @@
             const speaker = document.getElementById('lecSpeaker').value.trim();
             const tsId = parseInt(document.getElementById('lecTimeSlot').value);
             if (!title || !speaker) { showMsg('lecMsg', 'Preencha título e palestrante.', 'error'); return; }
-            const res = await fetch('/Admin/CreateLecture', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, speaker, timeSlotId: tsId }) });
+            const res = await fetch(baseUrl + '/Admin/CreateLecture', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, speaker, timeSlotId: tsId }) });
             const data = await res.json();
             if (data.success) location.reload();
             else showMsg('lecMsg', data.message || 'Erro.', 'error');
@@ -308,13 +389,36 @@
 
         async function deleteLecture(id) {
             if (!confirm('Remover esta palestra?')) return;
-            await fetch('/Admin/DeleteLecture', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lectureId: id }) });
+            await fetch(baseUrl + '/Admin/DeleteLecture', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lectureId: id }) });
             location.reload();
         }
 
         async function togglePreReg(id) {
-            await fetch('/Admin/TogglePreRegistration', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lectureId: id }) });
+            await fetch(baseUrl + '/Admin/TogglePreRegistration', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lectureId: id }) });
             location.reload();
+        }
+
+        async function toggleEventWideMode() {
+            const res = await fetch(baseUrl + '/Admin/ToggleEventWidePreRegistration', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ force: false }) });
+            const data = await res.json();
+            if (data.success) { location.reload(); return; }
+            if (data.existingCount > 0) {
+                const ok = confirm(`Existem ${data.existingCount} pré-inscrições ativas. Alterar o modo excluirá todas elas. Deseja continuar?`);
+                if (!ok) return;
+                const res2 = await fetch(baseUrl + '/Admin/ToggleEventWidePreRegistration', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ force: true }) });
+                const data2 = await res2.json();
+                if (data2.success) location.reload();
+                else showMsg('evConfigMsg', data2.message, 'error');
+            } else {
+                showMsg('evConfigMsg', data.message || 'Erro.', 'error');
+            }
+        }
+
+        async function toggleRetroactive() {
+            const res = await fetch(baseUrl + '/Admin/ToggleRetroactiveCheckIn', { method: 'POST' });
+            const data = await res.json();
+            if (data.success) location.reload();
+            else showMsg('evConfigMsg', data.message || 'Erro.', 'error');
         }
 
         async function manualCheckIn() {
@@ -325,7 +429,7 @@
             const phase = parseInt(document.getElementById('mPhase').value) || 0;
             const lectureId = parseInt(document.getElementById('mLecture').value);
             if (!email || !fullName) { showMsg('manualMsg', 'Preencha e-mail e nome.', 'error'); return; }
-            const res = await fetch('/Admin/ManualCheckIn', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, fullName, course, shift, phase, lectureId }) });
+            const res = await fetch(baseUrl + '/Admin/ManualCheckIn', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, fullName, course, shift, phase, lectureId }) });
             const data = await res.json();
             if (data.success) { showMsg('manualMsg', data.message, 'success'); document.getElementById('mEmail').value = ''; document.getElementById('mName').value = ''; loadCheckIns(); }
             else showMsg('manualMsg', data.message, 'error');
@@ -333,7 +437,7 @@
 
         async function loadCheckIns() {
             const lectureId = document.getElementById('filterLecture').value;
-            const url = '/Admin/GetCheckIns' + (lectureId ? `?lectureId=${lectureId}` : '');
+            const url = baseUrl + '/Admin/GetCheckIns' + (lectureId ? `?lectureId=${lectureId}` : '');
             const res = await fetch(url);
             const data = await res.json();
             if (!data.success || !data.entries || data.entries.length === 0) {
@@ -369,7 +473,7 @@
         loadCheckIns();
 
         async function loadBanner() {
-            const res = await fetch('/Admin/GetBanner');
+            const res = await fetch(baseUrl + '/Admin/GetBanner');
             const data = await res.json();
             if (data.success && data.banner) {
                 document.getElementById('bannerTitle').value = data.banner.title || '';
@@ -387,19 +491,139 @@
             const ctaUrl = document.getElementById('bannerCtaUrl').value.trim();
             const isActive = document.getElementById('bannerActive').checked;
             if (isActive && !title) { showMsg('bannerMsg', 'Informe o título do banner.', 'error'); return; }
-            const res = await fetch('/Admin/UpdateBanner', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, description, ctaText, ctaUrl, isActive }) });
+            const res = await fetch(baseUrl + '/Admin/UpdateBanner', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, description, ctaText, ctaUrl, isActive }) });
             const data = await res.json();
             if (data.success) showMsg('bannerMsg', 'Banner salvo.', 'success');
             else showMsg('bannerMsg', data.message || 'Erro ao salvar.', 'error');
         }
 
         async function deactivateBanner() {
-            await fetch('/Admin/DeactivateBanner', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+            await fetch(baseUrl + '/Admin/DeactivateBanner', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
             document.getElementById('bannerActive').checked = false;
             showMsg('bannerMsg', 'Banner desativado.', 'success');
         }
 
         loadBanner();
+
+        async function loadAdmins() {
+            const res = await fetch(baseUrl + '/Admin/GetAdmins');
+            const data = await res.json();
+            if (!data.success || !data.admins) return;
+            const container = document.getElementById('adminList');
+            if (data.admins.length === 0) {
+                container.innerHTML = '<div class="empty-state">Nenhum administrador.</div>';
+                return;
+            }
+            let html = '<table class="table is-fullwidth is-striped"><tbody>';
+            for (const email of data.admins) {
+                html += `<tr>
+                    <td style="vertical-align:middle;">${esc(email)}</td>
+                    <td style="width:80px;text-align:right;"><button class="button is-danger-light is-small" onclick="removeAdmin('${esc(email)}')">Remover</button></td>
+                </tr>`;
+            }
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        async function addAdmin() {
+            const email = document.getElementById('newAdminEmail').value.trim();
+            if (!email) { showMsg('adminMsg', 'Informe um e-mail.', 'error'); return; }
+            const res = await fetch(baseUrl + '/Admin/AddAdmin', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
+            const data = await res.json();
+            if (data.success) {
+                showMsg('adminMsg', data.message, 'success');
+                document.getElementById('newAdminEmail').value = '';
+                loadAdmins();
+            } else {
+                showMsg('adminMsg', data.message || 'Erro.', 'error');
+            }
+        }
+
+        async function removeAdmin(email) {
+            if (!confirm(`Remover ${email} dos administradores?`)) return;
+            const res = await fetch(baseUrl + '/Admin/RemoveAdmin', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
+            const data = await res.json();
+            if (data.success) {
+                showMsg('adminMsg', data.message, 'success');
+                loadAdmins();
+            } else {
+                showMsg('adminMsg', data.message || 'Erro.', 'error');
+            }
+        }
+
+        loadAdmins();
+
+        // Course management
+        let courseData = [];
+
+        async function loadCourses() {
+            const res = await fetch(baseUrl + '/Admin/GetCourses');
+            const data = await res.json();
+            if (!data.success || !data.courses) return;
+            courseData = data.courses.map(c => ({ id: c.id, name: c.name, numberOfSemesters: c.numberOfSemesters }));
+            renderCourses();
+        }
+
+        function renderCourses() {
+            const container = document.getElementById('coursesList');
+            if (courseData.length === 0) {
+                container.innerHTML = '<div class="empty-state">Nenhum curso cadastrado. Adicione um curso abaixo.</div>';
+                return;
+            }
+            let html = '<table class="table is-fullwidth is-hoverable is-striped"><thead><tr><th>Curso</th><th>Semestres</th><th></th></tr></thead><tbody>';
+            courseData.forEach(function(c, i) {
+                html += '<tr>' +
+                    '<td><input class="input is-small" type="text" value="' + esc(c.name) + '" data-idx="' + i + '" data-field="name" oninput="updateCourseField(' + i + ', this)" /></td>' +
+                    '<td><input class="input is-small" type="number" value="' + c.numberOfSemesters + '" min="1" max="12" style="width:80px;" data-idx="' + i + '" data-field="numberOfSemesters" oninput="updateCourseField(' + i + ', this)" /></td>' +
+                    '<td><button class="button is-danger-light is-small" onclick="removeCourseRow(' + i + ')">Remover</button></td>' +
+                    '</tr>';
+            });
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        function updateCourseField(idx, el) {
+            const field = el.getAttribute('data-field');
+            if (field === 'numberOfSemesters') {
+                courseData[idx].numberOfSemesters = parseInt(el.value) || 8;
+            } else {
+                courseData[idx].name = el.value;
+            }
+        }
+
+        function addCourseRow() {
+            courseData.push({ id: 0, name: 'Novo Curso', numberOfSemesters: 8 });
+            renderCourses();
+        }
+
+        function removeCourseRow(idx) {
+            courseData.splice(idx, 1);
+            renderCourses();
+        }
+
+        async function saveCourses() {
+            const btn = document.querySelector('button[onclick="saveCourses()"]');
+            btn.classList.add('is-loading'); btn.disabled = true;
+            try {
+                const res = await fetch(baseUrl + '/Admin/BulkSaveCourses', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ courses: courseData })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showMsg('coursesMsg', data.message, 'success');
+                    await loadCourses();
+                } else {
+                    showMsg('coursesMsg', data.message || 'Erro ao salvar.', 'error');
+                }
+            } catch {
+                showMsg('coursesMsg', 'Erro de conexão.', 'error');
+            }
+            finally { btn.classList.remove('is-loading'); btn.disabled = false; }
+        }
+
+        loadCourses();
     </script>
 </body>
 </html>

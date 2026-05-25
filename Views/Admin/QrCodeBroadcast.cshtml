@@ -1,0 +1,125 @@
+@{
+    Layout = null;
+    var lecture = ViewBag.Lecture as Sasc26.Models.Lecture;
+    var token = ViewBag.Token as string;
+    var payload = ViewBag.Payload as string;
+    var eventSlug = ViewBag.EventSlug as string ?? "";
+    var lectureId = lecture?.Id ?? 0;
+}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>QR Code - @lecture?.Title</title>
+    <link rel="stylesheet" href="~/css/bulmaswatch.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background: #fff; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+        .qr-card { text-align: center; padding: 40px; max-width: 520px; width: 100%; margin: 0 16px; }
+        .qr-card h1 { font-size: 1.4rem; font-weight: 700; margin: 0 0 8px; color: #1a1a1a; }
+        .qr-card .lecture-name { font-size: 1rem; color: #666; margin-bottom: 24px; }
+        #qrcode { display: inline-flex; align-items: center; justify-content: center; padding: 12px; background: #fff; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.1); margin-bottom: 16px; min-width: 260px; min-height: 260px; }
+        #qrcode img { display: block; }
+        .qr-hint { font-size: 0.85rem; color: #999; margin-bottom: 8px; }
+        .status-text { font-size: 1rem; font-weight: 600; color: #059669; margin: 8px 0 24px; }
+        .token-debug { background: #f5f5f5; border-radius: 8px; padding: 12px; margin: 16px 0 24px; font-family: monospace; font-size: 0.9rem; letter-spacing: 2px; color: #666; cursor: pointer; }
+        .token-debug:hover { background: #eee; }
+        .token-label { font-size: 0.75rem; color: #888; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+        .btn-stop { background: #dc2626; color: #fff; border: none; padding: 12px 32px; border-radius: 8px; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
+        .btn-stop:hover { background: #b91c1c; }
+        .btn-dashboard { background: transparent; color: #888; border: 1px solid #ddd; padding: 10px 24px; border-radius: 8px; font-size: 0.85rem; cursor: pointer; margin-top: 12px; display: inline-block; text-decoration: none; }
+        .btn-dashboard:hover { color: #333; border-color: #999; }
+        #expiredMsg { display: none; margin-bottom: 16px; color: #dc2626; font-weight: 600; }
+    </style>
+</head>
+<body>
+    <div class="qr-card">
+        <h1>QR Code</h1>
+        <div class="lecture-name">@lecture?.Title</div>
+        <div class="qr-hint">Aponte a câmera do celular para este QR Code</div>
+        <div id="qrcode"></div>
+        <div class="status-text" id="statusText">Ativo...</div>
+        <div class="token-label">Token para debug</div>
+        <div class="token-debug" id="tokenDebug" title="Clique para copiar" onclick="copyToken()">@token</div>
+        <div id="expiredMsg"></div>
+        <button class="btn-stop" id="btnStop" onclick="stopBroadcast()">Encerrar sessão</button>
+        <br>
+        <a href="/@eventSlug/Admin/Dashboard" class="btn-dashboard">← Voltar ao Dashboard</a>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+    <script>
+        var lectureId = @lectureId;
+        var expiresAt = new Date("@DateTime.UtcNow.AddMinutes(10).ToString("o")");
+        var running = true;
+
+        function renderQr(text) {
+            var qr = qrcode(0, 'H');
+            qr.addData(text);
+            qr.make();
+            document.getElementById('qrcode').innerHTML = qr.createImgTag(9, 4);
+        }
+
+        renderQr("@payload");
+
+        function refreshQr() {
+            if (!running) return;
+            fetch('/@eventSlug/Admin/RenewQrSession', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ lectureId: lectureId })
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.success) {
+                    document.getElementById('tokenDebug').textContent = data.token;
+                    document.getElementById('tokenDebug').__token = data.token;
+                    renderQr(data.payload);
+                }
+            })
+            .catch(function () {});
+        }
+
+        setInterval(refreshQr, 15000);
+
+        function stopBroadcast() {
+            running = false;
+            document.getElementById('statusText').textContent = 'Sessão encerrada';
+            document.getElementById('statusText').style.color = '#888';
+            document.getElementById('btnStop').style.display = 'none';
+            document.getElementById('qrcode').style.opacity = '0.3';
+        }
+
+        function copyToken(t) {
+            var token = t || this.__token || "@token";
+            navigator.clipboard.writeText(token).then(function () {
+                var el = document.getElementById("tokenDebug");
+                el.textContent = "Copiado!";
+                setTimeout(function () { el.textContent = token; }, 1500);
+            });
+        }
+
+        function checkExpiry() {
+            if (!running) return;
+            var now = new Date();
+            if (now >= expiresAt) {
+                document.getElementById('expiredMsg').textContent = 'Sessão expirada! Gere uma nova no Dashboard.';
+                document.getElementById('expiredMsg').style.display = 'block';
+                document.getElementById('statusText').textContent = 'Sessão expirada';
+                document.getElementById('statusText').style.color = '#dc2626';
+                stopBroadcast();
+                return;
+            }
+            var remaining = Math.max(0, Math.floor((expiresAt - now) / 1000));
+            var min = Math.floor(remaining / 60);
+            var sec = remaining % 60;
+            document.getElementById('statusText').textContent = 'Expira em ' + min + ':' + (sec < 10 ? '0' : '') + sec;
+        }
+        setInterval(checkExpiry, 1000);
+        checkExpiry();
+    </script>
+</body>
+</html>

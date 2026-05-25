@@ -13,4 +13,6 @@ public class CheckIn
     public DateTime CreatedAt { get; set; }
     public DateTime ExpiresAt { get; set; }
     public DateTime? VerifiedAt { get; set; }
+    public int EventId { get; set; }
+    public Event Event { get; set; } = null!;
 }

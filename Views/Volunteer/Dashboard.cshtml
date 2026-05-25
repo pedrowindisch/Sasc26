@@ -1,6 +1,8 @@
 @{
     ViewData["Title"] = "Painel do Voluntário";
     Layout = null;
+    var ev = ViewBag.Event as Sasc26.Models.Event;
+    var eventSlug = ev?.Slug ?? "";
     var dashboard = ViewBag.Dashboard as Sasc26.Services.VolunteerDashboardDto;
 }
 <!DOCTYPE html>
@@ -12,6 +14,6 @@
 </head>
 <body>
     <p>Redirecionando...</p>
-    <script>window.location.href = '/Volunteer';</script>
+    <script>window.location.href = '/@eventSlug/Volunteer';</script>
 </body>
 </html>

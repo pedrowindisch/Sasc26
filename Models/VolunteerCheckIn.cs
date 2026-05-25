@@ -8,4 +8,6 @@ public class VolunteerCheckIn
     public int TimeSlotId { get; set; }
     public TimeSlot TimeSlot { get; set; } = null!;
     public DateTime CreatedAt { get; set; }
+    public int EventId { get; set; }
+    public Event Event { get; set; } = null!;
 }
