@@ -419,7 +419,7 @@
 
     function openQrScanner() {
         if (!selectedLectureId) { showMessage('Selecione uma palestra.', 'error'); return; }
-        window.location.href = baseUrl + '/Home/QrScan?lectureId=' + selectedLectureId + '&email=' + encodeURIComponent(currentEmail);
+        window.location.href = baseUrl + '/Home/QrScan?lectureId=' + selectedLectureId;
     }
 
     async function submitCheckIn() {

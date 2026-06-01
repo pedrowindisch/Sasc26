@@ -361,11 +361,18 @@ public class HomeController : Controller
     }
 
     [HttpGet]
-    public IActionResult QrScan([FromQuery] int lectureId, [FromQuery] string email)
+    public async Task<IActionResult> QrScan([FromQuery] int lectureId, [FromQuery] string? token)
     {
-        ViewBag.EventSlug = _eventContext.CurrentEvent?.Slug;
+        var ev = _eventContext.CurrentEvent;
+        ViewBag.Event = ev;
+        ViewBag.EventSlug = ev?.Slug;
+        ViewBag.EventName = ev?.Name;
         ViewBag.LectureId = lectureId;
-        ViewBag.Email = email;
+        ViewBag.Token = token ?? "";
+        var lecture = await _db.Lectures.AsNoTracking()
+            .FirstOrDefaultAsync(l => l.EventId == _eventContext.CurrentEventId && l.Id == lectureId);
+        ViewBag.LectureTitle = lecture?.Title ?? "";
+        ViewBag.Speaker = lecture?.Speaker ?? "";
         return View();
     }
 

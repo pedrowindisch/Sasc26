@@ -880,8 +880,9 @@ public class AttendanceService : IAttendanceService
     {
         var email = dto.Email.Trim().ToLowerInvariant();
 
+        var graceBoundary = DateTime.UtcNow - TimeSpan.FromSeconds(_settings.QrTokenGracePeriodSeconds);
         var session = await _db.MagicCheckInSessions
-            .FirstOrDefaultAsync(s => s.EventId == EventId && s.Token == dto.Token && s.LectureId == dto.LectureId && s.IsActive && s.ExpiresAt > DateTime.UtcNow);
+            .FirstOrDefaultAsync(s => s.EventId == EventId && s.Token == dto.Token && s.LectureId == dto.LectureId && s.ExpiresAt > DateTime.UtcNow && s.CreatedAt > graceBoundary);
         if (session is null)
             return new ServiceResult { Success = false, Message = "Token inválido ou expirado." };
 
@@ -939,8 +940,9 @@ public class AttendanceService : IAttendanceService
     {
         var email = dto.Email.Trim().ToLowerInvariant();
 
+        var graceBoundary = DateTime.UtcNow - TimeSpan.FromSeconds(_settings.QrTokenGracePeriodSeconds);
         var session = await _db.MagicCheckInSessions
-            .FirstOrDefaultAsync(s => s.EventId == EventId && s.Token == dto.Token && s.LectureId == dto.LectureId && s.IsActive && s.ExpiresAt > DateTime.UtcNow);
+            .FirstOrDefaultAsync(s => s.EventId == EventId && s.Token == dto.Token && s.LectureId == dto.LectureId && s.ExpiresAt > DateTime.UtcNow && s.CreatedAt > graceBoundary);
         if (session is null)
             return new ServiceResult { Success = false, Message = "QR Code inválido ou expirado." };
 

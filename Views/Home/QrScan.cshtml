@@ -1,169 +1,377 @@
 @{
-    Layout = null;
-    var eventSlug = ViewBag.EventSlug as string ?? "";
+    ViewData["Title"] = "Check-in por QR Code";
+    var ev = ViewBag.Event as Sasc26.Models.Event;
+    var primaryColor = ev?.PrimaryColor ?? "#113D76";
+    var accentColor = ev?.AccentColor ?? "#2EBDEF";
+    var backgroundColor = ev?.BackgroundColor ?? "#f5f5f5";
+    var textColor = ev?.TextColor ?? "#1a1a1a";
+    var eventName = ev?.Name ?? "SASC 26";
+    var eventSubtitle = ev?.Subtitle ?? "";
+    var eventSlug = ev?.Slug ?? "";
     var lectureId = ViewBag.LectureId as int? ?? 0;
-    var email = ViewBag.Email as string ?? "";
+    var token = ViewBag.Token as string ?? "";
+    var lectureTitle = ViewBag.LectureTitle as string ?? "";
+    var speaker = ViewBag.Speaker as string ?? "";
 }
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Escaneie o QR Code</title>
-    <link rel="stylesheet" href="~/css/bulmaswatch.min.css">
+
+@section Styles {
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="~/css/bulmaswatch.min.css">
     <style>
-        body { font-family: 'Inter', sans-serif; background: #000; min-height: 100vh; margin: 0; display: flex; flex-direction: column; }
-        .scan-container { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 16px; position: relative; }
-        #reader-wrapper { width: 100%; max-width: 360px; aspect-ratio: 1; position: relative; background: #111; border-radius: 24px; overflow: hidden; }
-        #reader { width: 100%; height: 100%; position: relative; }
+        body { font-family: 'Inter', sans-serif; background: @backgroundColor; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+        .card-wrapper { width: 100%; max-width: 480px; padding: 0 16px; }
+        .event-card { background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); overflow: hidden; }
+        .event-header { background: @primaryColor; padding: 28px 24px 20px; text-align: center; }
+        .event-header img.logo { width: 56px; height: 56px; margin-bottom: 12px; }
+        .event-header h1 { font-size: 1.25rem; font-weight: 700; color: #fff; margin: 0; }
+        .event-header p { font-size: 0.75rem; color: rgba(255,255,255,0.6); margin: 4px 0 0; text-transform: uppercase; letter-spacing: 0.05em; }
+        .event-body { padding: 8px 24px 28px; }
+        .step-section { display: none; padding-top: 16px; }
+        .step-section.active { display: block; }
+        .msg-error { background: #fef2f2; color: #b91c1c; padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; margin-bottom: 16px; }
+        .msg-success { background: #ecfdf5; color: #047857; padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; margin-bottom: 16px; }
+        .back-link { display: inline-block; margin-top: 12px; font-size: 0.8rem; color: #aaa; cursor: pointer; }
+        .back-link:hover { color: #555; }
+        .field + .field { margin-top: 12px; }
+        .section-divider { border: none; border-top: 1px solid #eee; margin: 20px 0; }
+        .section-label { font-size: 0.7rem; font-weight: 600; color: #bbb; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 12px; }
+        .button.is-brand { background-color: @primaryColor; color: #fff; border-color: @primaryColor; }
+        .button.is-brand:hover { background-color: @primaryColor; opacity: 0.85; color: #fff; }
+        .button.is-brand:disabled { background-color: #9ca3af; border-color: #9ca3af; cursor: not-allowed; }
+        .button.is-outlined-brand { background-color: transparent; color: @primaryColor; border: 1px solid @primaryColor; }
+        .button.is-outlined-brand:hover { background-color: @primaryColor; color: #fff; }
+        .button.is-secondary { background-color: #fff; color: @primaryColor; }
+        .button.is-secondary:hover { background-color: #f0f0f0; color: @primaryColor; }
+        .input:focus, .select select:focus { border-color: @accentColor; box-shadow: 0 0 0 3px rgba(46,189,239,0.15); }
+        .lecture-info { padding: 16px 0 4px; }
+        .lecture-name { font-size: 1.05rem; font-weight: 700; color: @primaryColor; margin-bottom: 4px; }
+        .lecture-speaker { font-size: 0.85rem; color: #666; }
+        .token-pill { display: inline-block; background: #ecfdf5; color: #047857; font-size: 0.75rem; padding: 4px 10px; border-radius: 100px; font-family: monospace; letter-spacing: 1px; margin-top: 10px; }
+        .token-pill.missing { background: #fef3c7; color: #92400e; }
+        .scanner-toggle { display: flex; align-items: center; justify-content: space-between; width: 100%; background: #f3f4f6; border: 1px dashed #d1d5db; border-radius: 10px; padding: 12px 14px; cursor: pointer; font-family: inherit; font-size: 0.85rem; color: #555; margin-top: 12px; }
+        .scanner-toggle:hover { background: #e5e7eb; }
+        .scanner-toggle .arrow { transition: transform 0.2s; }
+        .scanner-toggle.open .arrow { transform: rotate(180deg); }
+        .scanner-body { display: none; margin-top: 12px; }
+        .scanner-body.open { display: block; }
+        #reader-wrapper { width: 100%; aspect-ratio: 1; max-width: 360px; margin: 0 auto; position: relative; background: #111; border-radius: 16px; overflow: hidden; }
+        #reader { width: 100%; height: 100%; }
         #reader video { width: 100% !important; height: 100% !important; object-fit: cover !important; position: absolute !important; top: 0 !important; left: 0 !important; }
-        #reader__dashboard_section { display: none !important; }
+        #reader__dashboard_section, #reader__dashboard_section_csr, #reader__status, #reader__header_message { display: none !important; }
         #reader__scan_region { display: flex !important; align-items: center !important; justify-content: center !important; width: 100% !important; height: 100% !important; }
-        #reader__dashboard_section_csr { display: none !important; }
         .reader__scan_region, .reader__dashboard_section, .reader__dashboard_section_sw_link { display: none !important; }
-        .overlay-frame { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 60%; height: 60%; border: 3px solid rgba(255,255,255,0.4); border-radius: 16px; pointer-events: none; z-index: 10; }
-        .status-area { position: absolute; bottom: 0; left: 0; right: 0; padding: 20px; text-align: center; z-index: 10; }
-        .status-msg { color: #fff; font-size: 1rem; font-weight: 500; text-shadow: 0 2px 8px rgba(0,0,0,0.8); }
-        .status-msg.success { color: #34d399; }
-        .status-msg.error { color: #f87171; }
-        .header-bar { display: flex; align-items: center; gap: 12px; padding: 16px; background: transparent; position: absolute; top: 0; left: 0; right: 0; z-index: 20; }
-        .btn-back { background: rgba(255,255,255,0.15); backdrop-filter: blur(8px); color: #fff; border: none; width: 40px; height: 40px; border-radius: 50%; font-size: 1.3rem; cursor: pointer; display: flex; align-items: center; justify-content: center; text-decoration: none; }
-        .btn-back:hover { background: rgba(255,255,255,0.25); }
-        .header-title { color: #fff; font-size: 0.95rem; font-weight: 600; }
-        .result-overlay { display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.85); z-index: 30; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 32px; }
-        .result-overlay.show { display: flex; }
-        .result-icon { font-size: 3rem; margin-bottom: 16px; }
-        .result-title { color: #fff; font-size: 1.3rem; font-weight: 700; margin-bottom: 8px; }
-        .result-msg { color: rgba(255,255,255,0.7); font-size: 0.95rem; margin-bottom: 24px; }
-        .result-close { background: #fff; color: #000; border: none; padding: 12px 32px; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; }
-        .shutter { display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: #fff; z-index: 25; animation: shutterAnim 0.3s ease-out; }
-        .shutter.go { display: block; }
-        @@keyframes shutterAnim { 0% { opacity: 1; } 100% { opacity: 0; } }
+        .overlay-frame { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 60%; height: 60%; border: 3px solid rgba(255,255,255,0.5); border-radius: 16px; pointer-events: none; z-index: 5; }
+        .scanner-status { text-align: center; color: #666; font-size: 0.85rem; margin-top: 10px; }
+        .scanner-status.success { color: #059669; font-weight: 600; }
+        .scanner-status.error { color: #dc2626; font-weight: 600; }
+        .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        @@media (max-width: 380px) { .two-col { grid-template-columns: 1fr; } }
     </style>
-</head>
-<body>
-    <div class="scan-container">
-        <div class="header-bar">
-            <a href="javascript:history.back()" class="btn-back">&larr;</a>
-            <div class="header-title">Escaneie o QR Code</div>
+}
+
+<div class="card-wrapper">
+    <div class="event-card">
+        <div class="event-header">
+            <img class="logo" src="@ev.LogoUrl(Url)" alt="@(ev?.Name ?? "DASC")">
+            <h1>Check-in por QR Code</h1>
+            <p>@eventSubtitle</p>
         </div>
 
-        <div id="reader-wrapper">
-            <div id="reader"></div>
-            <div class="overlay-frame"></div>
-            <div class="status-area"><div class="status-msg" id="statusMsg">Aguardando câmera...</div></div>
-            <div class="result-overlay" id="resultOverlay">
-                <div class="result-icon" id="resultIcon">✅</div>
-                <div class="result-title" id="resultTitle">Check-in realizado!</div>
-                <div class="result-msg" id="resultMsg">Sua presença foi registrada.</div>
-                <button class="result-close" onclick="goBack()">OK</button>
+        <div class="event-body">
+            <div id="messageArea"></div>
+
+            <div class="step-section active" id="stepForm">
+                <div class="lecture-info">
+                    <div class="lecture-name">@(string.IsNullOrEmpty(lectureTitle) ? "Palestra" : lectureTitle)</div>
+                    @if (!string.IsNullOrEmpty(speaker))
+                    {
+                        <div class="lecture-speaker">Palestrante: @speaker</div>
+                    }
+                    <div class="token-pill @(string.IsNullOrEmpty(token) ? "missing" : "")" id="tokenPill">
+                        @(string.IsNullOrEmpty(token) ? "QR ainda não lido" : "Token: " + token)
+                    </div>
+                </div>
+
+                @if (string.IsNullOrEmpty(token))
+                {
+                    <button type="button" class="scanner-toggle" id="scannerToggle" onclick="toggleScanner()">
+                        <span>📷 Ler QR Code com a câmera</span>
+                        <span class="arrow">▾</span>
+                    </button>
+                    <div class="scanner-body" id="scannerBody">
+                        <div id="reader-wrapper">
+                            <div id="reader"></div>
+                            <div class="overlay-frame"></div>
+                        </div>
+                        <div class="scanner-status" id="scannerStatus">Toque para iniciar a câmera</div>
+                    </div>
+
+                    <hr class="section-divider">
+                }
+
+                <p class="section-label">Identificação</p>
+                <div class="field">
+                    <label class="label is-small has-text-grey">E-mail institucional</label>
+                    <div class="control"><input class="input" type="email" id="emailInput" placeholder="seu.nome@furb.br" autocomplete="email" inputmode="email"></div>
+                </div>
+                <div class="field">
+                    <label class="label is-small has-text-grey">Nome completo</label>
+                    <div class="control"><input class="input" type="text" id="fullNameInput" placeholder="João da Silva" autocomplete="name"></div>
+                </div>
+                <div class="field">
+                    <label class="label is-small has-text-grey">Curso</label>
+                    <div class="control"><div class="select is-fullwidth"><select id="courseSelect"><option value="">Carregando...</option></select></div></div>
+                </div>
+                <div class="field">
+                    <label class="label is-small has-text-grey">Turno</label>
+                    <div class="control"><div class="select is-fullwidth"><select id="shiftSelect"><option value="">Selecione</option><option value="Matutino">Matutino</option><option value="Noturno">Noturno</option></select></div></div>
+                </div>
+                <div class="field">
+                    <label class="label is-small has-text-grey">Fase</label>
+                    <div class="control"><div class="select is-fullwidth"><select id="phaseSelect"><option value="">-</option></select></div></div>
+                </div>
+                <div class="field" style="margin-top:16px;">
+                    <div class="control"><button class="button is-brand is-fullwidth" id="btnSubmit" onclick="submitCheckIn()">Confirmar Presença</button></div>
+                </div>
+                <div class="has-text-centered">
+                    <a href="/@eventSlug" class="back-link">&larr; Voltar ao início</a>
+                </div>
             </div>
-            <div class="shutter" id="shutter"></div>
+
+            <div class="step-section" id="stepSuccess">
+                <div class="msg-success has-text-centered" id="successMessage" style="padding:16px;"></div>
+                <div class="has-text-centered" style="margin-top:12px;">
+                    <a href="/@eventSlug" class="back-link">&larr; Voltar ao início</a>
+                </div>
+            </div>
         </div>
     </div>
+</div>
 
-    <div id="scanner-status" style="display:none" data-ready="false"></div>
+@section Scripts {
+<script>
+    var eventSlug = "@eventSlug";
+    var baseUrl = '/' + eventSlug;
+    var lectureId = @lectureId;
+    var initialToken = "@token";
+    var scanned = false;
+    var scanner = null;
+    var scannerRunning = false;
+    var coursesList = [];
+    var currentEmail = '';
+    var profileLoaded = false;
+    var emailDebounce = null;
+    var currentToken = initialToken || '';
 
-    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-    <script>
-        var lectureId = @lectureId;
-        var email = "@email";
-        var eventSlug = "@eventSlug";
-        var scanned = false;
-        var scanner = null;
-        var readerEl = document.getElementById('reader');
-        var statusMsg = document.getElementById('statusMsg');
+    function showMessage(t, type) { document.getElementById('messageArea').innerHTML = '<div class="msg-' + type + '">' + esc(t) + '</div>'; }
+    function clearMessage() { document.getElementById('messageArea').innerHTML = ''; }
+    function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+    function showStep(s) { document.querySelectorAll('.step-section').forEach(el => el.classList.remove('active')); document.getElementById('step' + s).classList.add('active'); }
 
-        function setStatus(msg, type) {
-            statusMsg.textContent = msg;
-            statusMsg.className = 'status-msg' + (type ? ' ' + type : '');
+    function updateTokenPill() {
+        var pill = document.getElementById('tokenPill');
+        if (currentToken) {
+            pill.textContent = 'Token: ' + currentToken;
+            pill.classList.remove('missing');
+        } else {
+            pill.textContent = 'QR ainda não lido';
+            pill.classList.add('missing');
         }
+    }
 
-        function showResult(icon, title, msg) {
-            document.getElementById('resultIcon').textContent = icon;
-            document.getElementById('resultTitle').textContent = title;
-            document.getElementById('resultMsg').textContent = msg;
-            document.getElementById('resultOverlay').classList.add('show');
+    updateTokenPill();
+
+    function setScannerStatus(msg, type) {
+        var el = document.getElementById('scannerStatus');
+        el.textContent = msg;
+        el.className = 'scanner-status' + (type ? ' ' + type : '');
+    }
+
+    function toggleScanner() {
+        var body = document.getElementById('scannerBody');
+        var toggle = document.getElementById('scannerToggle');
+        if (body.classList.contains('open')) {
+            body.classList.remove('open');
+            toggle.classList.remove('open');
+            stopScanner();
+        } else {
+            body.classList.add('open');
+            toggle.classList.add('open');
+            startScanner();
         }
+    }
 
-        function goBack() { history.back(); }
-
-        function shutterFlash() {
-            var s = document.getElementById('shutter');
-            s.classList.add('go');
-            setTimeout(function() { s.classList.remove('go'); }, 400);
+    function startScanner() {
+        if (scannerRunning) return;
+        try {
+            scanner = new Html5Qrcode("reader");
+        } catch (e) {
+            setScannerStatus('Erro ao iniciar câmera.', 'error');
+            return;
         }
+        scanner.start(
+            { facingMode: "environment" },
+            { fps: 10, qrbox: { width: 220, height: 220 } },
+            onScanSuccess
+        ).then(function() {
+            scannerRunning = true;
+            setScannerStatus('Aponte para o QR Code do projetor');
+        }).catch(function(err) {
+            setScannerStatus('Não foi possível acessar a câmera: ' + err, 'error');
+        });
+    }
 
-        function onScanSuccess(decodedText) {
-            if (scanned) return;
-            scanned = true;
-            shutterFlash();
+    function stopScanner() {
+        if (scannerRunning && scanner) {
+            scanner.stop().catch(function(){});
+            scannerRunning = false;
+        }
+    }
 
-            var parts = decodedText.split(':');
-            var scannedLectureId = parseInt(parts.length >= 3 ? parts[parts.length - 2] : '0');
-            var token = parts.length >= 3 ? parts[parts.length - 1] : decodedText;
+    function onScanSuccess(decodedText) {
+        if (scanned) return;
+        var newLectureId = 0;
+        var newToken = '';
+        var handled = false;
 
-            if (scannedLectureId !== lectureId) {
-                setStatus('QR Code não corresponde a esta palestra', 'error');
-                setTimeout(function() { scanned = false; }, 2000);
-                return;
+        try {
+            if (/^https?:\/\//i.test(decodedText)) {
+                var u = new URL(decodedText);
+                var lid = u.searchParams.get('lectureId');
+                var tk = u.searchParams.get('token');
+                if (lid && tk) {
+                    newLectureId = parseInt(lid);
+                    newToken = tk;
+                    handled = true;
+                }
             }
+            if (!handled) {
+                var parts = decodedText.split(':');
+                if (parts.length >= 3) {
+                    newLectureId = parseInt(parts[parts.length - 2]);
+                    newToken = parts[parts.length - 1];
+                    handled = true;
+                } else {
+                    newToken = decodedText.trim();
+                    handled = true;
+                }
+            }
+        } catch (e) {}
 
-            setStatus('QR reconhecido! Fazendo check-in...', 'success');
+        if (lectureId > 0 && newLectureId > 0 && newLectureId !== lectureId) {
+            setScannerStatus('QR de outra palestra — não corresponde a esta.', 'error');
+            return;
+        }
 
-            fetch('/' + eventSlug + '/Home/SubmitQrCheckIn', {
+        scanned = true;
+        if (newLectureId > 0) lectureId = newLectureId;
+        currentToken = newToken;
+        updateTokenPill();
+        setScannerStatus('QR Code lido com sucesso!', 'success');
+        if (scannerRunning && scanner) {
+            scanner.stop().catch(function(){});
+            scannerRunning = false;
+        }
+        setTimeout(function() { scanned = false; }, 1500);
+    }
+
+    async function loadCourses() {
+        try {
+            const res = await fetch(baseUrl + '/Home/GetCourses');
+            const data = await res.json();
+            if (data.success && data.courses) {
+                coursesList = data.courses;
+                const sel = document.getElementById('courseSelect');
+                sel.innerHTML = '<option value="">Selecione</option>' +
+                    coursesList.map(c => '<option value="' + esc(c.name) + '">' + esc(c.name) + '</option>').join('');
+                updatePhaseOptions();
+            }
+        } catch {}
+    }
+
+    function updatePhaseOptions() {
+        const courseName = document.getElementById('courseSelect').value;
+        const course = coursesList.find(c => c.name === courseName);
+        const max = course ? course.numberOfSemesters : 0;
+        const sel = document.getElementById('phaseSelect');
+        const currentVal = sel.value;
+        let html = '<option value="">-</option>';
+        for (let i = 1; i <= max; i++) { html += '<option value="' + i + '">' + i + '</option>'; }
+        sel.innerHTML = html;
+        if (currentVal && parseInt(currentVal) <= max) sel.value = currentVal;
+    }
+
+    async function loadProfile(email) {
+        if (!email) { profileLoaded = false; return; }
+        try {
+            const res = await fetch(baseUrl + '/Home/GetProfile?email=' + encodeURIComponent(email));
+            const data = await res.json();
+            if (data && data.found) {
+                profileLoaded = true;
+                if (data.fullName) document.getElementById('fullNameInput').value = data.fullName;
+                if (data.course) {
+                    document.getElementById('courseSelect').value = data.course;
+                    updatePhaseOptions();
+                }
+                if (data.shift) document.getElementById('shiftSelect').value = data.shift;
+                if (data.phase) document.getElementById('phaseSelect').value = data.phase;
+            } else {
+                profileLoaded = false;
+            }
+        } catch {}
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        document.getElementById('courseSelect').addEventListener('change', updatePhaseOptions);
+        document.getElementById('emailInput').addEventListener('input', function(e) {
+            currentEmail = e.target.value.trim();
+            clearTimeout(emailDebounce);
+            emailDebounce = setTimeout(function() { loadProfile(currentEmail); }, 350);
+        });
+        loadCourses();
+    });
+
+    async function submitCheckIn() {
+        const email = document.getElementById('emailInput').value.trim();
+        const fullName = document.getElementById('fullNameInput').value.trim();
+        const course = document.getElementById('courseSelect').value;
+        const shift = document.getElementById('shiftSelect').value;
+        const phase = parseInt(document.getElementById('phaseSelect').value) || 0;
+
+        if (!email) { showMessage('Informe seu e-mail.', 'error'); return; }
+        if (!fullName) { showMessage('Informe seu nome completo.', 'error'); return; }
+        if (!course) { showMessage('Selecione o curso.', 'error'); return; }
+        if (!shift) { showMessage('Selecione o turno.', 'error'); return; }
+        if (phase < 1) { showMessage('Selecione a fase.', 'error'); return; }
+        if (!currentToken) { showMessage('Aguardando leitura do QR Code...', 'error'); return; }
+        if (lectureId <= 0) { showMessage('Palestra não identificada.', 'error'); return; }
+
+        clearMessage();
+        const btn = document.getElementById('btnSubmit');
+        btn.classList.add('is-loading'); btn.disabled = true;
+        try {
+            const res = await fetch(baseUrl + '/Home/SubmitQrCheckIn', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    email: email,
-                    lectureId: lectureId,
-                    token: token,
-                    fullName: '',
-                    course: '',
-                    shift: '',
-                    phase: 0
-                })
-            })
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
-                if (data.success) {
-                    showResult('✅', 'Check-in realizado!', data.message || 'Sua presença foi registrada com sucesso.');
-                    if (scanner) { scanner.stop().catch(function(){}); }
-                } else {
-                    showResult('❌', 'Erro no check-in', data.message || 'Não foi possível registrar sua presença.');
-                    setTimeout(function() { scanned = false; }, 3000);
-                }
-            })
-            .catch(function() {
-                showResult('❌', 'Erro de conexão', 'Verifique sua internet e tente novamente.');
-                setTimeout(function() { scanned = false; }, 3000);
+                body: JSON.stringify({ email, fullName, course, shift, phase, lectureId, token: currentToken })
             });
+            const data = await res.json();
+            if (data.success) {
+                document.getElementById('successMessage').textContent = data.message || 'Sua presença foi registrada com sucesso.';
+                if (scannerRunning && scanner) { stopScanner(); }
+                showStep('Success');
+            } else {
+                showMessage(data.message || 'Não foi possível registrar sua presença.', 'error');
+                btn.classList.remove('is-loading'); btn.disabled = false;
+            }
+        } catch {
+            showMessage('Erro de conexão. Verifique sua internet e tente novamente.', 'error');
+            btn.classList.remove('is-loading'); btn.disabled = false;
         }
+    }
 
-        function startScanner() {
-            scanner = new Html5Qrcode("reader");
-            scanner.start(
-                { facingMode: "environment" },
-                { fps: 10, qrbox: { width: 220, height: 220 } },
-                onScanSuccess
-            ).then(function() {
-                setStatus('Aponte a câmera para o QR Code');
-                document.getElementById('scanner-status').dataset.ready = 'true';
-            }).catch(function(err) {
-                setStatus('Erro ao acessar câmera: ' + err, 'error');
-            });
-        }
-
-        window.addEventListener('load', function() {
-            setTimeout(startScanner, 300);
-        });
-
-        window.addEventListener('beforeunload', function() {
-            if (scanner) { scanner.stop().catch(function(){}); }
-        });
-    </script>
-</body>
-</html>
+    window.addEventListener('beforeunload', function() { stopScanner(); });
+</script>
+}

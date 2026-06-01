@@ -611,7 +611,8 @@ public class AdminController : Controller
     public async Task<IActionResult> MagicCheckInBroadcast(int lectureId)
     {
         if (!IsAdminLoggedIn) return RedirectToAction(nameof(Index));
-        var lecture = await _db.Lectures.FirstOrDefaultAsync(l => l.EventId == _eventContext.CurrentEventId && l.Id == lectureId);
+        var lecture = await _db.Lectures.Include(l => l.TimeSlot)
+            .FirstOrDefaultAsync(l => l.EventId == _eventContext.CurrentEventId && l.Id == lectureId);
         if (lecture is null) return RedirectToAction(nameof(Dashboard));
 
         var old = await _db.MagicCheckInSessions
@@ -626,7 +627,7 @@ public class AdminController : Controller
             EventId = _eventContext.CurrentEventId,
             Token = GenerateMagicToken(),
             CreatedAt = DateTime.UtcNow,
-            ExpiresAt = DateTime.UtcNow.AddMinutes(10),
+            ExpiresAt = ComputeSessionExpiry(lecture),
             IsActive = true
         };
         _db.MagicCheckInSessions.Add(session);
@@ -642,7 +643,8 @@ public class AdminController : Controller
     public async Task<IActionResult> QrCodeBroadcast(int lectureId)
     {
         if (!IsAdminLoggedIn) return RedirectToAction(nameof(Index));
-        var lecture = await _db.Lectures.FirstOrDefaultAsync(l => l.EventId == _eventContext.CurrentEventId && l.Id == lectureId);
+        var lecture = await _db.Lectures.Include(l => l.TimeSlot)
+            .FirstOrDefaultAsync(l => l.EventId == _eventContext.CurrentEventId && l.Id == lectureId);
         if (lecture is null) return RedirectToAction(nameof(Dashboard));
 
         var old = await _db.MagicCheckInSessions
@@ -657,7 +659,7 @@ public class AdminController : Controller
             EventId = _eventContext.CurrentEventId,
             Token = GenerateMagicToken(),
             CreatedAt = DateTime.UtcNow,
-            ExpiresAt = DateTime.UtcNow.AddMinutes(10),
+            ExpiresAt = ComputeSessionExpiry(lecture),
             IsActive = true
         };
         _db.MagicCheckInSessions.Add(session);
@@ -665,7 +667,7 @@ public class AdminController : Controller
 
         ViewBag.Lecture = lecture;
         ViewBag.Token = session.Token;
-        ViewBag.Payload = $"{_eventContext.CurrentEvent.Name}:{lectureId}:{session.Token}";
+        ViewBag.Payload = BuildQrPayload(lectureId, session.Token);
         ViewBag.EventSlug = _eventContext.EventSlug;
         return View();
     }
@@ -674,6 +676,9 @@ public class AdminController : Controller
     public async Task<IActionResult> RenewQrSession([FromBody] QrRenewDto dto)
     {
         if (!IsAdminLoggedIn) return Json(new { success = false });
+        var lecture = await _db.Lectures.Include(l => l.TimeSlot)
+            .FirstOrDefaultAsync(l => l.EventId == _eventContext.CurrentEventId && l.Id == dto.LectureId);
+
         var old = await _db.MagicCheckInSessions
             .Where(s => s.EventId == _eventContext.CurrentEventId && s.LectureId == dto.LectureId && s.IsActive)
             .ToListAsync();
@@ -686,14 +691,29 @@ public class AdminController : Controller
             EventId = _eventContext.CurrentEventId,
             Token = GenerateMagicToken(),
             CreatedAt = DateTime.UtcNow,
-            ExpiresAt = DateTime.UtcNow.AddMinutes(10),
+            ExpiresAt = ComputeSessionExpiry(lecture),
             IsActive = true
         };
         _db.MagicCheckInSessions.Add(session);
         await _db.SaveChangesAsync();
 
-        var payload = $"{_eventContext.CurrentEvent.Name}:{dto.LectureId}:{session.Token}";
+        var payload = BuildQrPayload(dto.LectureId, session.Token);
         return Json(new { success = true, token = session.Token, payload });
+    }
+
+    private string BuildQrPayload(int lectureId, string token)
+    {
+        var req = HttpContext.Request;
+        var url = $"{req.Scheme}://{req.Host}/{_eventContext.EventSlug}/Home/QrScan?lectureId={lectureId}&token={token}";
+        return url;
+    }
+
+    private DateTime ComputeSessionExpiry(Lecture? lecture)
+    {
+        var margin = TimeSpan.FromMinutes(_settings.QrSessionMarginMinutes);
+        var anchor = lecture?.TimeSlot?.EndTime ?? DateTime.UtcNow;
+        if (anchor < DateTime.UtcNow) anchor = DateTime.UtcNow;
+        return anchor + margin;
     }
 
     // Course Management Endpoints

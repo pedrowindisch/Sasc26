@@ -5,6 +5,8 @@ public class EventSettings
     public string AllowedEmailDomain { get; set; } = "furb.br";
     public int OtpExpirationMinutes { get; set; } = 15;
     public int MaxOtpAttemptsPerSession { get; set; } = 3;
+    public int QrSessionMarginMinutes { get; set; } = 30;
+    public int QrTokenGracePeriodSeconds { get; set; } = 180;
     public List<string> AdminEmails { get; set; } = [];
     public List<TimeSlotConfig> TimeSlots { get; set; } = [];
 }
