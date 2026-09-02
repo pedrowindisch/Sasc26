@@ -254,6 +254,8 @@ public class FormFieldDto
     public bool Required { get; set; }
     public string Placeholder { get; set; } = string.Empty;
     public List<string> Options { get; set; } = [];
+    public string? FileAccept { get; set; } // pdf | image | pdf_image | any
+    public int? FileMaxSizeMb { get; set; }
 }
 
 public class SubmitFormDto

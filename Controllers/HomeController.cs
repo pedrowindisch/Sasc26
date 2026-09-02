@@ -204,8 +204,115 @@ public class HomeController : Controller
     }
 
     [HttpPost]
-    public async Task<IActionResult> SubmitPreRegistration([FromBody] SubmitPreRegistrationDto dto)
+    [RequestSizeLimit(15 * 1024 * 1024)]
+    [RequestFormLimits(MultipartBodyLengthLimit = 15 * 1024 * 1024)]
+    public async Task<IActionResult> SubmitPreRegistration()
     {
+        SubmitPreRegistrationDto dto;
+        Dictionary<int, IFormFile> fileMap = new();
+
+        if (Request.HasFormContentType)
+        {
+            var form = await Request.ReadFormAsync();
+            var email = form["email"].ToString();
+            var lectureIdsJson = form["lectureIds"].ToString();
+            var isEventWideStr = form["isEventWide"].ToString();
+            var fullName = form["fullName"].ToString();
+            var course = form["course"].ToString();
+            var shift = form["shift"].ToString();
+            var phaseStr = form["phase"].ToString();
+            var formResponsesJson = form["formResponses"].ToString();
+
+            List<int> lectureIds = [];
+            try { lectureIds = System.Text.Json.JsonSerializer.Deserialize<List<int>>(lectureIdsJson) ?? []; } catch {}
+
+            List<FormFieldResponseDto> formResponses = [];
+            try { formResponses = System.Text.Json.JsonSerializer.Deserialize<List<FormFieldResponseDto>>(formResponsesJson) ?? []; } catch {}
+
+            foreach (var key in form.Files.Select(f => f.Name))
+            {
+                if (key.StartsWith("file_") && int.TryParse(key.Substring(5), out var idx))
+                {
+                    var file = form.Files[key];
+                    if (file != null) fileMap[idx] = file;
+                }
+            }
+
+            dto = new SubmitPreRegistrationDto
+            {
+                Email = email,
+                LectureIds = lectureIds,
+                IsEventWide = bool.TryParse(isEventWideStr, out var b) && b,
+                FullName = fullName,
+                Course = course,
+                Shift = shift,
+                Phase = int.TryParse(phaseStr, out var p) ? p : 0,
+                FormResponses = formResponses
+            };
+
+            if (fileMap.Count > 0)
+            {
+                var config = await _db.PreRegistrationConfigs.FirstOrDefaultAsync(c => c.EventId == _eventContext.CurrentEventId);
+                List<FormFieldDto>? fields = null;
+                if (config != null && !string.IsNullOrWhiteSpace(config.FormFields))
+                {
+                    try { fields = System.Text.Json.JsonSerializer.Deserialize<List<FormFieldDto>>(config.FormFields, new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase }); } catch { fields = []; }
+                }
+
+                var pendingFiles = new List<(int idx, Guid id, byte[] compressed, string fileName, string contentType, long originalSize, string label)>();
+                foreach (var kv in fileMap)
+                {
+                    var idx = kv.Key;
+                    var file = kv.Value;
+                    var field = fields != null && idx >= 0 && idx < fields.Count ? fields[idx] : null;
+                    if (field == null || field.Type != "arquivo")
+                        return Json(new { success = false, message = $"Campo de arquivo inválido ({idx})." });
+                    if (file.Length == 0)
+                        return Json(new { success = false, message = $"Arquivo \"{field.Label}\" vazio." });
+                    var maxBytes = Sasc26.Services.FormFileValidationHelper.GetMaxBytes(field.FileMaxSizeMb);
+                    if (file.Length > maxBytes)
+                        return Json(new { success = false, message = $"Arquivo \"{field.Label}\" excede {field.FileMaxSizeMb ?? 10}MB." });
+                    if (!Sasc26.Services.FormFileValidationHelper.IsContentTypeAllowed(file.ContentType, field.FileAccept))
+                        return Json(new { success = false, message = $"Tipo de arquivo não permitido para \"{field.Label}\"." });
+
+                    using var ms = new MemoryStream();
+                    await file.CopyToAsync(ms);
+                    var raw = ms.ToArray();
+                    var compressed = Sasc26.Services.FileCompressionHelper.GZipCompress(raw);
+                    var guid = Guid.NewGuid();
+                    pendingFiles.Add((idx, guid, compressed, file.FileName, file.ContentType ?? "application/octet-stream", file.Length, field.Label));
+                }
+
+                // validate required file fields without file
+                if (fields != null)
+                {
+                    for (int i = 0; i < fields.Count; i++)
+                    {
+                        var f = fields[i];
+                        if (f.Type == "arquivo" && f.Required && !fileMap.ContainsKey(i))
+                            return Json(new { success = false, message = $"Selecione o arquivo \"{f.Label}\"." });
+                    }
+                }
+
+                // inject guid into responses
+                foreach (var pf in pendingFiles)
+                {
+                    if (pf.idx >= 0 && pf.idx < dto.FormResponses.Count)
+                        dto.FormResponses[pf.idx].Value = pf.id.ToString();
+                }
+
+                // stash pending files in HttpContext for post-save linking
+                HttpContext.Items["PendingPreRegFiles"] = pendingFiles;
+            }
+        }
+        else
+        {
+            using var reader = new StreamReader(Request.Body);
+            var body = await reader.ReadToEndAsync();
+            if (string.IsNullOrWhiteSpace(body)) return Json(new { success = false, message = "Corpo vazio." });
+            dto = System.Text.Json.JsonSerializer.Deserialize<SubmitPreRegistrationDto>(body, new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase }) ?? new SubmitPreRegistrationDto();
+        }
+
         if (string.IsNullOrWhiteSpace(dto.Email))
             return Json(new { success = false, message = "Informe seu e-mail." });
         if (string.IsNullOrWhiteSpace(dto.FullName))
@@ -214,6 +321,36 @@ public class HomeController : Controller
             return Json(new { success = false, message = "Preencha todos os campos do cadastro." });
 
         var result = await _attendanceService.SubmitPreRegistrationWithFormAsync(dto);
+        if (!result.Success) return Json(new { result.Success, result.Message });
+
+        // link pending files to created submission
+        if (HttpContext.Items["PendingPreRegFiles"] is List<(int idx, Guid id, byte[] compressed, string fileName, string contentType, long originalSize, string label)> pending)
+        {
+            var submission = await _db.PreRegistrationFormSubmissions
+                .Where(s => s.EventId == _eventContext.CurrentEventId && s.AttendeeEmail == dto.Email.Trim().ToLowerInvariant())
+                .OrderByDescending(s => s.SubmittedAt)
+                .FirstOrDefaultAsync();
+            if (submission != null)
+            {
+                foreach (var pf in pending)
+                {
+                    _db.FormFiles.Add(new FormFileAttachment
+                    {
+                        Id = pf.id,
+                        EventId = _eventContext.CurrentEventId,
+                        PreRegistrationSubmissionId = submission.Id,
+                        FieldLabel = pf.label,
+                        FileName = pf.fileName,
+                        ContentType = pf.contentType,
+                        OriginalSize = pf.originalSize,
+                        CompressedData = pf.compressed,
+                        CreatedAt = DateTime.UtcNow
+                    });
+                }
+                await _db.SaveChangesAsync();
+            }
+        }
+
         return Json(new { result.Success, result.Message });
     }
 

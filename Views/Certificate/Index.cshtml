@@ -398,6 +398,12 @@
                     formHtml += '</select></div></div>';
                 } else if (f.type === 'textarea') {
                     formHtml += `<div class="control"><textarea class="textarea is-small" id="tyField_${i}" rows="3" placeholder="${escA(f.placeholder || '')}"></textarea></div>`;
+                } else if (f.type === 'arquivo') {
+                    let accept='';
+                    if(f.fileAccept==='pdf') accept='accept=".pdf,application/pdf"';
+                    else if(f.fileAccept==='image') accept='accept="image/*"';
+                    else if(f.fileAccept==='pdf_image') accept='accept=".pdf,application/pdf,image/*"';
+                    formHtml += `<div class="control"><input class="input is-small" type="file" id="tyField_${i}" ${accept}><p style="font-size:0.7rem;color:#888;margin-top:4px;">Máx ${f.fileMaxSizeMb||10}MB</p></div>`;
                 } else {
                     formHtml += `<div class="control"><input class="input is-small" type="${f.type === 'email' ? 'email' : 'text'}" id="tyField_${i}" placeholder="${escA(f.placeholder || '')}"></div>`;
                 }
@@ -419,16 +425,42 @@
         btn.classList.add('is-loading'); btn.disabled = true;
         try {
             if (tyConfig.isFormEnabled && tyConfig.formFields && tyConfig.formFields.length > 0) {
+                const hasFile = tyConfig.formFields.some(f => f.type === 'arquivo');
                 const responses = [];
+                let fileMap = {};
                 let valid = true;
                 tyConfig.formFields.forEach((f, i) => {
                     const el = document.getElementById('tyField_' + i);
-                    const val = el ? el.value.trim() : '';
-                    if (f.required && !val) { valid = false; }
-                    responses.push({ label: f.label, value: val });
+                    if (f.type === 'arquivo') {
+                        const file = el && el.files ? el.files[0] : null;
+                        if (f.required && !file) valid = false;
+                        if (file) {
+                            const maxMb = f.fileMaxSizeMb || 10;
+                            if (file.size > maxMb*1024*1024) { valid = false; showMessage(`Arquivo "${f.label}" excede ${maxMb}MB.`, 'error'); }
+                            const accept = f.fileAccept || 'any';
+                            const type = (file.type||'').toLowerCase();
+                            if (accept==='pdf' && type!=='application/pdf') { valid=false; showMessage(`Arquivo "${f.label}" deve ser PDF.`, 'error'); }
+                            if (accept==='image' && !type.startsWith('image/')) { valid=false; showMessage(`Arquivo "${f.label}" deve ser imagem.`, 'error'); }
+                            if (accept==='pdf_image' && !(type==='application/pdf' || type.startsWith('image/'))) { valid=false; showMessage(`Arquivo "${f.label}" deve ser PDF ou imagem.`, 'error'); }
+                            fileMap[i]=file;
+                        }
+                        responses.push({ label: f.label, value: '' });
+                    } else {
+                        const val = el ? el.value.trim() : '';
+                        if (f.required && !val) valid = false;
+                        responses.push({ label: f.label, value: val });
+                    }
                 });
                 if (!valid) { showMessage('Preencha os campos obrigatórios.', 'error'); btn.classList.remove('is-loading'); btn.disabled = false; return; }
-                await fetch(baseUrl + '/Certificate/SubmitForm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: currentEmail, responses }) });
+                if (hasFile && Object.keys(fileMap).length>0) {
+                    const fd=new FormData();
+                    fd.append('email', currentEmail);
+                    fd.append('responses', JSON.stringify(responses));
+                    for (const [idx,file] of Object.entries(fileMap)) fd.append('file_'+idx, file);
+                    await fetch(baseUrl + '/Certificate/SubmitForm', { method: 'POST', body: fd });
+                } else {
+                    await fetch(baseUrl + '/Certificate/SubmitForm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: currentEmail, responses }) });
+                }
             }
             const name = document.getElementById('profileName').value.trim();
             const course = document.getElementById('profileCourse').value;

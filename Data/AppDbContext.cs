@@ -26,6 +26,7 @@ public class AppDbContext : DbContext
     public DbSet<PreRegistrationConfig> PreRegistrationConfigs => Set<PreRegistrationConfig>();
     public DbSet<PreRegistrationFormSubmission> PreRegistrationFormSubmissions => Set<PreRegistrationFormSubmission>();
     public DbSet<EventCourse> EventCourses => Set<EventCourse>();
+    public DbSet<FormFileAttachment> FormFiles => Set<FormFileAttachment>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -306,6 +307,30 @@ public class AppDbContext : DbContext
                   .WithMany()
                   .HasForeignKey(e => e.EventId)
                   .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<FormFileAttachment>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.FieldLabel).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.FileName).IsRequired().HasMaxLength(255);
+            entity.Property(e => e.ContentType).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.CompressedData).IsRequired();
+            entity.HasOne(e => e.Event)
+                  .WithMany()
+                  .HasForeignKey(e => e.EventId)
+                  .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.PreRegistrationSubmission)
+                  .WithMany()
+                  .HasForeignKey(e => e.PreRegistrationSubmissionId)
+                  .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.FormSubmission)
+                  .WithMany()
+                  .HasForeignKey(e => e.FormSubmissionId)
+                  .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.EventId);
+            entity.HasIndex(e => e.PreRegistrationSubmissionId);
+            entity.HasIndex(e => e.FormSubmissionId);
         });
     }
 }

@@ -9,6 +9,7 @@
     var eventSlug = ev?.Slug ?? "";
     var submissions = ViewBag.Submissions as List<Sasc26.Models.PreRegistrationFormSubmissionDto> ?? new();
     var formFields = ViewBag.FormFields as List<Sasc26.Models.FormFieldDto> ?? new();
+    var formFiles = ViewBag.FormFiles as Dictionary<string, Sasc26.Models.FormFileAttachment> ?? new();
 }
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -68,7 +69,15 @@
                                     @foreach (var f in formFields)
                                     {
                                         var resp = s.Responses?.FirstOrDefault(r => r.Label == f.Label);
-                                        <td>@(resp?.Value ?? "")</td>
+                                        var val = resp?.Value ?? "";
+                                        if (f.Type == "arquivo" && Guid.TryParse(val, out var gid) && formFiles.TryGetValue(gid.ToString(), out var ff))
+                                        {
+                                            <td><a href="/@eventSlug/Admin/DownloadFormFile?id=@gid" target="_blank">@ff.FileName</a></td>
+                                        }
+                                        else
+                                        {
+                                            <td>@val</td>
+                                        }
                                     }
                                 </tr>
                             }

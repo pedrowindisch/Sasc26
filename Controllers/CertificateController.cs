@@ -132,11 +132,118 @@ public class CertificateController : Controller
     }
 
     [HttpPost]
-    public async Task<IActionResult> SubmitForm([FromBody] SubmitFormDto dto)
+    [RequestSizeLimit(15 * 1024 * 1024)]
+    [RequestFormLimits(MultipartBodyLengthLimit = 15 * 1024 * 1024)]
+    public async Task<IActionResult> SubmitForm()
     {
+        SubmitFormDto dto;
+        Dictionary<int, IFormFile> fileMap = new();
+
+        if (Request.HasFormContentType)
+        {
+            var form = await Request.ReadFormAsync();
+            var email = form["email"].ToString();
+            var responsesJson = form["responses"].ToString();
+            List<FormFieldResponseDto> responses = [];
+            try { responses = System.Text.Json.JsonSerializer.Deserialize<List<FormFieldResponseDto>>(responsesJson, new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase }) ?? []; } catch {}
+
+            foreach (var f in form.Files)
+            {
+                if (f.Name.StartsWith("file_") && int.TryParse(f.Name.Substring(5), out var idx))
+                    fileMap[idx] = f;
+            }
+
+            dto = new SubmitFormDto { Email = email, Responses = responses };
+
+            if (fileMap.Count > 0)
+            {
+                var config = await _db.ThankYouConfigs.FirstOrDefaultAsync(c => c.EventId == _eventContext.CurrentEventId);
+                List<FormFieldDto>? fields = null;
+                if (config != null && !string.IsNullOrWhiteSpace(config.FormFields))
+                {
+                    try { fields = System.Text.Json.JsonSerializer.Deserialize<List<FormFieldDto>>(config.FormFields, new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase }); } catch { fields = []; }
+                }
+
+                var pendingFiles = new List<(int idx, Guid id, byte[] compressed, string fileName, string contentType, long originalSize, string label)>();
+                foreach (var kv in fileMap)
+                {
+                    var idx = kv.Key;
+                    var file = kv.Value;
+                    var field = fields != null && idx >= 0 && idx < fields.Count ? fields[idx] : null;
+                    if (field == null || field.Type != "arquivo")
+                        return Json(new { success = false, message = $"Campo de arquivo inválido ({idx})." });
+                    if (file.Length == 0)
+                        return Json(new { success = false, message = $"Arquivo \"{field.Label}\" vazio." });
+                    var maxBytes = Sasc26.Services.FormFileValidationHelper.GetMaxBytes(field.FileMaxSizeMb);
+                    if (file.Length > maxBytes)
+                        return Json(new { success = false, message = $"Arquivo \"{field.Label}\" excede {field.FileMaxSizeMb ?? 10}MB." });
+                    if (!Sasc26.Services.FormFileValidationHelper.IsContentTypeAllowed(file.ContentType, field.FileAccept))
+                        return Json(new { success = false, message = $"Tipo de arquivo não permitido para \"{field.Label}\"." });
+                    using var ms = new MemoryStream();
+                    await file.CopyToAsync(ms);
+                    var compressed = Sasc26.Services.FileCompressionHelper.GZipCompress(ms.ToArray());
+                    var guid = Guid.NewGuid();
+                    pendingFiles.Add((idx, guid, compressed, file.FileName, file.ContentType ?? "application/octet-stream", file.Length, field.Label));
+                }
+
+                if (fields != null)
+                {
+                    for (int i = 0; i < fields.Count; i++)
+                    {
+                        var f = fields[i];
+                        if (f.Type == "arquivo" && f.Required && !fileMap.ContainsKey(i))
+                            return Json(new { success = false, message = $"Selecione o arquivo \"{f.Label}\"." });
+                    }
+                }
+
+                foreach (var pf in pendingFiles)
+                {
+                    if (pf.idx >= 0 && pf.idx < dto.Responses.Count)
+                        dto.Responses[pf.idx].Value = pf.id.ToString();
+                }
+                HttpContext.Items["PendingThankYouFiles"] = pendingFiles;
+            }
+        }
+        else
+        {
+            using var reader = new StreamReader(Request.Body);
+            var body = await reader.ReadToEndAsync();
+            if (string.IsNullOrWhiteSpace(body)) return Json(new { success = false, message = "Corpo vazio." });
+            dto = System.Text.Json.JsonSerializer.Deserialize<SubmitFormDto>(body, new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase }) ?? new SubmitFormDto();
+        }
+
         if (string.IsNullOrWhiteSpace(dto.Email))
             return Json(new { success = false, message = "Informe o e-mail." });
+
         await _thankYouService.SubmitFormAsync(dto);
+
+        if (HttpContext.Items["PendingThankYouFiles"] is List<(int idx, Guid id, byte[] compressed, string fileName, string contentType, long originalSize, string label)> pendingTy)
+        {
+            var submission = await _db.FormSubmissions
+                .Where(s => s.EventId == _eventContext.CurrentEventId && s.AttendeeEmail == dto.Email.Trim().ToLowerInvariant())
+                .OrderByDescending(s => s.SubmittedAt)
+                .FirstOrDefaultAsync();
+            if (submission != null)
+            {
+                foreach (var pf in pendingTy)
+                {
+                    _db.FormFiles.Add(new FormFileAttachment
+                    {
+                        Id = pf.id,
+                        EventId = _eventContext.CurrentEventId,
+                        FormSubmissionId = submission.Id,
+                        FieldLabel = pf.label,
+                        FileName = pf.fileName,
+                        ContentType = pf.contentType,
+                        OriginalSize = pf.originalSize,
+                        CompressedData = pf.compressed,
+                        CreatedAt = DateTime.UtcNow
+                    });
+                }
+                await _db.SaveChangesAsync();
+            }
+        }
+
         return Json(new { success = true });
     }
 }

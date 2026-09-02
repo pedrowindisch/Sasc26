@@ -432,6 +432,9 @@ public class AdminController : Controller
         var tyConfig = await _thankYouService.GetConfigAsync();
         ViewBag.Submissions = submissions;
         ViewBag.FormFields = tyConfig.FormFields;
+        var eventId = _eventContext.CurrentEventId;
+        var files = await _db.FormFiles.Where(f => f.EventId == eventId && f.FormSubmissionId != null).ToListAsync();
+        ViewBag.FormFiles = files.ToDictionary(f => f.Id.ToString(), f => f);
         ViewBag.Event = _eventContext.CurrentEvent;
         return View();
     }
@@ -451,13 +454,19 @@ public class AdminController : Controller
         var submissions = await _thankYouService.GetSubmissionsAsync();
         var config = await _thankYouService.GetConfigAsync();
         var fieldLabels = config.FormFields.Select(f => f.Label).ToList();
+        var eventId = _eventContext.CurrentEventId;
+        var files = await _db.FormFiles.Where(f => f.EventId == eventId && f.FormSubmissionId != null).ToDictionaryAsync(f => f.Id.ToString(), f => f);
         var header = "Email,Data_Envio," + string.Join(",", fieldLabels.Select(l => l.Replace(",", ";")));
         var rows = submissions.Select(s =>
         {
             var responses = string.Join(",", fieldLabels.Select(l =>
             {
                 var resp = s.Responses.FirstOrDefault(r => r.Label == l);
-                return $"\"{(resp?.Value ?? "").Replace("\"", "\"\"")}\"";
+                var field = config.FormFields.FirstOrDefault(f => f.Label == l);
+                var val = resp?.Value ?? "";
+                if (field?.Type == "arquivo" && Guid.TryParse(val, out var gid) && files.TryGetValue(gid.ToString(), out var ff))
+                    val = ff.FileName;
+                return $"\"{val.Replace("\"", "\"\"")}\"";
             }));
             return $"{s.AttendeeEmail},{s.SubmittedAt:yyyy-MM-dd HH:mm:ss},{responses}";
         });
@@ -489,6 +498,10 @@ public class AdminController : Controller
         var config = await _preRegConfigService.GetConfigAsync();
         ViewBag.Submissions = submissions;
         ViewBag.FormFields = config.FormFields;
+        var eventId = _eventContext.CurrentEventId;
+        var files = await _db.FormFiles.Where(f => f.EventId == eventId && f.PreRegistrationSubmissionId != null).ToListAsync();
+        ViewBag.FormFiles = files.ToDictionary(f => f.Id.ToString(), f => f);
+        ViewBag.Event = _eventContext.CurrentEvent;
         return View();
     }
 
@@ -507,18 +520,34 @@ public class AdminController : Controller
         var submissions = await _preRegConfigService.GetSubmissionsAsync();
         var config = await _preRegConfigService.GetConfigAsync();
         var fieldLabels = config.FormFields.Select(f => f.Label).ToList();
+        var eventId = _eventContext.CurrentEventId;
+        var files = await _db.FormFiles.Where(f => f.EventId == eventId && f.PreRegistrationSubmissionId != null).ToDictionaryAsync(f => f.Id.ToString(), f => f);
         var header = "Email,Data_Envio," + string.Join(",", fieldLabels.Select(l => l.Replace(",", ";")));
         var rows = submissions.Select(s =>
         {
             var responses = string.Join(",", fieldLabels.Select(l =>
             {
                 var resp = s.Responses.FirstOrDefault(r => r.Label == l);
-                return $"\"{(resp?.Value ?? "").Replace("\"", "\"\"")}\"";
+                var field = config.FormFields.FirstOrDefault(f => f.Label == l);
+                var val = resp?.Value ?? "";
+                if (field?.Type == "arquivo" && Guid.TryParse(val, out var gid) && files.TryGetValue(gid.ToString(), out var ff))
+                    val = ff.FileName;
+                return $"\"{val.Replace("\"", "\"\"")}\"";
             }));
             return $"{s.AttendeeEmail},{s.SubmittedAt:yyyy-MM-dd HH:mm:ss},{responses}";
         });
         var csv = header + "\n" + string.Join("\n", rows);
         return File(System.Text.Encoding.UTF8.GetBytes(csv), "text/csv", "inscricoes_pre_cadastro.csv");
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> DownloadFormFile(Guid id)
+    {
+        if (!IsAdminLoggedIn) return Json(new { success = false, message = "Não autenticado." });
+        var file = await _db.FormFiles.FirstOrDefaultAsync(f => f.Id == id && f.EventId == _eventContext.CurrentEventId);
+        if (file is null) return NotFound();
+        var bytes = Sasc26.Services.FileCompressionHelper.GZipDecompress(file.CompressedData);
+        return File(bytes, file.ContentType, file.FileName);
     }
 
     public async Task<IActionResult> RetroactiveRequests()

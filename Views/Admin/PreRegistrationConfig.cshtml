@@ -136,6 +136,7 @@
                                 <option value="textarea" ${f.type==='textarea'?'selected':''}>Texto longo</option>
                                 <option value="select" ${f.type==='select'?'selected':''}>Seleção</option>
                                 <option value="date" ${f.type==='date'?'selected':''}>Data</option>
+                                <option value="arquivo" ${f.type==='arquivo'?'selected':''}>Arquivo</option>
                             </select>
                         </div>
                     </div>
@@ -151,6 +152,16 @@
                             <div class="options-list" id="optList_${i}">
                                 ${(f.options||[]).map((o,oi) => `<span class="tag is-light">${escHtml(o)}<button class="delete is-small" onclick="removeOption(${i},${oi})"></button></span>`).join('')}
                             </div>
+                        </div>` : f.type === 'arquivo' ? `
+                        <div style="display:flex;gap:6px;align-items:center;">
+                            <div class="select is-small"><select onchange="formFields[${i}].fileAccept=this.value">
+                                <option value="pdf" ${f.fileAccept==='pdf'?'selected':''}>PDF</option>
+                                <option value="image" ${f.fileAccept==='image'?'selected':''}>Imagem</option>
+                                <option value="pdf_image" ${(f.fileAccept==='pdf_image'||!f.fileAccept)?'selected':''}>PDF ou Imagem</option>
+                                <option value="any" ${f.fileAccept==='any'?'selected':''}>Qualquer</option>
+                            </select></div>
+                            <input class="input is-small" type="number" min="1" max="10" style="width:70px;" value="${f.fileMaxSizeMb||10}" onchange="formFields[${i}].fileMaxSizeMb=parseInt(this.value)||10" title="Máx MB">
+                            <span style="font-size:0.7rem;color:#888;">MB</span>
                         </div>` : `
                         <div class="field" style="width:120px;">
                             <input class="input is-small" type="text" value="${escAttr(f.placeholder||'')}" onchange="formFields[${i}].placeholder=this.value" placeholder="Placeholder">
@@ -162,7 +173,7 @@
         }
 
         function addField() {
-            formFields.push({ label: '', type: 'text', required: false, placeholder: '', options: [] });
+            formFields.push({ label: '', type: 'text', required: false, placeholder: '', options: [], fileAccept: 'pdf_image', fileMaxSizeMb: 10 });
             renderFields();
         }
 

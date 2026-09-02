@@ -246,7 +246,7 @@
             <div class="columns">
                 <div class="column is-3"><div class="field"><label class="label is-small">E-mail</label><div class="control"><input class="input" type="email" id="mEmail" placeholder="aluno@furb.br"></div></div></div>
                 <div class="column is-3"><div class="field"><label class="label is-small">Nome completo</label><div class="control"><input class="input" type="text" id="mName" placeholder="João da Silva"></div></div></div>
-                <div class="column is-2"><div class="field"><label class="label is-small">Curso</label><div class="control"><div class="select is-fullwidth"><select id="mCourse"><option value="">-</option><option>Ciência da Computação</option><option>Ciência de Dados</option><option>Sistemas de Informação</option></select></div></div></div></div>
+                <div class="column is-2"><div class="field"><label class="label is-small">Curso</label><div class="control"><div class="select is-fullwidth"><select id="mCourse"><option value="">Carregando...</option></select></div></div></div></div>
                 <div class="column is-1"><div class="field"><label class="label is-small">Turno</label><div class="control"><div class="select is-fullwidth"><select id="mShift"><option value="">-</option><option>Matutino</option><option>Noturno</option></select></div></div></div></div>
                 <div class="column is-1"><div class="field"><label class="label is-small">Fase</label><div class="control"><input class="input" type="number" id="mPhase" min="1" max="9" placeholder="1"></div></div></div>
                 <div class="column is-2" style="display:flex;align-items:flex-end;">
@@ -559,9 +559,20 @@
         async function loadCourses() {
             const res = await fetch(baseUrl + '/Admin/GetCourses');
             const data = await res.json();
-            if (!data.success || !data.courses) return;
+            if (!data.success || !data.courses) {
+                document.getElementById('mCourse').innerHTML = '<option value="">-</option>';
+                return;
+            }
             courseData = data.courses.map(c => ({ id: c.id, name: c.name, numberOfSemesters: c.numberOfSemesters }));
             renderCourses();
+            // Populate manual check-in course select from same data
+            const mCourse = document.getElementById('mCourse');
+            if (mCourse) {
+                const prev = mCourse.value;
+                mCourse.innerHTML = '<option value="">-</option>' +
+                    courseData.map(c => '<option value="' + esc(c.name) + '">' + esc(c.name) + '</option>').join('');
+                if (prev) mCourse.value = prev;
+            }
         }
 
         function renderCourses() {
@@ -622,6 +633,19 @@
             }
             finally { btn.classList.remove('is-loading'); btn.disabled = false; }
         }
+
+        function updateManualPhaseMax() {
+            const courseName = document.getElementById('mCourse').value;
+            const course = courseData.find(c => c.name === courseName);
+            const max = course ? course.numberOfSemesters : 12;
+            const phaseEl = document.getElementById('mPhase');
+            if (phaseEl) {
+                phaseEl.max = max;
+                if (parseInt(phaseEl.value) > max) phaseEl.value = max;
+            }
+        }
+
+        document.getElementById('mCourse')?.addEventListener('change', updateManualPhaseMax);
 
         loadCourses();
     </script>

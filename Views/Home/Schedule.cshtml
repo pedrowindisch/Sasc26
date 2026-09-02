@@ -111,9 +111,9 @@
         <div id="formMsg"></div>
         <div id="profileFields">
             <div class="field"><label class="label is-small has-text-grey">Nome completo</label><div class="control"><input class="input" type="text" id="fullNameInput" placeholder="João da Silva" autocomplete="name"></div></div>
-            <div class="field"><label class="label is-small has-text-grey">Curso</label><div class="control"><div class="select is-fullwidth"><select id="courseSelect"><option value="">Selecione</option><option value="Ciência da Computação">Ciência da Computação</option><option value="Ciência de Dados">Ciência de Dados</option><option value="Sistemas de Informação">Sistemas de Informação</option></select></div></div></div>
+            <div class="field"><label class="label is-small has-text-grey">Curso</label><div class="control"><div class="select is-fullwidth"><select id="courseSelect"><option value="">Carregando...</option></select></div></div></div>
             <div class="field"><label class="label is-small has-text-grey">Turno</label><div class="control"><div class="select is-fullwidth"><select id="shiftSelect"><option value="">Selecione</option><option value="Matutino">Matutino</option><option value="Noturno">Noturno</option></select></div></div></div>
-            <div class="field"><label class="label is-small has-text-grey">Fase</label><div class="control"><div class="select is-fullwidth"><select id="phaseSelect"><option value="">-</option>@for (var i = 1; i <= 9; i++) {<option value="@i">@i</option>}</select></div></div></div>
+            <div class="field"><label class="label is-small has-text-grey">Fase</label><div class="control"><div class="select is-fullwidth"><select id="phaseSelect"><option value="">-</option></select></div></div></div>
         </div>
         <div id="customFormArea" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid #eee;"></div>
         <div class="field" style="margin-top:20px;">
@@ -155,6 +155,41 @@
     let isEventWide = false;
     let hasEventWideRegistration = false;
     let preRegConfig = null;
+    let coursesList = [];
+
+    async function loadCourses() {
+        try {
+            const res = await fetch(baseUrl + '/Home/GetCourses');
+            const data = await res.json();
+            if (data.success && data.courses) {
+                coursesList = data.courses;
+                const sel = document.getElementById('courseSelect');
+                sel.innerHTML = '<option value="">Selecione</option>' +
+                    coursesList.map(c => '<option value="' + esc(c.name) + '">' + esc(c.name) + '</option>').join('');
+            } else {
+                document.getElementById('courseSelect').innerHTML = '<option value="">Selecione</option>';
+            }
+        } catch {
+            document.getElementById('courseSelect').innerHTML = '<option value="">Selecione</option>';
+        }
+    }
+
+    function updatePhaseOptions() {
+        const courseName = document.getElementById('courseSelect').value;
+        const course = coursesList.find(c => c.name === courseName);
+        const max = course ? course.numberOfSemesters : 0;
+        const sel = document.getElementById('phaseSelect');
+        const currentVal = sel.value;
+        let html = '<option value="">-</option>';
+        for (let i = 1; i <= max; i++) { html += '<option value="' + i + '">' + i + '</option>'; }
+        sel.innerHTML = html;
+        if (currentVal && parseInt(currentVal) <= max) sel.value = currentVal;
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        loadCourses();
+        document.getElementById('courseSelect').addEventListener('change', updatePhaseOptions);
+    });
 
     function showMessage(t, type) { document.getElementById('messageArea').innerHTML = t ? `<div class="msg-${type}">${t}</div>` : ''; }
     function showFormMsg(t, type) { document.getElementById('formMsg').innerHTML = t ? `<div class="msg-${type}">${t}</div>` : ''; }
@@ -164,6 +199,12 @@
     function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
     function escA(s) { return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
     function fmtDate(iso) { const [y,m,d] = iso.split('-'); const dt = new Date(y, m-1, d); return dt.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' }); }
+    function getFileAccept(f) {
+        if (f.fileAccept === 'pdf') return '.pdf,application/pdf';
+        if (f.fileAccept === 'image') return 'image/*';
+        if (f.fileAccept === 'pdf_image') return '.pdf,application/pdf,image/*';
+        return '*/*';
+    }
 
     async function loadScheduleWithEmail() {
         const email = document.getElementById('emailInput').value.trim();
@@ -322,6 +363,7 @@
         }
         btn.classList.add('is-loading'); btn.disabled = true;
         try {
+            if (coursesList.length === 0) await loadCourses();
             const res = await fetch(baseUrl + `/Home/GetPreRegistrationConfig?email=${encodeURIComponent(currentEmail)}`);
             const data = await res.json();
             preRegConfig = data.config || { isFormEnabled: false, formFields: [], message: '' };
@@ -330,11 +372,13 @@
             if (profile && profile.found) {
                 document.getElementById('fullNameInput').value = profile.fullName || '';
                 document.getElementById('courseSelect').value = profile.course || '';
+                updatePhaseOptions();
                 document.getElementById('shiftSelect').value = profile.shift || '';
-                document.getElementById('phaseSelect').value = profile.phase || '';
+                if (profile.phase) document.getElementById('phaseSelect').value = profile.phase;
             } else {
                 document.getElementById('fullNameInput').value = '';
                 document.getElementById('courseSelect').value = '';
+                updatePhaseOptions();
                 document.getElementById('shiftSelect').value = '';
                 document.getElementById('phaseSelect').value = '';
             }
@@ -381,6 +425,8 @@
                 html += `<div class="control"><textarea class="textarea is-small" id="preField_${i}" rows="3" placeholder="${escA(f.placeholder || '')}"></textarea></div>`;
             } else if (f.type === 'date') {
                 html += `<div class="control"><input class="input is-small" type="date" id="preField_${i}"></div>`;
+            } else if (f.type === 'arquivo') {
+                html += `<div class="control"><input class="input is-small" type="file" id="preField_${i}" accept="${getFileAccept(f)}"><p style="font-size:0.7rem;color:#888;margin-top:4px;">Máx ${f.fileMaxSizeMb||10}MB</p></div>`;
             } else {
                 html += `<div class="control"><input class="input is-small" type="${f.type === 'email' ? 'email' : 'text'}" id="preField_${i}" placeholder="${escA(f.placeholder || '')}"></div>`;
             }
@@ -402,14 +448,32 @@
         if (!shift) { showFormMsg('Selecione o turno.', 'error'); return; }
         if (phase < 1) { showFormMsg('Selecione a fase.', 'error'); return; }
 
+        const hasFile = preRegConfig && preRegConfig.isFormEnabled && preRegConfig.formFields && preRegConfig.formFields.some(f => f.type === 'arquivo');
         let formResponses = [];
+        let fileMap = {};
         if (preRegConfig && preRegConfig.isFormEnabled && preRegConfig.formFields) {
             for (let i = 0; i < preRegConfig.formFields.length; i++) {
                 const f = preRegConfig.formFields[i];
                 const el = document.getElementById('preField_' + i);
-                const val = el ? el.value.trim() : '';
-                if (f.required && !val) { showFormMsg(`Preencha o campo "${f.label}".`, 'error'); return; }
-                formResponses.push({ label: f.label, value: val });
+                if (f.type === 'arquivo') {
+                    const file = el && el.files ? el.files[0] : null;
+                    if (f.required && !file) { showFormMsg(`Selecione o arquivo "${f.label}".`, 'error'); return; }
+                    if (file) {
+                        const maxMb = f.fileMaxSizeMb || 10;
+                        if (file.size > maxMb * 1024 * 1024) { showFormMsg(`Arquivo "${f.label}" excede ${maxMb}MB.`, 'error'); return; }
+                        const accept = f.fileAccept || 'any';
+                        const type = (file.type || '').toLowerCase();
+                        if (accept === 'pdf' && type !== 'application/pdf') { showFormMsg(`Arquivo "${f.label}" deve ser PDF.`, 'error'); return; }
+                        if (accept === 'image' && !type.startsWith('image/')) { showFormMsg(`Arquivo "${f.label}" deve ser imagem.`, 'error'); return; }
+                        if (accept === 'pdf_image' && !(type === 'application/pdf' || type.startsWith('image/'))) { showFormMsg(`Arquivo "${f.label}" deve ser PDF ou imagem.`, 'error'); return; }
+                        fileMap[i] = file;
+                    }
+                    formResponses.push({ label: f.label, value: '' });
+                } else {
+                    const val = el ? el.value.trim() : '';
+                    if (f.required && !val) { showFormMsg(`Preencha o campo "${f.label}".`, 'error'); return; }
+                    formResponses.push({ label: f.label, value: val });
+                }
             }
         }
 
@@ -419,20 +483,40 @@
         const ids = isEventWide ? [] : Object.values(selectedIds);
 
         try {
-            const res = await fetch(baseUrl + '/Home/SubmitPreRegistration', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    email: currentEmail,
-                    lectureIds: ids,
-                    isEventWide,
-                    fullName,
-                    course,
-                    shift,
-                    phase,
-                    formResponses
-                })
-            });
+            let res;
+            if (hasFile) {
+                const fd = new FormData();
+                fd.append('email', currentEmail);
+                fd.append('lectureIds', JSON.stringify(ids));
+                fd.append('isEventWide', String(isEventWide));
+                fd.append('fullName', fullName);
+                fd.append('course', course);
+                fd.append('shift', shift);
+                fd.append('phase', String(phase));
+                fd.append('formResponses', JSON.stringify(formResponses));
+                for (const [idx, file] of Object.entries(fileMap)) {
+                    fd.append('file_' + idx, file);
+                }
+                res = await fetch(baseUrl + '/Home/SubmitPreRegistration', {
+                    method: 'POST',
+                    body: fd
+                });
+            } else {
+                res = await fetch(baseUrl + '/Home/SubmitPreRegistration', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: currentEmail,
+                        lectureIds: ids,
+                        isEventWide,
+                        fullName,
+                        course,
+                        shift,
+                        phase,
+                        formResponses
+                    })
+                });
+            }
             const data = await res.json();
             if (data.success) {
                 document.getElementById('otpEmailDisplay').textContent = currentEmail;

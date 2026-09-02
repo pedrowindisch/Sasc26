@@ -81,9 +81,9 @@
             <div class="step-section" id="stepForm">
                 <p class="section-label">Seus dados</p>
                 <div class="field"><label class="label is-small has-text-grey">Nome completo</label><div class="control"><input class="input" type="text" id="fullNameInput" placeholder="João da Silva" autocomplete="name"></div></div>
-                <div class="field"><label class="label is-small has-text-grey">Curso</label><div class="control"><div class="select is-fullwidth"><select id="courseSelect"><option value="">Selecione</option><option value="Ciência da Computação">Ciência da Computação</option><option value="Ciência de Dados">Ciência de Dados</option><option value="Sistemas de Informação">Sistemas de Informação</option></select></div></div></div>
+                <div class="field"><label class="label is-small has-text-grey">Curso</label><div class="control"><div class="select is-fullwidth"><select id="courseSelect"><option value="">Carregando...</option></select></div></div></div>
                 <div class="field"><label class="label is-small has-text-grey">Turno</label><div class="control"><div class="select is-fullwidth"><select id="shiftSelect"><option value="">Selecione</option><option value="Matutino">Matutino</option><option value="Noturno">Noturno</option></select></div></div></div>
-                <div class="field"><label class="label is-small has-text-grey">Fase</label><div class="control"><div class="select is-fullwidth"><select id="phaseSelect"><option value="">-</option>@for (var i = 1; i <= 9; i++) {<option value="@i">@i</option>}</select></div></div></div>
+                <div class="field"><label class="label is-small has-text-grey">Fase</label><div class="control"><div class="select is-fullwidth"><select id="phaseSelect"><option value="">-</option></select></div></div></div>
 
                 <hr class="section-divider">
                 <p class="section-label">Selecione a palestra (do dia anterior)</p>
@@ -118,10 +118,45 @@
     const baseUrl = '/@eventSlug';
     let currentEmail = '';
     let selectedLectureId = 0;
+    let coursesList = [];
 
     function showMessage(t, type) { document.getElementById('messageArea').innerHTML = `<div class="msg-${type}">${t}</div>`; }
     function clearMessage() { document.getElementById('messageArea').innerHTML = ''; }
     function showStep(s) { document.querySelectorAll('.step-section').forEach(el => el.classList.remove('active')); document.getElementById('step' + s).classList.add('active'); }
+
+    async function loadCourses() {
+        try {
+            const res = await fetch(baseUrl + '/Home/GetCourses');
+            const data = await res.json();
+            if (data.success && data.courses) {
+                coursesList = data.courses;
+                const sel = document.getElementById('courseSelect');
+                sel.innerHTML = '<option value="">Selecione</option>' +
+                    coursesList.map(c => '<option value="' + esc(c.name) + '">' + esc(c.name) + '</option>').join('');
+            } else {
+                document.getElementById('courseSelect').innerHTML = '<option value="">Selecione</option>';
+            }
+        } catch {
+            document.getElementById('courseSelect').innerHTML = '<option value="">Selecione</option>';
+        }
+    }
+
+    function updatePhaseOptions() {
+        const courseName = document.getElementById('courseSelect').value;
+        const course = coursesList.find(c => c.name === courseName);
+        const max = course ? course.numberOfSemesters : 0;
+        const sel = document.getElementById('phaseSelect');
+        const currentVal = sel.value;
+        let html = '<option value="">-</option>';
+        for (let i = 1; i <= max; i++) { html += '<option value="' + i + '">' + i + '</option>'; }
+        sel.innerHTML = html;
+        if (currentVal && parseInt(currentVal) <= max) sel.value = currentVal;
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        loadCourses();
+        document.getElementById('courseSelect').addEventListener('change', updatePhaseOptions);
+    });
 
     async function loadProfileAndContinue() {
         const email = document.getElementById('emailInput').value.trim();
@@ -130,14 +165,23 @@
         const btn = document.getElementById('btnLoadProfile');
         btn.classList.add('is-loading'); btn.disabled = true;
         try {
+            // Ensure courses loaded before setting profile
+            if (coursesList.length === 0) await loadCourses();
             const res = await fetch(baseUrl + `/Home/GetProfile?email=${encodeURIComponent(email)}`);
             const data = await res.json();
             currentEmail = email;
             if (data && data.found) {
                 document.getElementById('fullNameInput').value = data.fullName || '';
                 document.getElementById('courseSelect').value = data.course || '';
+                updatePhaseOptions();
                 document.getElementById('shiftSelect').value = data.shift || '';
-                document.getElementById('phaseSelect').value = data.phase || '';
+                if (data.phase) document.getElementById('phaseSelect').value = data.phase;
+            } else {
+                document.getElementById('fullNameInput').value = '';
+                document.getElementById('courseSelect').value = '';
+                updatePhaseOptions();
+                document.getElementById('shiftSelect').value = '';
+                document.getElementById('phaseSelect').value = '';
             }
             await loadYesterdayLectures();
             showStep('Form');
