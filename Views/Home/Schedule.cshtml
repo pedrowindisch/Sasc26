@@ -243,12 +243,13 @@
             return;
         }
         tabs.innerHTML = days.map(d => {
-            const regCount = allLectures.filter(l => l.date === d && l.alreadyRegistered).length;
-            const selCount = Object.keys(selectedIds).filter(tsId => {
-                const l = allLectures.find(x => x.timeSlotId === parseInt(tsId));
+            const slotsWithReg = new Set(allLectures.filter(l => l.date === d && l.alreadyRegistered).map(l => String(l.timeSlotId)));
+            const slotsWithSel = new Set(Object.keys(selectedIds).filter(tsId => {
+                const l = allLectures.find(x => String(x.timeSlotId) === String(tsId));
                 return l && l.date === d;
-            }).length;
-            const count = regCount + selCount;
+            }).map(String));
+            const covered = new Set([...slotsWithReg, ...slotsWithSel]);
+            const count = covered.size;
             return `<div class="day-tab${activeDay === d ? ' active' : ''}" onclick="selectDay('${d}')">
                 ${fmtDate(d)}${count > 0 ? `<span class="tab-count">${count}</span>` : ''}
             </div>`;
@@ -288,14 +289,14 @@
                 const isOpen = l.isPreRegistrationEnabled;
                 let badge = '';
                 let cardClass = 'lecture-card';
-                if (isReg && selectedIds[tsId] === undefined) { badge = '<span class="pre-reg-badge registered">Inscrito</span>'; }
+                if (isReg) { badge = '<span class="pre-reg-badge registered">Inscrito</span>'; }
                 else if (isOpen) { badge = '<span class="pre-reg-badge open">Inscrições Abertas</span>'; }
                 else { badge = '<span class="pre-reg-badge closed">Inscrições Encerradas</span>'; cardClass += ' disabled'; }
 
-                const sel = selectedIds[tsId] === l.id || (isReg && selectedIds[tsId] === undefined);
+                const sel = String(selectedIds[tsId]) === String(l.id);
                 if (sel) cardClass += ' selected';
 
-                html += `<div class="${cardClass}" data-id="${l.id}" data-ts="${tsId}" ${isOpen ? `onclick="toggleLecture(${l.id}, ${tsId}, this)"` : ''}>
+                html += `<div class="${cardClass}" data-id="${l.id}" data-ts="${tsId}" ${isOpen ? `onclick="toggleLecture(${l.id}, ${tsId})"` : ''}>
                     <div class="check-icon">&#10003;</div>
                     <div class="l-title">${esc(l.title)}</div>
                     <div class="l-speaker">${esc(l.speaker)}</div>
@@ -307,21 +308,35 @@
         updateSubmitBtn();
     }
 
-    function toggleLecture(id, tsId, el) {
-        const prev = selectedIds[tsId];
-        if (prev === id) {
-            delete selectedIds[tsId];
-            el.classList.remove('selected');
+    function toggleLecture(id, tsId) {
+        const key = String(tsId);
+        const prev = selectedIds[key] !== undefined ? String(selectedIds[key]) : undefined;
+        if (prev === String(id)) {
+            delete selectedIds[key];
         } else {
-            if (prev !== undefined) {
-                const prevEl = document.querySelector(`.lecture-card[data-id="${prev}"]`);
-                if (prevEl) prevEl.classList.remove('selected');
-            }
-            selectedIds[tsId] = id;
-            el.classList.add('selected');
+            selectedIds[key] = id;
         }
         updateSubmitBtn();
-        renderDayTabs();
+        renderDayLectures();
+        renderDayTabsCountsOnly();
+    }
+
+    function renderDayTabsCountsOnly() {
+        const tabs = document.getElementById('dayTabs');
+        const days = [...new Set(allLectures.map(l => l.date))].sort();
+        if (days.length === 0) return;
+        tabs.innerHTML = days.map(d => {
+            const slotsWithReg = new Set(allLectures.filter(l => l.date === d && l.alreadyRegistered).map(l => String(l.timeSlotId)));
+            const slotsWithSel = new Set(Object.keys(selectedIds).filter(s => {
+                const l = allLectures.find(x => String(x.timeSlotId) === String(s));
+                return l && l.date === d;
+            }).map(String));
+            const covered = new Set([...slotsWithReg, ...slotsWithSel]);
+            const count = covered.size;
+            return `<div class="day-tab${activeDay === d ? ' active' : ''}" onclick="selectDay('${d}')">
+                ${fmtDate(d)}${count > 0 ? `<span class="tab-count">${count}</span>` : ''}
+            </div>`;
+        }).join('');
     }
 
     function updateSubmitBtn() {

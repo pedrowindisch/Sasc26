@@ -138,6 +138,7 @@ public class CertificateController : Controller
     {
         SubmitFormDto dto;
         Dictionary<int, IFormFile> fileMap = new();
+        var jsonOptions = new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase, PropertyNameCaseInsensitive = true };
 
         if (Request.HasFormContentType)
         {
@@ -145,7 +146,7 @@ public class CertificateController : Controller
             var email = form["email"].ToString();
             var responsesJson = form["responses"].ToString();
             List<FormFieldResponseDto> responses = [];
-            try { responses = System.Text.Json.JsonSerializer.Deserialize<List<FormFieldResponseDto>>(responsesJson, new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase }) ?? []; } catch {}
+            try { responses = System.Text.Json.JsonSerializer.Deserialize<List<FormFieldResponseDto>>(responsesJson, jsonOptions) ?? []; } catch {}
 
             foreach (var f in form.Files)
             {
@@ -155,13 +156,12 @@ public class CertificateController : Controller
 
             dto = new SubmitFormDto { Email = email, Responses = responses };
 
-            if (fileMap.Count > 0)
             {
                 var config = await _db.ThankYouConfigs.FirstOrDefaultAsync(c => c.EventId == _eventContext.CurrentEventId);
                 List<FormFieldDto>? fields = null;
                 if (config != null && !string.IsNullOrWhiteSpace(config.FormFields))
                 {
-                    try { fields = System.Text.Json.JsonSerializer.Deserialize<List<FormFieldDto>>(config.FormFields, new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase }); } catch { fields = []; }
+                    try { fields = System.Text.Json.JsonSerializer.Deserialize<List<FormFieldDto>>(config.FormFields, jsonOptions); } catch { fields = []; }
                 }
 
                 var pendingFiles = new List<(int idx, Guid id, byte[] compressed, string fileName, string contentType, long originalSize, string label)>();
@@ -201,7 +201,8 @@ public class CertificateController : Controller
                     if (pf.idx >= 0 && pf.idx < dto.Responses.Count)
                         dto.Responses[pf.idx].Value = pf.id.ToString();
                 }
-                HttpContext.Items["PendingThankYouFiles"] = pendingFiles;
+                if (pendingFiles.Count > 0)
+                    HttpContext.Items["PendingThankYouFiles"] = pendingFiles;
             }
         }
         else
@@ -209,7 +210,7 @@ public class CertificateController : Controller
             using var reader = new StreamReader(Request.Body);
             var body = await reader.ReadToEndAsync();
             if (string.IsNullOrWhiteSpace(body)) return Json(new { success = false, message = "Corpo vazio." });
-            dto = System.Text.Json.JsonSerializer.Deserialize<SubmitFormDto>(body, new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase }) ?? new SubmitFormDto();
+            dto = System.Text.Json.JsonSerializer.Deserialize<SubmitFormDto>(body, jsonOptions) ?? new SubmitFormDto();
         }
 
         if (string.IsNullOrWhiteSpace(dto.Email))

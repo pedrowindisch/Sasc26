@@ -210,6 +210,7 @@ public class HomeController : Controller
     {
         SubmitPreRegistrationDto dto;
         Dictionary<int, IFormFile> fileMap = new();
+        var jsonOptions = new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase, PropertyNameCaseInsensitive = true };
 
         if (Request.HasFormContentType)
         {
@@ -224,18 +225,15 @@ public class HomeController : Controller
             var formResponsesJson = form["formResponses"].ToString();
 
             List<int> lectureIds = [];
-            try { lectureIds = System.Text.Json.JsonSerializer.Deserialize<List<int>>(lectureIdsJson) ?? []; } catch {}
+            try { lectureIds = System.Text.Json.JsonSerializer.Deserialize<List<int>>(lectureIdsJson, jsonOptions) ?? []; } catch {}
 
             List<FormFieldResponseDto> formResponses = [];
-            try { formResponses = System.Text.Json.JsonSerializer.Deserialize<List<FormFieldResponseDto>>(formResponsesJson) ?? []; } catch {}
+            try { formResponses = System.Text.Json.JsonSerializer.Deserialize<List<FormFieldResponseDto>>(formResponsesJson, jsonOptions) ?? []; } catch {}
 
-            foreach (var key in form.Files.Select(f => f.Name))
+            foreach (var f in form.Files)
             {
-                if (key.StartsWith("file_") && int.TryParse(key.Substring(5), out var idx))
-                {
-                    var file = form.Files[key];
-                    if (file != null) fileMap[idx] = file;
-                }
+                if (f.Name.StartsWith("file_") && int.TryParse(f.Name.Substring(5), out var idx))
+                    fileMap[idx] = f;
             }
 
             dto = new SubmitPreRegistrationDto
@@ -250,13 +248,12 @@ public class HomeController : Controller
                 FormResponses = formResponses
             };
 
-            if (fileMap.Count > 0)
             {
                 var config = await _db.PreRegistrationConfigs.FirstOrDefaultAsync(c => c.EventId == _eventContext.CurrentEventId);
                 List<FormFieldDto>? fields = null;
                 if (config != null && !string.IsNullOrWhiteSpace(config.FormFields))
                 {
-                    try { fields = System.Text.Json.JsonSerializer.Deserialize<List<FormFieldDto>>(config.FormFields, new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase }); } catch { fields = []; }
+                    try { fields = System.Text.Json.JsonSerializer.Deserialize<List<FormFieldDto>>(config.FormFields, jsonOptions); } catch { fields = []; }
                 }
 
                 var pendingFiles = new List<(int idx, Guid id, byte[] compressed, string fileName, string contentType, long originalSize, string label)>();
@@ -283,7 +280,7 @@ public class HomeController : Controller
                     pendingFiles.Add((idx, guid, compressed, file.FileName, file.ContentType ?? "application/octet-stream", file.Length, field.Label));
                 }
 
-                // validate required file fields without file
+                // validate required file fields without file (even when no file was uploaded)
                 if (fields != null)
                 {
                     for (int i = 0; i < fields.Count; i++)
@@ -302,7 +299,8 @@ public class HomeController : Controller
                 }
 
                 // stash pending files in HttpContext for post-save linking
-                HttpContext.Items["PendingPreRegFiles"] = pendingFiles;
+                if (pendingFiles.Count > 0)
+                    HttpContext.Items["PendingPreRegFiles"] = pendingFiles;
             }
         }
         else
@@ -310,7 +308,7 @@ public class HomeController : Controller
             using var reader = new StreamReader(Request.Body);
             var body = await reader.ReadToEndAsync();
             if (string.IsNullOrWhiteSpace(body)) return Json(new { success = false, message = "Corpo vazio." });
-            dto = System.Text.Json.JsonSerializer.Deserialize<SubmitPreRegistrationDto>(body, new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase }) ?? new SubmitPreRegistrationDto();
+            dto = System.Text.Json.JsonSerializer.Deserialize<SubmitPreRegistrationDto>(body, jsonOptions) ?? new SubmitPreRegistrationDto();
         }
 
         if (string.IsNullOrWhiteSpace(dto.Email))

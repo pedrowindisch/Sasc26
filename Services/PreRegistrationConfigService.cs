@@ -15,7 +15,7 @@ public interface IPreRegistrationConfigService
 
 public class PreRegistrationConfigService : IPreRegistrationConfigService
 {
-    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, PropertyNameCaseInsensitive = true };
 
     private readonly AppDbContext _db;
     private readonly IEventContext _eventContext;

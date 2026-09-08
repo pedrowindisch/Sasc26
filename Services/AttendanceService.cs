@@ -443,7 +443,7 @@ public class AttendanceService : IAttendanceService
             {
                 AttendeeEmail = email,
                 EventId = EventId,
-                FormData = System.Text.Json.JsonSerializer.Serialize(dto.FormResponses),
+                FormData = System.Text.Json.JsonSerializer.Serialize(dto.FormResponses, new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase, PropertyNameCaseInsensitive = true }),
                 SubmittedAt = DateTime.UtcNow
             });
         }
