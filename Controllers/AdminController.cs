@@ -235,6 +235,16 @@ public class AdminController : Controller
         var entries = await _adminService.GetEventWidePreRegistrationsAsync();
         ViewBag.Entries = entries;
         ViewBag.Event = _eventContext.CurrentEvent;
+        // Latest form submission per e-mail (for response columns + file links)
+        var submissions = await _preRegConfigService.GetSubmissionsAsync();
+        ViewBag.SubmissionsByEmail = submissions
+            .GroupBy(s => s.AttendeeEmail.Trim().ToLowerInvariant())
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(s => s.SubmittedAt).First());
+        var config = await _preRegConfigService.GetConfigAsync();
+        ViewBag.FormFields = config.FormFields;
+        var eventId = _eventContext.CurrentEventId;
+        var files = await _db.FormFiles.Where(f => f.EventId == eventId && f.PreRegistrationSubmissionId != null).ToListAsync();
+        ViewBag.FormFiles = files.ToDictionary(f => f.Id.ToString(), f => f);
         return View();
     }
 

@@ -8,6 +8,9 @@
     var eventName = ev?.Name ?? "SASC 26";
     var eventSlug = ev?.Slug ?? "";
     var entries = ViewBag.Entries as List<Sasc26.Services.PreRegistrationEntryDto> ?? new();
+    var submissionsByEmail = ViewBag.SubmissionsByEmail as Dictionary<string, Sasc26.Models.PreRegistrationFormSubmissionDto> ?? new();
+    var formFields = ViewBag.FormFields as List<Sasc26.Models.FormFieldDto> ?? new();
+    var formFiles = ViewBag.FormFiles as Dictionary<string, Sasc26.Models.FormFileAttachment> ?? new();
 }
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -59,6 +62,7 @@
             <div class="actions">
                 <button class="button is-outlined-brand is-small" onclick="copyEmails()">Copiar e-mails</button>
                 <a href="/@eventSlug/Admin/ExportEventPreRegistrationsCsv" class="button is-outlined-brand is-small">Exportar CSV</a>
+                <a href="/@eventSlug/Admin/PreRegFormSubmissions" class="button is-outlined-brand is-small">Ver respostas do formulário</a>
             </div>
 
             @if (entries.Count == 0)
@@ -69,17 +73,41 @@
             {
                 <div class="table-container">
                 <table class="table is-fullwidth is-hoverable is-striped">
-                    <thead><tr><th>#</th><th>E-mail</th><th>Data de inscrição</th></tr></thead>
+                    <thead><tr><th>#</th><th>E-mail</th><th>Data de inscrição</th>
+                        @foreach (var f in formFields)
+                        {
+                            <th>@f.Label</th>
+                        }
+                    </tr></thead>
                     <tbody>
                         @{
                             int idx = 1;
                         }
                         @foreach (var e in entries)
                         {
+                            var key = e.AttendeeEmail.Trim().ToLowerInvariant();
+                            submissionsByEmail.TryGetValue(key, out var sub);
                             <tr>
                                 <td>@idx</td>
                                 <td>@e.AttendeeEmail</td>
                                 <td>@e.RegisteredAt.ToString("dd/MM/yyyy HH:mm")</td>
+                                @foreach (var f in formFields)
+                                {
+                                    var resp = sub?.Responses?.FirstOrDefault(r => r.Label == f.Label);
+                                    var val = resp?.Value ?? "";
+                                    if (f.Type == "arquivo" && Guid.TryParse(val, out var gid) && formFiles.TryGetValue(gid.ToString(), out var ff))
+                                    {
+                                        <td><a href="/@eventSlug/Admin/DownloadFormFile?id=@gid" target="_blank">@ff.FileName</a></td>
+                                    }
+                                    else if (f.Type == "arquivo" && !string.IsNullOrWhiteSpace(val))
+                                    {
+                                        <td style="color:#bbb;">(arquivo não encontrado)</td>
+                                    }
+                                    else
+                                    {
+                                        <td>@val</td>
+                                    }
+                                }
                             </tr>
                             idx++;
                         }
